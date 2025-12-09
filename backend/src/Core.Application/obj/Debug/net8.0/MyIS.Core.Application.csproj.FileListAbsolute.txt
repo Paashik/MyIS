@@ -1,0 +1,15 @@
+e:\WORK\MyIS\backend\src\Core.Application\bin\Debug\net8.0\MyIS.Core.Application.deps.json
+e:\WORK\MyIS\backend\src\Core.Application\bin\Debug\net8.0\MyIS.Core.Application.dll
+e:\WORK\MyIS\backend\src\Core.Application\bin\Debug\net8.0\MyIS.Core.Application.pdb
+e:\WORK\MyIS\backend\src\Core.Application\bin\Debug\net8.0\MyIS.Core.Domain.dll
+e:\WORK\MyIS\backend\src\Core.Application\bin\Debug\net8.0\MyIS.Core.Domain.pdb
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Core.Application.csproj.AssemblyReference.cache
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Core.Application.GeneratedMSBuildEditorConfig.editorconfig
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Core.Application.AssemblyInfoInputs.cache
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Core.Application.AssemblyInfo.cs
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Core.Application.csproj.CoreCompileInputs.cache
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Cor.3840F6A0.Up2Date
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Core.Application.dll
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\refint\MyIS.Core.Application.dll
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\MyIS.Core.Application.pdb
+e:\WORK\MyIS\backend\src\Core.Application\obj\Debug\net8.0\ref\MyIS.Core.Application.dll

@@ -1,0 +1,6 @@
+@MyIS.Core.WebApi_HostAddress = http://localhost:5015
+
+GET {{MyIS.Core.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
