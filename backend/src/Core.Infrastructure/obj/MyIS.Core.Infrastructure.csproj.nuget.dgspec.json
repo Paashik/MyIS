@@ -1,7 +1,7 @@
 {
   "format": 1,
   "restore": {
-    "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj": {}
+    "d:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj": {}
   },
   "projects": {
     "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
@@ -140,14 +140,14 @@
         }
       }
     },
-    "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj": {
+    "d:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
+        "projectUniqueName": "d:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
         "projectName": "MyIS.Core.Infrastructure",
-        "projectPath": "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
+        "projectPath": "d:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
         "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-        "outputPath": "D:\\MyIS\\backend\\src\\Core.Infrastructure\\obj\\",
+        "outputPath": "d:\\MyIS\\backend\\src\\Core.Infrastructure\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

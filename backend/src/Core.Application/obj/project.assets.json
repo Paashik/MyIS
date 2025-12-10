@@ -33,11 +33,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
+      "projectUniqueName": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
       "projectName": "MyIS.Core.Application",
-      "projectPath": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
+      "projectPath": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
       "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-      "outputPath": "D:\\MyIS\\backend\\src\\Core.Application\\obj\\",
+      "outputPath": "d:\\MyIS\\backend\\src\\Core.Application\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
