@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Alert, Button, Card, Form, Input, Typography } from "antd";
+import { Alert, Button, Form, Input, Typography } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth, User } from "../../auth/AuthContext";
+import { AuthPageLayout } from "../../components/layout/AuthPageLayout";
 
-const { Title } = Typography;
 
 interface LoginFormValues {
   login: string;
@@ -85,66 +85,64 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  const handleGoToDbSetup = () => {
+    navigate("/db-setup");
+  };
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        background: "#f5f5f5",
-      }}
-    >
-      <Card style={{ width: 380 }}>
-        <Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
-          Вход в MyIS
-        </Title>
+    <AuthPageLayout title="Вход в MyIS">
+      {error && (
+        <Alert
+          type="error"
+          message={error}
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
-        {error && (
-          <Alert
-            type="error"
-            message={error}
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-        )}
-
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ login: "", password: "" }}
-          onFinish={handleFinish}
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={{ login: "", password: "" }}
+        onFinish={handleFinish}
+      >
+        <Form.Item
+          label="Логин"
+          name="login"
+          rules={[{ required: true, message: "Введите логин" }]}
         >
-          <Form.Item
-            label="Логин"
-            name="login"
-            rules={[{ required: true, message: "Введите логин" }]}
-          >
-            <Input autoComplete="username" />
-          </Form.Item>
+          <Input autoComplete="username" />
+        </Form.Item>
 
-          <Form.Item
-            label="Пароль"
-            name="password"
-            rules={[{ required: true, message: "Введите пароль" }]}
-          >
-            <Input.Password autoComplete="current-password" />
-          </Form.Item>
+        <Form.Item
+          label="Пароль"
+          name="password"
+          rules={[{ required: true, message: "Введите пароль" }]}
+        >
+          <Input.Password autoComplete="current-password" />
+        </Form.Item>
 
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={submitting}
-              block
-            >
-              Войти
-            </Button>
-          </Form.Item>
-        </Form>
-      </Card>
-    </div>
+        <Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={submitting}
+            block
+          >
+            Войти
+          </Button>
+        </Form.Item>
+      </Form>
+
+      <Button
+        type="link"
+        block
+        style={{ padding: 0, marginTop: 8 }}
+        onClick={handleGoToDbSetup}
+      >
+        Настроить подключение к БД
+      </Button>
+    </AuthPageLayout>
   );
 };
 

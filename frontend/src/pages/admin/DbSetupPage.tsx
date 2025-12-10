@@ -1,19 +1,18 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Button,
-  Card,
   Checkbox,
   Form,
   Input,
   InputNumber,
-  Space,
   Typography,
   message,
 } from "antd";
 import { useNavigate } from "react-router-dom";
+import { AuthPageLayout } from "../../components/layout/AuthPageLayout";
 
-const { Title, Paragraph, Text } = Typography;
+const { Text } = Typography;
 
 type DbConnectionSource =
   | "Unknown"
@@ -60,6 +59,103 @@ export interface DbSetupFormValues {
   runMigrations: boolean;
 }
 
+const LOCAL_STORAGE_KEY = "myis:lastSuccessfulDbConfig";
+
+type PersistedDbConfig = DbSetupFormValues;
+
+const loadLastSuccessfulDbConfig = (): Partial<DbSetupFormValues> | null => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return null;
+    }
+
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as PersistedDbConfig;
+
+    // Базовая валидация сохранённой конфигурации
+    if (!parsed.host || !parsed.database || !parsed.username) {
+      return null;
+    }
+    if (typeof parsed.port !== "number" || parsed.port <= 0) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    // При любой ошибке парсинга/доступа к localStorage просто игнорируем кеш
+    return null;
+  }
+};
+
+const saveLastSuccessfulDbConfig = (values: DbSetupFormValues): void => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return;
+    }
+
+    // ВНИМАНИЕ: пароль сохраняется в localStorage в открытом виде.
+    // Это приемлемо для dev-сценария настройки MyIS, но в production
+    // может потребоваться более безопасный механизм хранения.
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(values));
+  } catch {
+    // Игнорируем ошибки записи (например, disabled localStorage)
+  }
+};
+
+const parseConfigFromRawDescription = (
+  raw?: string | null
+): Partial<DbSetupFormValues> | null => {
+  if (!raw) return null;
+
+  // Ищем подстроку внутри скобок: (...).
+  const start = raw.indexOf("(");
+  const end = raw.lastIndexOf(")");
+  if (start === -1 || end === -1 || end <= start + 1) {
+    return null;
+  }
+
+  const inside = raw.slice(start + 1, end);
+  const parts = inside.split(";");
+
+  let host: string | undefined;
+  let port: number | undefined;
+  let database: string | undefined;
+  let username: string | undefined;
+
+  for (const part of parts) {
+    const [rawKey, rawValue] = part.split("=").map((s) => s.trim());
+    if (!rawKey || rawValue === undefined) continue;
+
+    const key = rawKey.toLowerCase();
+    if (key === "host") {
+      host = rawValue;
+    } else if (key === "port") {
+      const parsedPort = Number(rawValue);
+      if (!Number.isNaN(parsedPort) && parsedPort > 0) {
+        port = parsedPort;
+      }
+    } else if (key === "database") {
+      database = rawValue;
+    } else if (key === "username") {
+      username = rawValue;
+    }
+  }
+
+  if (!host && !port && !database && !username) {
+    return null;
+  }
+
+  const result: Partial<DbSetupFormValues> = {};
+  if (host) result.host = host;
+  if (port) result.port = port;
+  if (database) result.database = database;
+  if (username) result.username = username;
+  // password и runMigrations не трогаем, оставляем как есть
+  return result;
+};
+
 type StatusState =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -71,7 +167,56 @@ const DbSetupPage: React.FC = () => {
   const [statusState, setStatusState] = useState<StatusState>({ kind: "idle" });
   const [testing, setTesting] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [hasLocalConfig, setHasLocalConfig] = useState(false);
+  const prefillFromStatusRef = useRef(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const lastConfig = loadLastSuccessfulDbConfig();
+    if (lastConfig) {
+      form.setFieldsValue(lastConfig);
+      setHasLocalConfig(true);
+    }
+  }, [form]);
+
+  useEffect(() => {
+    if (prefillFromStatusRef.current) return;
+    if (hasLocalConfig) return;
+    if (statusState.kind !== "loaded") return;
+
+    const status = statusState.status;
+
+    if (!status.configured || !status.canConnect) {
+      prefillFromStatusRef.current = true;
+      return;
+    }
+
+    // Не перетирать пользовательский ввод
+    if (form.isFieldsTouched()) {
+      prefillFromStatusRef.current = true;
+      return;
+    }
+
+    const fromStatus = parseConfigFromRawDescription(
+      status.rawSourceDescription
+    );
+
+    if (fromStatus) {
+      const currentValues = form.getFieldsValue() as DbSetupFormValues;
+
+      form.setFieldsValue({
+        ...currentValues,
+        host: fromStatus.host ?? currentValues.host ?? "localhost",
+        port: fromStatus.port ?? currentValues.port ?? 5432,
+        database: fromStatus.database ?? currentValues.database ?? "",
+        username: fromStatus.username ?? currentValues.username ?? "",
+        // password оставляем как есть (из текущих значений формы)
+        // runMigrations также оставляем без изменений
+      });
+    }
+
+    prefillFromStatusRef.current = true;
+  }, [statusState, hasLocalConfig, form]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +308,9 @@ const DbSetupPage: React.FC = () => {
 
       if (data.canConnect) {
         message.success("Подключение успешно установлено.");
+
+        const currentValues = form.getFieldsValue() as DbSetupFormValues;
+        saveLastSuccessfulDbConfig(currentValues);
       } else {
         message.warning(
           data.lastError
@@ -231,6 +379,9 @@ const DbSetupPage: React.FC = () => {
         );
       } else {
         message.success("Конфигурация сохранена и миграции успешно применены.");
+
+        const currentValues = form.getFieldsValue() as DbSetupFormValues;
+        saveLastSuccessfulDbConfig(currentValues);
       }
 
       navigate("/login", { replace: true });
@@ -305,98 +456,101 @@ const DbSetupPage: React.FC = () => {
   };
 
   return (
-    <Space
-      direction="vertical"
-      size="large"
-      style={{ width: "100%", maxWidth: 800 }}
-    >
-      <div>
-        <Title level={2}>Настройка подключения к базе данных</Title>
-        <Paragraph>
+    <AuthPageLayout
+      title="Настройка подключения к базе данных"
+      description={
+        <>
           Укажите параметры подключения к PostgreSQL. Эти настройки будут
-          сохранены в <Text code>appsettings.Local.json</Text> (в режиме
-          Development) и будут использоваться backend-сервисом MyIS.
-        </Paragraph>
-      </div>
+          сохранены в{" "}
+          <Text code>appsettings.Local.json</Text> (в режиме Development) и
+          будут использоваться backend-сервисом MyIS.
+        </>
+      }
+      cardWidth={720}
+    >
+      <div style={{ marginBottom: 16 }}>{currentStatusAlert()}</div>
 
-      <Card title="Текущее состояние подключения">{currentStatusAlert()}</Card>
-
-      <Card title="Конфигурация подключения">
-        <Form
-          layout="vertical"
-          form={form}
-          initialValues={{
-            host: "localhost",
-            port: 5432,
-            database: "",
-            username: "",
-            password: "",
-            runMigrations: true,
-          }}
-          onFinish={handleApply}
+      <Form
+        layout="vertical"
+        form={form}
+        initialValues={{
+          host: "localhost",
+          port: 5432,
+          database: "",
+          username: "",
+          password: "",
+          runMigrations: true,
+        }}
+        onFinish={handleApply}
+      >
+        <Form.Item
+          label="Host"
+          name="host"
+          rules={[{ required: true, message: "Укажите хост БД" }]}
         >
-          <Form.Item
-            label="Host"
-            name="host"
-            rules={[{ required: true, message: "Укажите хост БД" }]}
+          <Input placeholder="localhost" />
+        </Form.Item>
+
+        <Form.Item
+          label="Port"
+          name="port"
+          rules={[{ required: true, message: "Укажите порт БД" }]}
+        >
+          <InputNumber style={{ width: "100%" }} min={1} max={65535} />
+        </Form.Item>
+
+        <Form.Item
+          label="Database"
+          name="database"
+          rules={[{ required: true, message: "Укажите имя базы данных" }]}
+        >
+          <Input placeholder="myis" />
+        </Form.Item>
+
+        <Form.Item
+          label="Username"
+          name="username"
+          rules={[{ required: true, message: "Укажите пользователя БД" }]}
+        >
+          <Input />
+        </Form.Item>
+
+        <Form.Item
+          label="Password"
+          name="password"
+          rules={[{ required: true, message: "Укажите пароль" }]}
+        >
+          <Input.Password />
+        </Form.Item>
+
+        <Form.Item name="runMigrations" valuePropName="checked">
+          <Checkbox>Запустить миграции после сохранения</Checkbox>
+        </Form.Item>
+
+        <Form.Item>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              justifyContent: "flex-end",
+              flexWrap: "wrap",
+            }}
           >
-            <Input placeholder="localhost" />
-          </Form.Item>
-
-          <Form.Item
-            label="Port"
-            name="port"
-            rules={[{ required: true, message: "Укажите порт БД" }]}
-          >
-            <InputNumber style={{ width: "100%" }} min={1} max={65535} />
-          </Form.Item>
-
-          <Form.Item
-            label="Database"
-            name="database"
-            rules={[{ required: true, message: "Укажите имя базы данных" }]}
-          >
-            <Input placeholder="myis" />
-          </Form.Item>
-
-          <Form.Item
-            label="Username"
-            name="username"
-            rules={[{ required: true, message: "Укажите пользователя БД" }]}
-          >
-            <Input />
-          </Form.Item>
-
-          <Form.Item
-            label="Password"
-            name="password"
-            rules={[{ required: true, message: "Укажите пароль" }]}
-          >
-            <Input.Password />
-          </Form.Item>
-
-          <Form.Item name="runMigrations" valuePropName="checked">
-            <Checkbox>Запустить миграции после сохранения</Checkbox>
-          </Form.Item>
-
-          <Form.Item>
-            <Space>
-              <Button
-                type="default"
-                htmlType="button"
-                loading={testing}
-                onClick={handleTestConnection}
-              >
-                Проверить подключение
-              </Button>
-              <Button type="primary" htmlType="submit" loading={applying}>
-                Сохранить и применить
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-    </Space>
+            <Button
+              type="default"
+              htmlType="button"
+              loading={testing}
+              onClick={handleTestConnection}
+            >
+              Проверить подключение
+            </Button>
+            <Button type="primary" htmlType="submit" loading={applying}>
+              Сохранить и применить
+            </Button>
+          </div>
+        </Form.Item>
+      </Form>
+    </AuthPageLayout>
   );
 };
 
