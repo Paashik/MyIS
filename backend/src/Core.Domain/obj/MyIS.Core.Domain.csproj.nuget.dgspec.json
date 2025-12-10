@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {}
+    "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {}
   },
   "projects": {
-    "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
+    "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
+        "projectUniqueName": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
         "projectName": "MyIS.Core.Domain",
-        "projectPath": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
+        "projectPath": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
         "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-        "outputPath": "D:\\MyIS\\backend\\src\\Core.Domain\\obj\\",
+        "outputPath": "d:\\MyIS\\backend\\src\\Core.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

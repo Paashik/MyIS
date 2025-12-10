@@ -40,10 +40,30 @@ public sealed class AdminDbController : ControllerBase
     /// Текущий статус конфигурации и доступности БД.
     /// </summary>
     [HttpGet("db-status")]
-    public async Task<ActionResult<DbConnectionStatus>> GetDbStatus(CancellationToken cancellationToken)
+    public async Task<ActionResult<DbConnectionStatus>> GetDbStatus(
+        CancellationToken cancellationToken)
     {
-        var status = await _dbHealthService.CheckConnectionAsync(cancellationToken);
-        return Ok(status);
+        try
+        {
+            var status = await _dbHealthService.CheckConnectionAsync(cancellationToken);
+            return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while checking DB status.");
+
+            var fallback = new DbConnectionStatus
+            {
+                Configured = false,
+                CanConnect = false,
+                LastError = "Unexpected server error while checking database status.",
+                Environment = _environment.EnvironmentName ?? string.Empty,
+                ConnectionStringSource = ConnectionStringSource.None,
+                RawSourceDescription = ex.Message
+            };
+
+            return Ok(fallback);
+        }
     }
 
     /// <summary>

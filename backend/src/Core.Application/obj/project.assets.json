@@ -59,8 +59,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
-              "projectPath": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
+            "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
+              "projectPath": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
             }
           }
         }

@@ -26,10 +26,10 @@ public sealed class DbHealthService : IDbHealthService
     public async Task<DbConnectionStatus> CheckConnectionAsync(
         CancellationToken cancellationToken = default)
     {
-        var result = _connectionStringProvider.GetDefaultConnection();
+        var connectionInfo = _connectionStringProvider.GetDefaultConnection();
         var environmentName = _hostEnvironment.EnvironmentName ?? string.Empty;
 
-        if (!result.IsConfigured || string.IsNullOrWhiteSpace(result.ConnectionString))
+        if (!connectionInfo.IsConfigured || string.IsNullOrWhiteSpace(connectionInfo.ConnectionString))
         {
             return new DbConnectionStatus
             {
@@ -37,15 +37,15 @@ public sealed class DbHealthService : IDbHealthService
                 CanConnect = false,
                 LastError = "Connection string 'Default' is not configured.",
                 Environment = environmentName,
-                ConnectionStringSource = result.Source,
-                RawSourceDescription = result.RawSourceDescription
+                ConnectionStringSource = connectionInfo.Source,
+                RawSourceDescription = connectionInfo.RawSourceDescription
             };
         }
 
         try
         {
-            await using var connection = new NpgsqlConnection(result.ConnectionString);
-            await connection.OpenAsync(cancellationToken);
+            await using var connection = new NpgsqlConnection(connectionInfo.ConnectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             return new DbConnectionStatus
             {
@@ -53,8 +53,8 @@ public sealed class DbHealthService : IDbHealthService
                 CanConnect = true,
                 LastError = null,
                 Environment = environmentName,
-                ConnectionStringSource = result.Source,
-                RawSourceDescription = result.RawSourceDescription
+                ConnectionStringSource = connectionInfo.Source,
+                RawSourceDescription = connectionInfo.RawSourceDescription
             };
         }
         catch (OperationCanceledException)
@@ -65,28 +65,28 @@ public sealed class DbHealthService : IDbHealthService
 
             return new DbConnectionStatus
             {
-                Configured = result.IsConfigured,
+                Configured = connectionInfo.IsConfigured,
                 CanConnect = false,
                 LastError = message,
                 Environment = environmentName,
-                ConnectionStringSource = result.Source,
-                RawSourceDescription = result.RawSourceDescription
+                ConnectionStringSource = connectionInfo.Source,
+                RawSourceDescription = connectionInfo.RawSourceDescription
             };
         }
         catch (Exception ex)
         {
-            var safeMessage = $"{ex.GetType().Name}: {ex.Message}";
+            var safeMessage = ex.Message;
 
-            _logger.LogError(ex, "Database connection check failed: {Error}", safeMessage);
+            _logger.LogWarning(ex, "Failed to connect to PostgreSQL database: {Error}", safeMessage);
 
             return new DbConnectionStatus
             {
-                Configured = result.IsConfigured,
+                Configured = true,
                 CanConnect = false,
                 LastError = safeMessage,
                 Environment = environmentName,
-                ConnectionStringSource = result.Source,
-                RawSourceDescription = result.RawSourceDescription
+                ConnectionStringSource = connectionInfo.Source,
+                RawSourceDescription = connectionInfo.RawSourceDescription
             };
         }
     }

@@ -1,0 +1,130 @@
+import React, { useEffect, useState } from "react";
+import { Alert, Spin } from "antd";
+import { Navigate, Outlet } from "react-router-dom";
+
+type DbConnectionSource =
+  | "Unknown"
+  | "Configuration"
+  | "Environment"
+  | "AppSettingsLocal";
+
+export interface DbStatusResponse {
+  configured: boolean;
+  canConnect: boolean;
+  lastError?: string | null;
+  environment: string;
+  connectionStringSource: DbConnectionSource;
+  rawSourceDescription?: string | null;
+}
+
+type DbStatusState =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "redirectToSetup" }
+  | { kind: "ok" };
+
+const DbStatusGuard: React.FC = () => {
+  const [state, setState] = useState<DbStatusState>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setState({ kind: "loading" });
+
+      try {
+        const response = await fetch("/api/admin/db-status", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const message = `Не удалось получить статус БД: HTTP ${response.status} ${response.statusText}`;
+          if (!cancelled) {
+            setState({
+              kind: "error",
+              message,
+            });
+          }
+          return;
+        }
+
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.toLowerCase().includes("application/json")) {
+          const text = await response.text().catch(() => "");
+          const snippet = text ? text.slice(0, 200) : "";
+          const details = snippet ? ` Фрагмент ответа: ${snippet}` : "";
+          throw new Error(
+            `Ожидался JSON, но получен иной формат ответа от сервера (content-type: ${contentType}).${details}`
+          );
+        }
+
+        const data = (await response.json()) as DbStatusResponse;
+
+        if (!data.configured || !data.canConnect) {
+          if (!cancelled) {
+            setState({ kind: "redirectToSetup" });
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          setState({ kind: "ok" });
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        const message =
+          error instanceof Error ? error.message : "Неизвестная ошибка сети";
+
+        setState({
+          kind: "error",
+          message: `Не удалось получить статус БД: ${message}`,
+        });
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (state.kind === "redirectToSetup") {
+    return <Navigate to="/db-setup" replace />;
+  }
+
+  if (state.kind === "loading") {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "50vh",
+        }}
+      >
+        <Spin tip="Проверка подключения к базе данных..." />
+      </div>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <div style={{ padding: 24 }}>
+        <Alert
+          type="error"
+          message="Ошибка при проверке статуса базы данных"
+          description={state.message}
+          showIcon
+        />
+      </div>
+    );
+  }
+
+  // ok
+  return <Outlet />;
+};
+
+export { DbStatusGuard };

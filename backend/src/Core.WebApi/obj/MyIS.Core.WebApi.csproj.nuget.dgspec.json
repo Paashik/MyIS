@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj": {}
+    "d:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj": {}
   },
   "projects": {
-    "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
+    "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
+        "projectUniqueName": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
         "projectName": "MyIS.Core.Application",
-        "projectPath": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
+        "projectPath": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
         "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-        "outputPath": "D:\\MyIS\\backend\\src\\Core.Application\\obj\\",
+        "outputPath": "d:\\MyIS\\backend\\src\\Core.Application\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -33,8 +33,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
-                "projectPath": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
+              "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
+                "projectPath": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
               }
             }
           }
@@ -74,14 +74,14 @@
         }
       }
     },
-    "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
+    "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
+        "projectUniqueName": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
         "projectName": "MyIS.Core.Domain",
-        "projectPath": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
+        "projectPath": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj",
         "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-        "outputPath": "D:\\MyIS\\backend\\src\\Core.Domain\\obj\\",
+        "outputPath": "d:\\MyIS\\backend\\src\\Core.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -169,11 +169,11 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
-                "projectPath": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
+              "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
+                "projectPath": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
               },
-              "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
-                "projectPath": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
+              "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
+                "projectPath": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
               }
             }
           }
@@ -244,14 +244,14 @@
         }
       }
     },
-    "D:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj": {
+    "d:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj",
+        "projectUniqueName": "d:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj",
         "projectName": "MyIS.Core.WebApi",
-        "projectPath": "D:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj",
+        "projectPath": "d:\\MyIS\\backend\\src\\Core.WebApi\\MyIS.Core.WebApi.csproj",
         "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-        "outputPath": "D:\\MyIS\\backend\\src\\Core.WebApi\\obj\\",
+        "outputPath": "d:\\MyIS\\backend\\src\\Core.WebApi\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -273,8 +273,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
-                "projectPath": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
+              "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
+                "projectPath": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
               },
               "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj": {
                 "projectPath": "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj"
