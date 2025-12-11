@@ -40,25 +40,36 @@ public sealed class AdminDbController : ControllerBase
     /// Текущий статус конфигурации и доступности БД.
     /// </summary>
     [HttpGet("db-status")]
-    public async Task<ActionResult<DbConnectionStatus>> GetDbStatus(
+    public async Task<ActionResult<DbConnectionStatusResponse>> GetDbStatus(
         CancellationToken cancellationToken)
     {
         try
         {
             var status = await _dbHealthService.CheckConnectionAsync(cancellationToken);
-            return Ok(status);
+
+            var response = new DbConnectionStatusResponse
+            {
+                Configured = status.Configured,
+                CanConnect = status.CanConnect,
+                LastError = status.LastError,
+                Environment = status.Environment,
+                ConnectionStringSource = MapConnectionSource(status.ConnectionStringSource),
+                RawSourceDescription = status.RawSourceDescription
+            };
+
+            return Ok(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error while checking DB status.");
 
-            var fallback = new DbConnectionStatus
+            var fallback = new DbConnectionStatusResponse
             {
                 Configured = false,
                 CanConnect = false,
                 LastError = "Unexpected server error while checking database status.",
                 Environment = _environment.EnvironmentName ?? string.Empty,
-                ConnectionStringSource = ConnectionStringSource.None,
+                ConnectionStringSource = DbConnectionSource.Unknown,
                 RawSourceDescription = ex.Message
             };
 
@@ -107,7 +118,7 @@ public sealed class AdminDbController : ControllerBase
             CanConnect = canConnect,
             LastError = lastError,
             Environment = envName,
-            ConnectionStringSource = ConnectionStringSource.Configuration,
+            ConnectionStringSource = DbConnectionSource.Configuration,
             SourceDescription = "Temporary connection string from API request.",
             SafeConnectionInfo = safeInfo
         };
@@ -205,7 +216,7 @@ public sealed class AdminDbController : ControllerBase
             MigrationsApplied = migrationsApplied,
             LastError = lastError,
             Environment = envName,
-            ConnectionStringSource = ConnectionStringSource.AppSettingsLocal,
+            ConnectionStringSource = DbConnectionSource.AppSettingsLocal,
             SourceDescription = "appsettings.Local.json: ConnectionStrings:Default (written via Admin API).",
             SafeConnectionInfo = safeInfo
         };
@@ -299,5 +310,15 @@ public sealed class AdminDbController : ControllerBase
         }
 
         return existing + " | " + next;
+    }
+
+    private static DbConnectionSource MapConnectionSource(ConnectionStringSource source)
+    {
+        return source switch
+        {
+            ConnectionStringSource.AppSettingsLocal => DbConnectionSource.AppSettingsLocal,
+            ConnectionStringSource.Configuration => DbConnectionSource.Configuration,
+            _ => DbConnectionSource.Unknown
+        };
     }
 }

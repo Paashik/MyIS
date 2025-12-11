@@ -1,5 +1,3 @@
-using MyIS.Core.Infrastructure.Data;
-
 namespace MyIS.Core.WebApi.Contracts.Admin;
 
 public sealed class DbConnectionApplyResponse
@@ -14,7 +12,7 @@ public sealed class DbConnectionApplyResponse
 
     public string Environment { get; init; } = string.Empty;
 
-    public ConnectionStringSource ConnectionStringSource { get; init; }
+    public DbConnectionSource ConnectionStringSource { get; init; }
 
     public string? SourceDescription { get; init; }
 

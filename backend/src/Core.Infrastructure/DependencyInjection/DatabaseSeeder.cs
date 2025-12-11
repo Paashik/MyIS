@@ -12,7 +12,14 @@ namespace MyIS.Core.Infrastructure.DependencyInjection;
 
 public static class DatabaseSeeder
 {
-    public static async Task SeedAdminUserAsync(IServiceProvider services, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// НО-ОР реализация сидирования администратора.
+    ///
+    /// Фактическое создание роли ADMIN и пользователя Admin выполняется в EF Core миграции
+    /// SeedAdminUser. Этот метод оставлен только как безопасный хук на будущее и ничего
+    /// не изменяет в базе данных.
+    /// </summary>
+    public static Task SeedAdminUserAsync(IServiceProvider services, CancellationToken cancellationToken = default)
     {
         if (services is null) throw new ArgumentNullException(nameof(services));
 
@@ -24,91 +31,17 @@ public static class DatabaseSeeder
             var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
             var logger = loggerFactory?.CreateLogger("DatabaseSeeder");
 
-            // Ensure that database connection is configured before touching DbContext
-            var connectionStringProvider = serviceProvider.GetService<IConnectionStringProvider>();
-            if (connectionStringProvider is null)
-            {
-                logger?.LogWarning("IConnectionStringProvider is not registered. Skipping admin user seeding.");
-                return;
-            }
-
-            var connection = connectionStringProvider.GetDefaultConnection();
-            if (!connection.IsConfigured || string.IsNullOrWhiteSpace(connection.ConnectionString))
-            {
-                logger?.LogInformation("Database connection is not configured. Skipping admin user seeding.");
-                return;
-            }
-
-            var db = serviceProvider.GetService<AppDbContext>();
-            if (db is null)
-            {
-                logger?.LogWarning("AppDbContext is not registered. Skipping admin user seeding.");
-                return;
-            }
-
-            // Check if an Admin user already exists (strict 'Admin' login)
-            var existingAdmin = await db.Users
-                .FirstOrDefaultAsync(u => u.Login == "Admin", cancellationToken);
-
-            if (existingAdmin is not null)
-            {
-                logger?.LogInformation("Admin user already exists. Skipping seeding.");
-                return;
-            }
-
-            var passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
-
-            var now = DateTimeOffset.UtcNow;
-
-            var adminRole = await db.Roles
-                .FirstOrDefaultAsync(r => r.Code == "ADMIN", cancellationToken);
-
-            if (adminRole is null)
-            {
-                adminRole = new Role
-                {
-                    Id = Guid.NewGuid(),
-                    Code = "ADMIN",
-                    Name = "Administrator",
-                    CreatedAt = now
-                };
-
-                await db.Roles.AddAsync(adminRole, cancellationToken);
-            }
-
-            var adminUser = new User
-            {
-                Id = Guid.NewGuid(),
-                Login = "Admin",
-                FullName = "Administrator",
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now,
-                PasswordHash = passwordHasher.HashPassword("admin")
-            };
-
-            await db.Users.AddAsync(adminUser, cancellationToken);
-
-            var adminUserRole = new UserRole
-            {
-                UserId = adminUser.Id,
-                RoleId = adminRole.Id,
-                AssignedAt = now,
-                CreatedAt = now
-            };
-
-            await db.UserRoles.AddAsync(adminUserRole, cancellationToken);
-
-            await db.SaveChangesAsync(cancellationToken);
-
-            logger?.LogInformation("Admin user has been seeded successfully.");
+            logger?.LogInformation(
+                "DatabaseSeeder.SeedAdminUserAsync: admin user seeding is handled by EF Core migration 'SeedAdminUser'. Runtime seeding is disabled.");
         }
         catch (Exception ex)
         {
-            // Best-effort seeding: log and swallow exceptions so that startup is not broken
+            // Best-effort logging: не ломаем запуск приложения, даже если логгер недоступен.
             var loggerFactory = services.GetService<ILoggerFactory>();
             var logger = loggerFactory?.CreateLogger("DatabaseSeeder");
-            logger?.LogError(ex, "Error while seeding admin user.");
+            logger?.LogError(ex, "Error while executing no-op DatabaseSeeder.SeedAdminUserAsync.");
         }
+
+        return Task.CompletedTask;
     }
 }

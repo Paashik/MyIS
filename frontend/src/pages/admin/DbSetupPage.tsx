@@ -394,6 +394,10 @@ const DbSetupPage: React.FC = () => {
     }
   };
 
+  const handleCancel = () => {
+    navigate("/login", { replace: true });
+  };
+
   const currentStatusAlert = () => {
     if (statusState.kind === "loading" || statusState.kind === "idle") {
       return (
@@ -536,6 +540,9 @@ const DbSetupPage: React.FC = () => {
               flexWrap: "wrap",
             }}
           >
+            <Button htmlType="button" onClick={handleCancel}>
+              Отмена
+            </Button>
             <Button
               type="default"
               htmlType="button"
