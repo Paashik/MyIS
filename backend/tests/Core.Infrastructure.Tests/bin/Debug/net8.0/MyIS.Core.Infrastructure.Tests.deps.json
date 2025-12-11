@@ -566,6 +566,7 @@
       "xunit.runner.visualstudio/2.8.2": {},
       "MyIS.Core.Application/1.0.0": {
         "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
           "MyIS.Core.Domain": "1.0.0"
         },
         "runtime": {

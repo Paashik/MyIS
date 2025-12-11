@@ -1,0 +1,119 @@
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
+using FluentAssertions;
+using MyIS.Core.Application.Requests.Dto;
+using MyIS.Core.WebApi.Contracts.Requests;
+using Xunit;
+
+namespace MyIS.Core.WebApi.IntegrationTests.Requests;
+
+public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public RequestsControllerIntegrationTests(CustomWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient(new()
+        {
+            AllowAutoRedirect = false
+        });
+    }
+
+    [Fact]
+    public async Task CreateAndGetRequest_Works()
+    {
+        // Arrange: получаем тип заявки и убеждаемся, что справочники инициализированы
+        var typesResponse = await _client.GetAsync("/api/request-types");
+        typesResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var types = await typesResponse.Content.ReadFromJsonAsync<List<RequestTypeDto>>();
+        types.Should().NotBeNull();
+        types!.Count.Should().BeGreaterThan(0);
+
+        var requestType = types[0];
+
+        var createPayload = new CreateRequestRequest
+        {
+            RequestTypeId = requestType.Id,
+            Title = "Integration test request",
+            Description = "Created from integration test",
+            DueDate = DateTimeOffset.UtcNow.AddDays(3),
+            RelatedEntityType = "TestEntity",
+            RelatedEntityId = Guid.NewGuid(),
+            ExternalReferenceId = "INT-REQ-1"
+        };
+
+        // Act: создаём заявку
+        var createResponse = await _client.PostAsJsonAsync("/api/requests", createPayload);
+
+        // Assert: проверяем результат создания
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<RequestDto>();
+        created.Should().NotBeNull();
+
+        created!.Id.Should().NotBe(Guid.Empty);
+        created.Title.Should().Be(createPayload.Title);
+        created.Description.Should().Be(createPayload.Description);
+        created.RequestTypeId.Should().Be(requestType.Id);
+        created.RequestTypeCode.Should().Be(requestType.Code);
+        created.RequestTypeName.Should().Be(requestType.Name);
+
+        // Стартовый статус должен быть Draft
+        created.RequestStatusCode.Should().Be("Draft");
+        created.RequestStatusName.Should().Be("Draft");
+        created.RequestStatusId.Should().NotBe(Guid.Empty);
+
+        // Инициатор должен совпадать с тестовым пользователем из TestAuthHandler
+        created.InitiatorId.Should().Be(TestAuthHandler.TestUserId);
+
+        created.RelatedEntityType.Should().Be(createPayload.RelatedEntityType);
+        created.RelatedEntityId.Should().Be(createPayload.RelatedEntityId);
+        created.ExternalReferenceId.Should().Be(createPayload.ExternalReferenceId);
+
+        created.CreatedAt.Should().NotBe(default);
+        created.UpdatedAt.Should().NotBe(default);
+
+        // Act 2: запрашиваем по Id
+        var getResponse = await _client.GetAsync($"/api/requests/{created.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var fetched = await getResponse.Content.ReadFromJsonAsync<RequestDto>();
+        fetched.Should().NotBeNull();
+
+        // Assert 2: поля совпадают с созданной заявкой (минимально важные)
+        fetched!.Id.Should().Be(created.Id);
+        fetched.Title.Should().Be(created.Title);
+        fetched.Description.Should().Be(created.Description);
+        fetched.RequestTypeId.Should().Be(created.RequestTypeId);
+        fetched.RequestStatusId.Should().Be(created.RequestStatusId);
+        fetched.InitiatorId.Should().Be(created.InitiatorId);
+    }
+
+    [Fact]
+    public async Task GetRequestTypesAndStatuses_ReturnsNonEmptyCollections()
+    {
+        // Act: типы заявок
+        var typesResponse = await _client.GetAsync("/api/request-types");
+        typesResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var types = await typesResponse.Content.ReadFromJsonAsync<List<RequestTypeDto>>();
+        types.Should().NotBeNull();
+        types!.Count.Should().BeGreaterThan(0);
+
+        // Act: статусы заявок
+        var statusesResponse = await _client.GetAsync("/api/request-statuses");
+        statusesResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var statuses = await statusesResponse.Content.ReadFromJsonAsync<List<RequestStatusDto>>();
+        statuses.Should().NotBeNull();
+        statuses!.Count.Should().BeGreaterThan(0);
+
+        // Убеждаемся, что как минимум статус Draft присутствует
+        statuses.Should().Contain(s => s.Code == "Draft");
+    }
+}

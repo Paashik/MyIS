@@ -3,9 +3,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using MyIS.Core.Application.DependencyInjection;
 using MyIS.Core.Infrastructure.Data;
 using MyIS.Core.Infrastructure.DependencyInjection;
-
+ 
 var builder = WebApplication.CreateBuilder(args);
 
 // appsettings.Local.json с приоритетом и hot-reload
@@ -37,7 +38,10 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 
     options.UseNpgsql(result.ConnectionString);
 });
-
+ 
+// Application layer (use cases / handlers)
+builder.Services.AddApplication();
+ 
 // Инфраструктура (AuthService, BCrypt и т.п.)
 builder.Services.AddInfrastructure();
 

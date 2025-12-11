@@ -23,6 +23,248 @@ namespace MyIS.Core.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.Request", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("DueDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_date");
+
+                    b.Property<string>("ExternalReferenceId")
+                        .HasColumnType("text")
+                        .HasColumnName("external_reference_id");
+
+                    b.Property<Guid>("InitiatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("initiator_id");
+
+                    b.Property<Guid?>("RelatedEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("related_entity_id");
+
+                    b.Property<string>("RelatedEntityType")
+                        .HasColumnType("text")
+                        .HasColumnName("related_entity_type");
+
+                    b.Property<Guid>("RequestStatusId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_status_id");
+
+                    b.Property<Guid>("RequestTypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_type_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InitiatorId");
+
+                    b.HasIndex("RequestStatusId");
+
+                    b.HasIndex("RequestTypeId");
+
+                    b.ToTable("requests", "requests");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("file_path");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<Guid>("UploadedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId");
+
+                    b.HasIndex("UploadedBy");
+
+                    b.ToTable("request_attachments", "requests");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("RequestId");
+
+                    b.ToTable("request_comments", "requests");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("action");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("text")
+                        .HasColumnName("comment");
+
+                    b.Property<string>("NewValue")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("new_value");
+
+                    b.Property<string>("OldValue")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("old_value");
+
+                    b.Property<Guid>("PerformedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("performed_by");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("timestamp");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PerformedBy");
+
+                    b.HasIndex("RequestId");
+
+                    b.ToTable("request_history", "requests");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsFinal")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_final");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("request_statuses", "requests");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("request_types", "requests");
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Users.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -120,6 +362,82 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.ToTable("user_roles", "core");
                 });
 
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.Request", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("InitiatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Requests.Entities.RequestStatus", "Status")
+                        .WithMany()
+                        .HasForeignKey("RequestStatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Requests.Entities.RequestType", "Type")
+                        .WithMany()
+                        .HasForeignKey("RequestTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Status");
+
+                    b.Navigation("Type");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestAttachment", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Requests.Entities.Request", "Request")
+                        .WithMany("Attachments")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestComment", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Requests.Entities.Request", "Request")
+                        .WithMany("Comments")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestHistory", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("PerformedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Requests.Entities.Request", "Request")
+                        .WithMany("History")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Users.UserRole", b =>
                 {
                     b.HasOne("MyIS.Core.Domain.Users.Role", "Role")
@@ -137,6 +455,15 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.Request", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Comments");
+
+                    b.Navigation("History");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Users.Role", b =>

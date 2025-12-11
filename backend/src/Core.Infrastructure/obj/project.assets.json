@@ -960,6 +960,7 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
         "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
           "MyIS.Core.Domain": "1.0.0"
         },
         "compile": {
@@ -2544,11 +2545,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
+      "projectUniqueName": "d:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
       "projectName": "MyIS.Core.Infrastructure",
-      "projectPath": "D:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
+      "projectPath": "d:\\MyIS\\backend\\src\\Core.Infrastructure\\MyIS.Core.Infrastructure.csproj",
       "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-      "outputPath": "D:\\MyIS\\backend\\src\\Core.Infrastructure\\obj\\",
+      "outputPath": "d:\\MyIS\\backend\\src\\Core.Infrastructure\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

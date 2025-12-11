@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "0nyjov0gRuo=",
+  "dgSpecHash": "J7iJqpi4gVE=",
   "success": true,
-  "projectFilePath": "D:\\MyIS\\backend\\tests\\Core.Infrastructure.Tests\\MyIS.Core.Infrastructure.Tests.csproj",
+  "projectFilePath": "d:\\MyIS\\backend\\tests\\Core.Infrastructure.Tests\\MyIS.Core.Infrastructure.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Pavel\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\Pavel\\.nuget\\packages\\coverlet.collector\\6.0.2\\coverlet.collector.6.0.2.nupkg.sha512",

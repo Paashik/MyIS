@@ -9,13 +9,17 @@ import { LoginPage } from "./pages/auth/LoginPage";
 import { DbSetupPage } from "./pages/admin/DbSetupPage";
 
 import { HomePage } from "./pages/HomePage";
-import { RequestsPage } from "./pages/requests/RequestsPage";
 import { CustomersPage } from "./pages/customers/CustomersPage";
 import { ProcurementPage } from "./pages/procurement/ProcurementPage";
 import { ProductionPage } from "./pages/production/ProductionPage";
 import { WarehousePage } from "./pages/warehouse/WarehousePage";
 import { EngineeringPage } from "./pages/engineering/EngineeringPage";
 import { TechnologyPage } from "./pages/technology/TechnologyPage";
+
+// Requests module pages
+import { RequestsListPage } from "./modules/requests/pages/RequestsListPage";
+import { RequestDetailsPage } from "./modules/requests/pages/RequestDetailsPage";
+import { RequestEditPage } from "./modules/requests/pages/RequestEditPage";
 
 const App: React.FC = () => {
   return (
@@ -29,7 +33,10 @@ const App: React.FC = () => {
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
-            <Route path="requests" element={<RequestsPage />} />
+            <Route path="requests" element={<RequestsListPage />} />
+            <Route path="requests/new" element={<RequestEditPage />} />
+            <Route path="requests/:id" element={<RequestDetailsPage />} />
+            <Route path="requests/:id/edit" element={<RequestEditPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="procurement" element={<ProcurementPage />} />
             <Route path="production" element={<ProductionPage />} />

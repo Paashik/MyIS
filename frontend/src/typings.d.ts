@@ -88,6 +88,7 @@ declare module "react-router-dom" {
 
   export function useNavigate(): (to: string, options?: any) => void;
   export function useLocation(): any;
+  export function useParams<TParams = any>(): TParams;
 }
 
 // =======================
@@ -119,6 +120,21 @@ declare module "antd" {
   export const InputNumber: any;
   export const Checkbox: any;
   export const message: any;
+
+  // Дополнительные компоненты, используемые в UI
+  export const Table: any;
+  export const Select: any;
+  export const DatePicker: any;
+  export const Tabs: any;
+  export const List: any;
+  export const Segmented: any;
+  export const Descriptions: any;
+  export const Row: any;
+  export const Col: any;
+  export const Divider: any;
+  export const Tag: any;
+  export const Badge: any;
+  export const Result: any;
 
   export type MenuProps = any;
 
