@@ -50,6 +50,11 @@ public sealed class RequestTransitionConfiguration : IEntityTypeConfiguration<Re
             .HasColumnName("required_permission")
             .HasColumnType("text");
 
+        builder.Property(t => t.IsEnabled)
+            .HasColumnName("is_enabled")
+            .IsRequired()
+            .HasColumnType("boolean");
+
         builder.HasIndex(t => new { t.RequestTypeId, t.FromStatusCode, t.ActionCode })
             .IsUnique();
     }

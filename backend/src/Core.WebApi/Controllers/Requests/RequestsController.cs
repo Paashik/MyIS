@@ -80,6 +80,7 @@ public sealed class RequestsController : ControllerBase
     public async Task<ActionResult<PagedResultDto<RequestListItemDto>>> SearchRequests(
         [FromQuery] Guid? requestTypeId,
         [FromQuery] Guid? requestStatusId,
+        [FromQuery] string? direction,
         [FromQuery] bool onlyMine = false,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
@@ -94,6 +95,7 @@ public sealed class RequestsController : ControllerBase
         {
             RequestTypeId = requestTypeId,
             RequestStatusId = requestStatusId,
+            Direction = direction,
             OnlyMine = onlyMine,
             CurrentUserId = currentUserId,
             PageNumber = pageNumber,

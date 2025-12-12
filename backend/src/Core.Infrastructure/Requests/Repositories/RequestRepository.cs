@@ -48,6 +48,7 @@ public sealed class RequestRepository : IRequestRepository
     public async Task<(IReadOnlyList<Request> Items, int TotalCount)> SearchAsync(
         Guid? requestTypeId,
         Guid? requestStatusId,
+        RequestDirection? direction,
         Guid? initiatorId,
         bool onlyMine,
         int pageNumber,
@@ -66,6 +67,11 @@ public sealed class RequestRepository : IRequestRepository
         {
             var typeId = new RequestTypeId(requestTypeId.Value);
             query = query.Where(r => r.RequestTypeId == typeId);
+        }
+
+        if (direction.HasValue)
+        {
+            query = query.Where(r => r.Type != null && r.Type.Direction == direction.Value);
         }
 
         if (requestStatusId.HasValue)
@@ -92,5 +98,19 @@ public sealed class RequestRepository : IRequestRepository
             .ToListAsync(cancellationToken);
 
         return (items, totalCount);
+    }
+
+    public async Task<bool> AnyWithTypeIdAsync(RequestTypeId requestTypeId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.Requests
+            .AsNoTracking()
+            .AnyAsync(r => r.RequestTypeId == requestTypeId, cancellationToken);
+    }
+
+    public async Task<bool> AnyWithStatusIdAsync(RequestStatusId requestStatusId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.Requests
+            .AsNoTracking()
+            .AnyAsync(r => r.RequestStatusId == requestStatusId, cancellationToken);
     }
 }

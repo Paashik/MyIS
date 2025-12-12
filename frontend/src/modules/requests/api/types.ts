@@ -8,6 +8,8 @@ export interface PagedResultDto<T> {
   pageSize: number;
 }
 
+export type RequestDirection = "Incoming" | "Outgoing";
+
 export interface RequestListItemDto {
   id: string;
   title: string;
@@ -25,10 +27,40 @@ export interface RequestListItemDto {
 
 export interface RequestDto extends RequestListItemDto {
   description?: string | null;
+  bodyText?: string | null;
   relatedEntityType?: string | null;
   relatedEntityId?: string | null;
   externalReferenceId?: string | null;
   updatedAt: string;
+
+  lines: RequestLineDto[];
+}
+
+export interface RequestLineDto {
+  id: string;
+  lineNo: number;
+  itemId?: string | null;
+  externalItemCode?: string | null;
+  description?: string | null;
+  quantity: number;
+  unitOfMeasureId?: string | null;
+  needByDate?: string | null;
+  supplierName?: string | null;
+  supplierContact?: string | null;
+  externalRowReferenceId?: string | null;
+}
+
+export interface RequestLineInputDto {
+  lineNo: number;
+  itemId?: string;
+  externalItemCode?: string;
+  description?: string;
+  quantity: number;
+  unitOfMeasureId?: string;
+  needByDate?: string;
+  supplierName?: string;
+  supplierContact?: string;
+  externalRowReferenceId?: string;
 }
 
 export interface RequestHistoryItemDto {
@@ -56,6 +88,7 @@ export interface RequestTypeDto {
   id: string;
   code: string;
   name: string;
+  direction: RequestDirection;
   description?: string | null;
 }
 
@@ -72,6 +105,7 @@ export interface RequestStatusDto {
 export interface GetRequestsParams {
   requestTypeId?: string;
   requestStatusId?: string;
+  direction?: RequestDirection;
   onlyMine?: boolean;
   pageNumber?: number;
   pageSize?: number;
@@ -81,6 +115,7 @@ export interface CreateRequestPayload {
   requestTypeId: string;
   title: string;
   description?: string;
+  lines?: RequestLineInputDto[];
   dueDate?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
@@ -90,6 +125,7 @@ export interface CreateRequestPayload {
 export interface UpdateRequestPayload {
   title: string;
   description?: string;
+  lines?: RequestLineInputDto[];
   dueDate?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;

@@ -7,6 +7,7 @@ using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Queries;
 using MyIS.Core.Domain.Requests.Entities;
+using MyIS.Core.Domain.Requests.ValueObjects;
 
 namespace MyIS.Core.Application.Requests.Handlers;
 
@@ -37,9 +38,23 @@ public class SearchRequestsHandler
         var pageSize = query.PageSize <= 0 ? 20 : query.PageSize;
 
         // 1. Загрузка данных из репозитория
+        RequestDirection? direction = null;
+        if (!string.IsNullOrWhiteSpace(query.Direction))
+        {
+            if (!Enum.TryParse<RequestDirection>(query.Direction, ignoreCase: true, out var parsed))
+            {
+                throw new ArgumentException(
+                    $"Direction must be one of: {nameof(RequestDirection.Incoming)}|{nameof(RequestDirection.Outgoing)}.",
+                    nameof(query));
+            }
+
+            direction = parsed;
+        }
+
         var (items, totalCount) = await _requestRepository.SearchAsync(
             requestTypeId: query.RequestTypeId,
             requestStatusId: query.RequestStatusId,
+            direction: direction,
             initiatorId: query.OnlyMine ? query.CurrentUserId : null,
             onlyMine: query.OnlyMine,
             pageNumber: pageNumber,

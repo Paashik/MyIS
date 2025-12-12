@@ -3,7 +3,6 @@ import { Table, Select, Segmented, Space, Typography } from "antd";
 import {
   RequestListItemDto,
   RequestStatusDto,
-  RequestTypeDto,
 } from "../api/types";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { t } from "../../../core/i18n/t";
@@ -11,7 +10,6 @@ import { t } from "../../../core/i18n/t";
 const { Text } = Typography;
 
 export interface RequestListTableFilters {
-  requestTypeId?: string;
   requestStatusId?: string;
   onlyMine?: boolean;
 }
@@ -22,7 +20,6 @@ export interface RequestListTableProps {
   totalCount: number;
   pageNumber: number;
   pageSize: number;
-  requestTypes: RequestTypeDto[];
   requestStatuses: RequestStatusDto[];
   filters: RequestListTableFilters;
   onFiltersChange: (next: RequestListTableFilters) => void;
@@ -40,22 +37,12 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
   totalCount,
   pageNumber,
   pageSize,
-  requestTypes,
   requestStatuses,
   filters,
   onFiltersChange,
   onPageChange,
   onRowClick,
 }) => {
-  const handleTypeChange = (value: string | undefined) => {
-    onFiltersChange({
-      ...filters,
-      requestTypeId: value || undefined,
-      // при смене фильтров сбрасываем на первую страницу
-    });
-    onPageChange(1, pageSize);
-  };
-
   const handleStatusChange = (value: string | undefined) => {
     onFiltersChange({
       ...filters,
@@ -172,18 +159,6 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
         wrap
       >
         <Space wrap>
-          <Select
-            data-testid="requests-filter-type"
-            allowClear
-            placeholder={t("requests.table.filters.type")}
-            style={{ minWidth: 200 }}
-            value={filters.requestTypeId}
-            onChange={handleTypeChange}
-            options={requestTypes.map((t) => ({
-              label: `${t.code} — ${t.name}`,
-              value: t.id,
-            }))}
-          />
           <Select
             data-testid="requests-filter-status"
             allowClear

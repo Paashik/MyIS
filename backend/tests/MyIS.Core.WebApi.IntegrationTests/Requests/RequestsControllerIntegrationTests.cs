@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -32,9 +33,9 @@ public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplica
 
         var types = await typesResponse.Content.ReadFromJsonAsync<List<RequestTypeDto>>();
         types.Should().NotBeNull();
-        types!.Count.Should().BeGreaterThan(0);
+        types!.Should().HaveCount(5);
 
-        var requestType = types[0];
+        var requestType = types!.Single(t => t.Code == "SupplyRequest");
 
         var createPayload = new CreateRequestRequest
         {
@@ -95,7 +96,7 @@ public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplica
     }
 
     [Fact]
-    public async Task GetRequestTypesAndStatuses_ReturnsNonEmptyCollections()
+    public async Task GetRequestTypes_ReturnsCanonicalList()
     {
         // Act: типы заявок
         var typesResponse = await _client.GetAsync("/api/request-types");
@@ -103,8 +104,41 @@ public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplica
 
         var types = await typesResponse.Content.ReadFromJsonAsync<List<RequestTypeDto>>();
         types.Should().NotBeNull();
-        types!.Count.Should().BeGreaterThan(0);
+        var nonNullTypes = types!;
 
+        nonNullTypes.Should().HaveCount(5, "справочник типов заявок должен быть канонизирован до exact-set из 5 элементов");
+
+        nonNullTypes.Select(t => t.Code).Should().OnlyHaveUniqueItems("в справочнике типов не должно быть дубликатов по Code");
+
+        var expectedCodes = new[]
+        {
+            "CustomerDevelopment",
+            "InternalProductionRequest",
+            "ChangeRequest",
+            "SupplyRequest",
+            "ExternalTechStageRequest",
+        };
+
+        nonNullTypes.Select(t => t.Code)
+            .Should()
+            .BeEquivalentTo(expectedCodes, options => options.WithoutStrictOrdering());
+
+        // Exact-set по (Code, Name, Direction): ловит любые рассинхроны имен/направлений и появление лишних типов.
+        nonNullTypes.Should().BeEquivalentTo(
+            new[]
+            {
+                new { Code = "CustomerDevelopment", Name = "Заявка заказчика", Direction = "Incoming" },
+                new { Code = "InternalProductionRequest", Name = "Внутренняя производственная заявка", Direction = "Incoming" },
+                new { Code = "ChangeRequest", Name = "Заявка на изменение (ECR/ECO-light)", Direction = "Incoming" },
+                new { Code = "SupplyRequest", Name = "Заявка на обеспечение/закупку", Direction = "Outgoing" },
+                new { Code = "ExternalTechStageRequest", Name = "Заявка на внешний технологический этап", Direction = "Outgoing" },
+            },
+            options => options.WithoutStrictOrdering().ExcludingMissingMembers());
+    }
+
+    [Fact]
+    public async Task GetRequestStatuses_ReturnsAtLeastDraft()
+    {
         // Act: статусы заявок
         var statusesResponse = await _client.GetAsync("/api/request-statuses");
         statusesResponse.StatusCode.Should().Be(HttpStatusCode.OK);

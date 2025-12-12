@@ -1308,11 +1308,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "d:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\MyIS.Core.Application.Tests.csproj",
+      "projectUniqueName": "D:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\MyIS.Core.Application.Tests.csproj",
       "projectName": "MyIS.Core.Application.Tests",
-      "projectPath": "d:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\MyIS.Core.Application.Tests.csproj",
+      "projectPath": "D:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\MyIS.Core.Application.Tests.csproj",
       "packagesPath": "C:\\Users\\Pavel\\.nuget\\packages\\",
-      "outputPath": "d:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\obj\\",
+      "outputPath": "D:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -1334,11 +1334,11 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
-              "projectPath": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
+            "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
+              "projectPath": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
             },
-            "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
-              "projectPath": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
+            "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
+              "projectPath": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
             }
           }
         }

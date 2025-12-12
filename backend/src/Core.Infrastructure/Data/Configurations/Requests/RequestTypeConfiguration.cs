@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MyIS.Core.Domain.Requests.Entities;
@@ -37,5 +38,18 @@ public class RequestTypeConfiguration : IEntityTypeConfiguration<RequestType>
         builder.Property(t => t.Description)
             .HasColumnName("description")
             .HasColumnType("text");
+
+        builder.Property(t => t.IsActive)
+            .HasColumnName("is_active")
+            .IsRequired()
+            .HasColumnType("boolean");
+
+        builder.Property(t => t.Direction)
+            .HasColumnName("direction")
+            .IsRequired()
+            .HasColumnType("text")
+            .HasConversion(
+                d => d.ToString(),
+                s => Enum.Parse<RequestDirection>(s));
     }
 }

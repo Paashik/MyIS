@@ -286,7 +286,8 @@ public sealed class AdminDbController : ControllerBase
         if (request.UseSsl)
         {
             builder.SslMode = SslMode.Require;
-            builder.TrustServerCertificate = request.TrustServerCertificate;
+            // NpgsqlConnectionStringBuilder.TrustServerCertificate is obsolete and ignored by Npgsql.
+            // Intentionally not setting it to avoid build warnings.
         }
         else
         {
@@ -299,7 +300,7 @@ public sealed class AdminDbController : ControllerBase
     private static string BuildSafeInfo(NpgsqlConnectionStringBuilder builder)
     {
         return
-            $"Host={builder.Host}; Port={builder.Port}; Database={builder.Database}; Username={builder.Username}; SSL Mode={builder.SslMode}; Timeout={builder.Timeout}; Pooling={builder.Pooling}; TrustServerCertificate={builder.TrustServerCertificate}";
+            $"Host={builder.Host}; Port={builder.Port}; Database={builder.Database}; Username={builder.Username}; SSL Mode={builder.SslMode}; Timeout={builder.Timeout}; Pooling={builder.Pooling}";
     }
 
     private static string AppendError(string? existing, string next)

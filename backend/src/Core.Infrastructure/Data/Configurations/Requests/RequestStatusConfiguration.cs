@@ -45,5 +45,10 @@ public class RequestStatusConfiguration : IEntityTypeConfiguration<RequestStatus
         builder.Property(s => s.Description)
             .HasColumnName("description")
             .HasColumnType("text");
+
+        builder.Property(s => s.IsActive)
+            .HasColumnName("is_active")
+            .IsRequired()
+            .HasColumnType("boolean");
     }
 }

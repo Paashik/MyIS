@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "qCpwlCChJ5g=",
+  "dgSpecHash": "SEt9M3h62oA=",
   "success": true,
-  "projectFilePath": "d:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\MyIS.Core.Application.Tests.csproj",
+  "projectFilePath": "D:\\MyIS\\backend\\tests\\MyIS.Core.Application.Tests\\MyIS.Core.Application.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Pavel\\.nuget\\packages\\castle.core\\5.1.1\\castle.core.5.1.1.nupkg.sha512",
     "C:\\Users\\Pavel\\.nuget\\packages\\coverlet.collector\\6.0.2\\coverlet.collector.6.0.2.nupkg.sha512",

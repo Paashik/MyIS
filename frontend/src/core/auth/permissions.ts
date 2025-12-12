@@ -7,10 +7,17 @@ import { useAuth, User } from "../../auth/AuthContext";
  * TODO: заменить на полноценную RBAC-модель (permissions от backend).
  */
 export function can(permission: string, user: User | null | undefined): boolean {
-  // На данном этапе считаем, что любой аутентифицированный пользователь
-  // имеет доступ ко всем действиям, разрешённым backend'ом.
-  // Реальная проверка прав будет добавлена в следующих итерациях.
-  return !!user;
+  if (!user) {
+    return false;
+  }
+
+  // Iteration S1: минимальная, но осмысленная заглушка.
+  // Все `Admin.*` permission'ы считаем доступными только роли ADMIN.
+  if (permission.startsWith("Admin.")) {
+    return !!user.roles?.some((r) => r === "ADMIN");
+  }
+
+  return true;
 }
 
 /**

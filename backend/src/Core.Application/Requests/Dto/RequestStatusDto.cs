@@ -12,5 +12,7 @@ public class RequestStatusDto
 
     public bool IsFinal { get; init; }
 
+    public bool IsActive { get; init; }
+
     public string? Description { get; init; }
 }

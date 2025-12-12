@@ -22,9 +22,14 @@ public interface IRequestRepository
     Task<(IReadOnlyList<Request> Items, int TotalCount)> SearchAsync(
         Guid? requestTypeId,
         Guid? requestStatusId,
+        RequestDirection? direction,
         Guid? initiatorId,
         bool onlyMine,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken);
+
+    Task<bool> AnyWithTypeIdAsync(RequestTypeId requestTypeId, CancellationToken cancellationToken);
+
+    Task<bool> AnyWithStatusIdAsync(RequestStatusId requestStatusId, CancellationToken cancellationToken);
 }

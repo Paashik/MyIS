@@ -13,6 +13,8 @@ public class RequestStatus
 
     public bool IsFinal { get; private set; }
 
+    public bool IsActive { get; private set; }
+
     public string? Description { get; private set; }
 
     private RequestStatus()
@@ -25,7 +27,8 @@ public class RequestStatus
         RequestStatusCode code,
         string name,
         bool isFinal,
-        string? description = null)
+        string? description = null,
+        bool isActive = true)
     {
         if (id.Value == Guid.Empty)
         {
@@ -47,6 +50,7 @@ public class RequestStatus
         Name = name.Trim();
         IsFinal = isFinal;
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        IsActive = isActive;
     }
 
     public void Rename(string name)
@@ -72,5 +76,15 @@ public class RequestStatus
     public void MarkNonFinal()
     {
         IsFinal = false;
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
     }
 }

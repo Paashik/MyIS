@@ -12,5 +12,11 @@ public interface IRequestStatusRepository
 
     Task<RequestStatus?> GetByCodeAsync(RequestStatusCode code, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<RequestStatus>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<RequestStatus>> GetAllAsync(bool includeInactive, CancellationToken cancellationToken);
+
+    Task<bool> ExistsByCodeAsync(RequestStatusCode code, CancellationToken cancellationToken);
+
+    Task AddAsync(RequestStatus status, CancellationToken cancellationToken);
+
+    Task UpdateAsync(RequestStatus status, CancellationToken cancellationToken);
 }

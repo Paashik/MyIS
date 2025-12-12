@@ -13,12 +13,23 @@ export const ru = {
   // AppShell / navigation
   "nav.home": "Главная",
   "nav.requests": "Заявки",
+  "nav.requests.incoming": "Входящие",
+  "nav.requests.outgoing": "Исходящие",
   "nav.customers": "Клиенты",
   "nav.procurement": "Закупки",
   "nav.production": "Производство",
   "nav.warehouse": "Склад",
-  "nav.engineering": "Конструкторский контур",
-  "nav.technology": "Технологический контур",
+  "nav.engineering": "Конструктор",
+  "nav.technology": "Технолог",
+  "nav.settings": "Настройки",
+  "nav.settings.requests": "Заявки",
+  "nav.settings.security": "Безопасность",
+  "nav.settings.requests.types": "Типы",
+  "nav.settings.requests.statuses": "Статусы",
+  "nav.settings.requests.workflow": "Workflow",
+  "nav.settings.security.employees": "Сотрудники",
+  "nav.settings.security.users": "Пользователи",
+  "nav.settings.security.roles": "Роли",
   "nav.logout": "Выйти",
   "nav.user.unknown": "Неизвестный пользователь",
   "nav.roles.none": "Нет ролей",
@@ -119,8 +130,14 @@ export const ru = {
 
   "requests.list.title": "Заявки",
   "requests.list.create": "Создать заявку",
+  "requests.list.create.selectTypeHint": "Выберите тип заявки",
   "requests.list.error.title": "Не удалось загрузить список заявок",
   "requests.list.error.unknown": "Неизвестная ошибка при загрузке заявок",
+
+  "requests.list.tabs.incoming": "Входящие",
+  "requests.list.tabs.outgoing": "Исходящие",
+
+  "requests.list.typeTabs.all": "Все",
 
   "requests.edit.loading.edit": "Загрузка заявки...",
   "requests.edit.loading.create": "Подготовка формы...",
@@ -133,6 +150,8 @@ export const ru = {
   "requests.edit.title.create": "Создание заявки",
   "requests.edit.error.loadFormData": "Не удалось загрузить данные для формы заявки",
   "requests.edit.error.save": "Не удалось сохранить заявку",
+
+  "requests.edit.createContext.selectType": "Для создания заявки выберите тип",
 
   "requests.details.notFound.title": "Заявка не найдена",
   "requests.details.notFound.subtitle": "Заявка не существует или была удалена.",
@@ -154,6 +173,7 @@ export const ru = {
   "requests.details.fields.description": "Описание",
   "requests.details.value.notSet": "Не задан",
   "requests.details.value.noDescription": "Нет описания",
+  "requests.details.tabs.details": "Детали",
   "requests.details.tabs.history": "История",
   "requests.details.tabs.comments": "Комментарии",
   "requests.details.history.error.title": "Ошибка при загрузке истории заявки",
@@ -170,7 +190,39 @@ export const ru = {
   "requests.form.dueDate.label": "Срок",
   "requests.form.relatedType.label": "Связанный объект — тип",
   "requests.form.relatedId.label": "Связанный объект — идентификатор",
+  "requests.form.relatedId.invalidGuid": "Введите корректный GUID (например: 3f2504e0-4f89-11d3-9a0c-0305e82c3301)",
   "requests.form.externalId.label": "Внешний идентификатор",
+
+  // Type Profiles
+  "requests.typeProfile.default.title": "Описание",
+  "requests.typeProfile.supply.title": "Заявка на обеспечение",
+
+  // SupplyRequest UI
+  "requests.supply.tabs.lines": "Состав",
+  "requests.supply.tabs.description": "Описание",
+
+  "requests.supply.lines.actions.add": "Добавить строку",
+  "requests.supply.lines.actions.remove": "Удалить",
+  "requests.supply.lines.card.title": "Позиция №{no}",
+
+  "requests.supply.lines.columns.description": "Описание / позиция",
+  "requests.supply.lines.columns.quantity": "Кол-во",
+  "requests.supply.lines.columns.needByDate": "Нужно к",
+  "requests.supply.lines.columns.supplierName": "Поставщик",
+  "requests.supply.lines.columns.supplierContact": "Контакт",
+
+  "requests.supply.lines.fields.description": "Описание / позиция",
+  "requests.supply.lines.fields.quantity": "Количество",
+  "requests.supply.lines.fields.needByDate": "Нужно к",
+  "requests.supply.lines.fields.supplierName": "Поставщик",
+  "requests.supply.lines.fields.supplierContact": "Контакт",
+
+  "requests.supply.lines.placeholders.description": "Например: резистор 10 кОм",
+
+  "requests.supply.validation.linesOrDescription":
+    "Заполните либо состав (хотя бы одну строку), либо описание.",
+  "requests.supply.validation.quantityRequired": "Укажите количество",
+  "requests.supply.validation.quantityPositive": "Количество должно быть больше 0",
 
   "requests.table.columns.title": "Заголовок",
   "requests.table.columns.type": "Тип",
@@ -192,6 +244,69 @@ export const ru = {
   "requests.history.field.was": "Было:",
   "requests.history.field.became": "Стало:",
   "requests.history.field.comment": "Комментарий:",
+
+  // Settings (Requests dictionaries)
+  "settings.forbidden": "Недостаточно прав",
+  
+  // Settings (Security)
+  "settings.security.employees.title": "Безопасность — Сотрудники",
+  "settings.security.users.title": "Безопасность — Пользователи",
+  "settings.security.roles.title": "Безопасность — Роли",
+
+  "settings.security.common.columns.active": "Активен",
+  "settings.security.common.columns.actions": "Действия",
+
+  "settings.security.employees.columns.fullName": "ФИО",
+  "settings.security.employees.columns.email": "Email",
+  "settings.security.employees.columns.phone": "Телефон",
+
+  "settings.security.users.columns.login": "Логин",
+  "settings.security.users.columns.employee": "Сотрудник",
+  "settings.security.users.columns.roles": "Роли",
+
+  "settings.security.roles.columns.code": "Код",
+  "settings.security.roles.columns.name": "Название",
+
+  "settings.security.confirm.deactivate": "Деактивировать выбранную запись?",
+  "settings.security.confirm.activate": "Активировать выбранную запись?",
+  "settings.security.confirm.resetPassword": "Сбросить пароль пользователю?",
+  "settings.requests.types.title": "Настройки заявок — Типы",
+  "settings.requests.statuses.title": "Настройки заявок — Статусы",
+  "settings.requests.workflow.title": "Настройки заявок — Workflow",
+
+  "settings.requests.types.columns.code": "Код",
+  "settings.requests.types.columns.name": "Название",
+  "settings.requests.types.columns.direction": "Направление",
+  "settings.requests.types.columns.isActive": "Активен",
+  "settings.requests.types.columns.actions": "Действия",
+
+  "settings.requests.statuses.columns.code": "Код",
+  "settings.requests.statuses.columns.name": "Название",
+  "settings.requests.statuses.columns.isFinal": "Финальный",
+  "settings.requests.statuses.columns.isActive": "Активен",
+  "settings.requests.statuses.columns.actions": "Действия",
+
+  "settings.requests.workflow.filters.type": "Тип заявки",
+  "settings.requests.workflow.columns.from": "Из статуса",
+  "settings.requests.workflow.columns.to": "В статус",
+  "settings.requests.workflow.columns.action": "ActionCode",
+  "settings.requests.workflow.columns.permission": "RequiredPermission",
+  "settings.requests.workflow.columns.enabled": "Включён",
+  "settings.requests.workflow.columns.actions": "Действия",
+
+  "settings.requests.form.code": "Код",
+  "settings.requests.form.name": "Название",
+  "settings.requests.form.direction": "Направление",
+  "settings.requests.form.description": "Описание",
+  "settings.requests.form.isActive": "Активен",
+  "settings.requests.form.isFinal": "Финальный",
+  "settings.requests.form.fromStatus": "Из статуса",
+  "settings.requests.form.toStatus": "В статус",
+  "settings.requests.form.actionCode": "ActionCode",
+  "settings.requests.form.requiredPermission": "RequiredPermission",
+  "settings.requests.form.isEnabled": "Включён",
+
+  "settings.requests.confirm.archive": "Архивировать выбранную запись?",
 } as const;
 
 export type I18nKey = keyof typeof ru;

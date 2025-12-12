@@ -33,6 +33,7 @@ public class SearchRequestsHandlerTests
             new RequestTypeId(id ?? Guid.NewGuid()),
             code,
             name,
+            RequestDirection.Incoming,
             description: "Test type");
     }
 
@@ -94,6 +95,7 @@ public class SearchRequestsHandlerTests
             .Setup(r => r.SearchAsync(
                 requestTypeId,
                 requestStatusId,
+                null,
                 currentUserId,
                 true,
                 1,
@@ -169,6 +171,7 @@ public class SearchRequestsHandlerTests
                 null,
                 null,
                 null,
+                null,
                 false,
                 1,
                 20,
@@ -232,6 +235,7 @@ public class SearchRequestsHandlerTests
         // Ожидаем, что handler исправит pageNumber <= 0 и pageSize <= 0 на 1 и 20
         _requestRepositoryMock
             .Setup(r => r.SearchAsync(
+                null,
                 null,
                 null,
                 null,

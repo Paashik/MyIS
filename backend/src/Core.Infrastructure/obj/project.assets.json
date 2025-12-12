@@ -2571,11 +2571,11 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
-              "projectPath": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
+            "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj": {
+              "projectPath": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj"
             },
-            "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
-              "projectPath": "d:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
+            "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj": {
+              "projectPath": "D:\\MyIS\\backend\\src\\Core.Domain\\MyIS.Core.Domain.csproj"
             }
           }
         }

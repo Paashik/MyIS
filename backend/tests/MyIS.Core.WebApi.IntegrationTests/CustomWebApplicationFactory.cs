@@ -22,6 +22,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<WebApiAssemblyM
     {
         builder.ConfigureServices(services =>
         {
+            var dbName = $"MyIS_TestDb_{Guid.NewGuid()}";
+
             // Заменяем AppDbContext на in-memory БД для интеграционных тестов
             var descriptor = services.SingleOrDefault(
                 d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
@@ -32,7 +34,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<WebApiAssemblyM
 
             services.AddDbContext<AppDbContext>(options =>
             {
-                options.UseInMemoryDatabase("MyIS_TestDb");
+                options.UseInMemoryDatabase(dbName);
             });
 
             // Переопределяем аутентификацию на тестовую схему
@@ -67,12 +69,37 @@ public class CustomWebApplicationFactory : WebApplicationFactory<WebApiAssemblyM
     {
         if (!db.RequestTypes.Any())
         {
-            var type = new RequestType(
-                RequestTypeId.New(),
-                "GEN",
-                "General",
-                "General request");
-            db.RequestTypes.Add(type);
+            db.RequestTypes.AddRange(
+                new RequestType(
+                    RequestTypeId.New(),
+                    "CustomerDevelopment",
+                    "Заявка заказчика",
+                    RequestDirection.Incoming,
+                    description: null),
+                new RequestType(
+                    RequestTypeId.New(),
+                    "InternalProductionRequest",
+                    "Внутренняя производственная заявка",
+                    RequestDirection.Incoming,
+                    description: null),
+                new RequestType(
+                    RequestTypeId.New(),
+                    "ChangeRequest",
+                    "Заявка на изменение (ECR/ECO-light)",
+                    RequestDirection.Incoming,
+                    description: null),
+                new RequestType(
+                    RequestTypeId.New(),
+                    "SupplyRequest",
+                    "Заявка на обеспечение/закупку",
+                    RequestDirection.Outgoing,
+                    description: null),
+                new RequestType(
+                    RequestTypeId.New(),
+                    "ExternalTechStageRequest",
+                    "Заявка на внешний технологический этап",
+                    RequestDirection.Outgoing,
+                    description: null));
         }
 
         if (!db.RequestStatuses.Any())
@@ -97,14 +124,20 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
-        System.Text.Encodings.Web.UrlEncoder encoder,
-        ISystemClock clock)
-        : base(options, logger, encoder, clock)
+        System.Text.Encodings.Web.UrlEncoder encoder)
+        : base(options, logger, encoder)
     {
     }
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // Позволяем тестам явно выключать аутентификацию для проверки 401.
+        if (Request.Headers.TryGetValue("X-Test-Auth", out var authFlag)
+            && string.Equals(authFlag.ToString(), "false", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(AuthenticateResult.Fail("Test auth disabled"));
+        }
+
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, TestAuthHandler.TestUserId.ToString()),
@@ -112,6 +145,21 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
         };
 
         var identity = new ClaimsIdentity(claims, Scheme.Name);
+
+        // Позволяем тестам подмешивать роли через заголовок.
+        // Формат: X-Test-Roles: ADMIN,USER
+        if (Request.Headers.TryGetValue("X-Test-Roles", out var rolesHeader)
+            && !string.IsNullOrWhiteSpace(rolesHeader))
+        {
+            var roles = rolesHeader
+                .ToString()
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var role in roles)
+            {
+                identity.AddClaim(new Claim(ClaimTypes.Role, role));
+            }
+        }
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, Scheme.Name);
 

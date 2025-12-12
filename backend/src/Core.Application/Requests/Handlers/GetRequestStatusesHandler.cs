@@ -35,7 +35,7 @@ public class GetRequestStatusesHandler
 
         // На Iteration 1 AccessChecker может реализовывать упрощённую логику либо быть no-op,
         // но точка расширения оставлена.
-        var statuses = await _requestStatusRepository.GetAllAsync(cancellationToken);
+        var statuses = await _requestStatusRepository.GetAllAsync(includeInactive: false, cancellationToken);
 
         var dtos = new List<RequestStatusDto>(statuses.Count);
         foreach (var s in statuses)
@@ -54,7 +54,8 @@ public class GetRequestStatusesHandler
             Code = status.Code.Value,
             Name = status.Name,
             IsFinal = status.IsFinal,
-            Description = status.Description
+            Description = status.Description,
+            IsActive = status.IsActive
         };
     }
 }

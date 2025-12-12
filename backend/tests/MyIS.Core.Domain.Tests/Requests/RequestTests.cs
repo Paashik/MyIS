@@ -18,6 +18,7 @@ public class RequestTests
             RequestTypeId.New(),
             code,
             name,
+            RequestDirection.Incoming,
             description: "Test type");
     }
 

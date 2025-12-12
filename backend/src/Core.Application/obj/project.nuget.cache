@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "x9nXnm3c5IY=",
+  "dgSpecHash": "Zzqy4ylSgMg=",
   "success": true,
-  "projectFilePath": "d:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
+  "projectFilePath": "D:\\MyIS\\backend\\src\\Core.Application\\MyIS.Core.Application.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Pavel\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.0\\microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512"
   ],

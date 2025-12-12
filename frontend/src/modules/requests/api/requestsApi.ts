@@ -75,6 +75,9 @@ function buildQueryString(params: GetRequestsParams | undefined): string {
   if (params.requestStatusId) {
     searchParams.set("requestStatusId", params.requestStatusId);
   }
+  if (params.direction) {
+    searchParams.set("direction", params.direction);
+  }
   if (typeof params.onlyMine === "boolean") {
     searchParams.set("onlyMine", String(params.onlyMine));
   }

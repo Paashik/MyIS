@@ -12,14 +12,11 @@ namespace MyIS.Core.Application.Requests.Handlers;
 public class GetRequestTypesHandler
 {
     private readonly IRequestTypeRepository _requestTypeRepository;
-    private readonly IRequestsAccessChecker _accessChecker;
 
     public GetRequestTypesHandler(
-        IRequestTypeRepository requestTypeRepository,
-        IRequestsAccessChecker accessChecker)
+        IRequestTypeRepository requestTypeRepository)
     {
         _requestTypeRepository = requestTypeRepository ?? throw new ArgumentNullException(nameof(requestTypeRepository));
-        _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
     }
 
     public async Task<GetRequestTypesResult> Handle(
@@ -33,10 +30,7 @@ public class GetRequestTypesHandler
             throw new ArgumentException("CurrentUserId is required.", nameof(query));
         }
 
-        // На Iteration 1 AccessChecker может не выполнять сложной логики, но оставляем вызов как расширяемую точку.
-        // Например, в будущем только администраторы смогут видеть все типы, остальные — подмножество.
-
-        var types = await _requestTypeRepository.GetAllAsync(cancellationToken);
+        var types = await _requestTypeRepository.GetAllAsync(includeInactive: false, cancellationToken);
 
         var dtos = new List<RequestTypeDto>(types.Count);
         foreach (var t in types)
@@ -54,7 +48,9 @@ public class GetRequestTypesHandler
             Id = type.Id.Value,
             Code = type.Code,
             Name = type.Name,
-            Description = type.Description
+            Direction = type.Direction.ToString(),
+            Description = type.Description,
+            IsActive = type.IsActive
         };
     }
 }

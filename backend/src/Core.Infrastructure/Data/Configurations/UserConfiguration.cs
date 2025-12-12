@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using MyIS.Core.Domain.Organization;
 using MyIS.Core.Domain.Users;
 
 namespace MyIS.Core.Infrastructure.Data.Configurations;
@@ -39,6 +40,19 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("is_active")
             .IsRequired()
             .HasColumnType("boolean");
+
+        builder.Property(u => u.EmployeeId)
+            .HasColumnName("employee_id")
+            .HasColumnType("uuid");
+
+        builder.HasOne(u => u.Employee)
+            .WithMany()
+            .HasForeignKey(u => u.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(u => u.EmployeeId)
+            .IsUnique()
+            .HasFilter("\"employee_id\" IS NOT NULL");
 
         builder.Property(u => u.CreatedAt)
             .HasColumnName("created_at")

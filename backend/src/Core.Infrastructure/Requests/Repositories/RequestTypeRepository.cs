@@ -26,12 +26,61 @@ public sealed class RequestTypeRepository : IRequestTypeRepository
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<RequestType>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<RequestType?> GetByCodeAsync(string code, CancellationToken cancellationToken)
     {
-        var items = await _dbContext.RequestTypes
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new ArgumentException("Code is required.", nameof(code));
+        }
+
+        var normalized = code.Trim();
+
+        return await _dbContext.RequestTypes
+            .FirstOrDefaultAsync(t => t.Code == normalized, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<RequestType>> GetAllAsync(bool includeInactive, CancellationToken cancellationToken)
+    {
+        var query = _dbContext.RequestTypes.AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(t => t.IsActive);
+        }
+
+        var items = await query
             .OrderBy(t => t.Name)
             .ToListAsync(cancellationToken);
 
         return items;
+    }
+
+    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return false;
+        }
+
+        var normalized = code.Trim();
+
+        return await _dbContext.RequestTypes
+            .AnyAsync(t => t.Code == normalized, cancellationToken);
+    }
+
+    public async Task AddAsync(RequestType type, CancellationToken cancellationToken)
+    {
+        if (type is null) throw new ArgumentNullException(nameof(type));
+
+        await _dbContext.RequestTypes.AddAsync(type, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateAsync(RequestType type, CancellationToken cancellationToken)
+    {
+        if (type is null) throw new ArgumentNullException(nameof(type));
+
+        _dbContext.RequestTypes.Update(type);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

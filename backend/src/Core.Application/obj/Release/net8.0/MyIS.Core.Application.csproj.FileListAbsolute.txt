@@ -1,0 +1,16 @@
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.csproj.AssemblyReference.cache
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.GeneratedMSBuildEditorConfig.editorconfig
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.AssemblyInfoInputs.cache
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.AssemblyInfo.cs
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.csproj.CoreCompileInputs.cache
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.sourcelink.json
+D:\MyIS\backend\src\Core.Application\bin\Release\net8.0\MyIS.Core.Application.deps.json
+d:\MyIS\backend\src\Core.Application\bin\Release\net8.0\MyIS.Core.Application.dll
+d:\MyIS\backend\src\Core.Application\bin\Release\net8.0\MyIS.Core.Application.pdb
+d:\MyIS\backend\src\Core.Application\bin\Release\net8.0\MyIS.Core.Domain.dll
+d:\MyIS\backend\src\Core.Application\bin\Release\net8.0\MyIS.Core.Domain.pdb
+D:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Cor.3840F6A0.Up2Date
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.dll
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\refint\MyIS.Core.Application.dll
+d:\MyIS\backend\src\Core.Application\obj\Release\net8.0\MyIS.Core.Application.pdb
+D:\MyIS\backend\src\Core.Application\obj\Release\net8.0\ref\MyIS.Core.Application.dll

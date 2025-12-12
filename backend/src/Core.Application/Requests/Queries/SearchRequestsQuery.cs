@@ -17,6 +17,11 @@ public class SearchRequestsQuery
     public Guid? RequestStatusId { get; init; }
 
     /// <summary>
+    /// Фильтр по направлению (optional): "Incoming" | "Outgoing".
+    /// </summary>
+    public string? Direction { get; init; }
+
+    /// <summary>
     /// Если true — возвращаются только заявки текущего пользователя.
     /// </summary>
     public bool OnlyMine { get; init; }

@@ -35,6 +35,7 @@ public class UpdateRequestHandlerTests
             new RequestTypeId(id ?? Guid.NewGuid()),
             code,
             name,
+            RequestDirection.Incoming,
             description: "Test type");
     }
 

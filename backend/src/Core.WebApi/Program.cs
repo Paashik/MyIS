@@ -74,7 +74,21 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Iteration S1: минимальная модель прав для Settings.
+    // Пока маппим permissions -> роль ADMIN.
+    options.AddPolicy("Admin.Settings.Access", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Requests.EditTypes", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Requests.EditStatuses", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Requests.EditWorkflow", policy => policy.RequireRole("ADMIN"));
+
+    // Iteration S2: Settings -> Security
+    options.AddPolicy("Admin.Security.View", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Security.EditEmployees", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Security.EditUsers", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Security.EditRoles", policy => policy.RequireRole("ADMIN"));
+});
 
 var app = builder.Build();
 

@@ -1,0 +1,7 @@
+{
+  // Ensure VSCode TypeScript Server uses the workspace TypeScript version.
+  // This is important for `moduleResolution: "bundler"` (see [`tsconfig.json`](frontend/tsconfig.json:13))
+  // and helps avoid false TS2307 errors (e.g. in [`supplyRequestProfile`](frontend/src/modules/requests/typeProfiles/supplyRequest.profile.tsx:11)).
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

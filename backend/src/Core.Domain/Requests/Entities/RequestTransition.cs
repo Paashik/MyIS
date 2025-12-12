@@ -21,6 +21,8 @@ public class RequestTransition
 
     public string? RequiredPermission { get; private set; }
 
+    public bool IsEnabled { get; private set; }
+
     private RequestTransition()
     {
         // For EF Core
@@ -32,7 +34,8 @@ public class RequestTransition
         RequestStatusCode fromStatusCode,
         RequestStatusCode toStatusCode,
         string actionCode,
-        string? requiredPermission)
+        string? requiredPermission,
+        bool isEnabled = true)
     {
         if (id == Guid.Empty) throw new ArgumentException("Id cannot be empty.", nameof(id));
         if (requestTypeId.Value == Guid.Empty) throw new ArgumentException("RequestTypeId cannot be empty.", nameof(requestTypeId));
@@ -43,6 +46,27 @@ public class RequestTransition
         FromStatusCode = fromStatusCode;
         ToStatusCode = toStatusCode;
         ActionCode = actionCode.Trim();
+        RequiredPermission = string.IsNullOrWhiteSpace(requiredPermission) ? null : requiredPermission.Trim();
+        IsEnabled = isEnabled;
+    }
+
+    public void Disable()
+    {
+        IsEnabled = false;
+    }
+
+    public void Enable()
+    {
+        IsEnabled = true;
+    }
+
+    public void ChangeToStatus(RequestStatusCode toStatusCode)
+    {
+        ToStatusCode = toStatusCode;
+    }
+
+    public void ChangeRequiredPermission(string? requiredPermission)
+    {
         RequiredPermission = string.IsNullOrWhiteSpace(requiredPermission) ? null : requiredPermission.Trim();
     }
 }

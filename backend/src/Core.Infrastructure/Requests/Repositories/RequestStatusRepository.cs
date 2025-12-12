@@ -28,17 +28,52 @@ public sealed class RequestStatusRepository : IRequestStatusRepository
 
     public async Task<RequestStatus?> GetByCodeAsync(RequestStatusCode code, CancellationToken cancellationToken)
     {
-        var value = code.Value;
         return await _dbContext.RequestStatuses
-            .FirstOrDefaultAsync(s => s.Code.Value == value, cancellationToken);
+            // IMPORTANT: compare by VO itself so EF Core can apply the configured ValueConverter.
+            // Accessing s.Code.Value is not translatable and causes runtime errors.
+            .FirstOrDefaultAsync(s => s.Code == code, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<RequestStatus>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<RequestStatus>> GetAllAsync(bool includeInactive, CancellationToken cancellationToken)
     {
-        var items = await _dbContext.RequestStatuses
+        var query = _dbContext.RequestStatuses.AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(s => s.IsActive);
+        }
+
+        var items = await query
             .OrderBy(s => s.Name)
             .ToListAsync(cancellationToken);
 
         return items;
+    }
+
+    public async Task<bool> ExistsByCodeAsync(RequestStatusCode code, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code.Value))
+        {
+            return false;
+        }
+
+        return await _dbContext.RequestStatuses
+            .AnyAsync(s => s.Code == code, cancellationToken);
+    }
+
+    public async Task AddAsync(RequestStatus status, CancellationToken cancellationToken)
+    {
+        if (status is null) throw new ArgumentNullException(nameof(status));
+
+        await _dbContext.RequestStatuses.AddAsync(status, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateAsync(RequestStatus status, CancellationToken cancellationToken)
+    {
+        if (status is null) throw new ArgumentNullException(nameof(status));
+
+        _dbContext.RequestStatuses.Update(status);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

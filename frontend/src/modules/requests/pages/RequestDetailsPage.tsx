@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Button, Descriptions, Spin, Tabs, Typography, Result, Space } from "antd";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   RequestCommentDto,
   RequestDto,
@@ -15,6 +15,7 @@ import {
 import { RequestStatusBadge } from "../components/RequestStatusBadge";
 import { RequestHistoryTimeline } from "../components/RequestHistoryTimeline";
 import { RequestCommentsPanel } from "../components/RequestCommentsPanel";
+import { RequestBodyRenderer } from "../components/RequestBodyRenderer";
 import { useCan } from "../../../core/auth/permissions";
 import { t } from "../../../core/i18n/t";
 
@@ -29,7 +30,21 @@ type LoadState =
 export const RequestDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const canEdit = useCan("Requests.Edit") || useCan("Requests.Create");
+
+  type RequestsDirectionSegment = "incoming" | "outgoing";
+
+  const returnContext = (() => {
+    const sp = new URLSearchParams(location.search);
+    const rawDirection = (sp.get("direction") || "").trim().toLowerCase();
+    const direction: RequestsDirectionSegment = rawDirection === "outgoing" ? "outgoing" : "incoming";
+
+    const rawType = sp.get("type");
+    const type = ((rawType || "").trim() || "all");
+
+    return { direction, type };
+  })();
 
   const [request, setRequest] = useState<RequestDto | null>(null);
   const [state, setState] = useState<LoadState>({ kind: "loading" });
@@ -146,12 +161,14 @@ export const RequestDetailsPage: React.FC = () => {
   };
 
   const handleBackToList = () => {
-    navigate("/requests");
+    navigate(`/requests/${encodeURIComponent(returnContext.direction)}?type=${encodeURIComponent(returnContext.type)}`);
   };
 
   const handleEdit = () => {
     if (!id) return;
-    navigate(`/requests/${encodeURIComponent(id)}/edit`);
+    navigate(
+      `/requests/${encodeURIComponent(id)}/edit?direction=${encodeURIComponent(returnContext.direction)}&type=${encodeURIComponent(returnContext.type)}`
+    );
   };
 
   const handleAddComment = async (text: string) => {
@@ -302,18 +319,24 @@ export const RequestDetailsPage: React.FC = () => {
               <Text type="secondary">{t("requests.details.value.notSet")}</Text>
             )}
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.description")} span={2}>
-            {request.description || (
-              <Text type="secondary">{t("requests.details.value.noDescription")}</Text>
-            )}
-          </Descriptions.Item>
         </Descriptions>
       </div>
 
       <Tabs
         data-testid="request-details-tabs"
-        defaultActiveKey="history"
+        defaultActiveKey="details"
         items={[
+          {
+            key: "details",
+            label: t("requests.details.tabs.details"),
+            children: (
+              <RequestBodyRenderer
+                mode="details"
+                requestTypeCode={request.requestTypeCode}
+                request={request}
+              />
+            ),
+          },
           {
             key: "history",
             label: t("requests.details.tabs.history"),

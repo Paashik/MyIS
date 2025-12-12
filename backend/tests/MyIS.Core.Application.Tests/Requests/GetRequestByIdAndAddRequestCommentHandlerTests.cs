@@ -36,6 +36,7 @@ public class GetRequestByIdHandlerTests
             new RequestTypeId(id ?? Guid.NewGuid()),
             code,
             name,
+            RequestDirection.Incoming,
             description: "Test type");
     }
 
@@ -307,6 +308,7 @@ public class AddRequestCommentHandlerTests
             RequestTypeId.New(),
             "TYPE1",
             "Type 1",
+            RequestDirection.Incoming,
             description: "Test type");
     }
 

@@ -18,5 +18,21 @@ public interface IRequestTransitionRepository
         RequestStatusCode fromStatusCode,
         string actionCode,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RequestTransition>> GetAllByTypeAsync(
+        RequestTypeId requestTypeId,
+        bool includeDisabled,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RequestTransition>> GetAllAsync(
+        bool includeDisabled,
+        CancellationToken cancellationToken);
+
+    Task ReplaceForTypeAsync(
+        RequestTypeId requestTypeId,
+        IReadOnlyList<RequestTransition> newTransitions,
+        CancellationToken cancellationToken);
+
+    Task<bool> AnyUsesStatusCodeAsync(RequestStatusCode statusCode, CancellationToken cancellationToken);
 }
 

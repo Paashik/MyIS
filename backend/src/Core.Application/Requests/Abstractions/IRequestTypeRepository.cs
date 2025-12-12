@@ -10,5 +10,13 @@ public interface IRequestTypeRepository
 {
     Task<RequestType?> GetByIdAsync(RequestTypeId id, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<RequestType>> GetAllAsync(CancellationToken cancellationToken);
+    Task<RequestType?> GetByCodeAsync(string code, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RequestType>> GetAllAsync(bool includeInactive, CancellationToken cancellationToken);
+
+    Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken);
+
+    Task AddAsync(RequestType type, CancellationToken cancellationToken);
+
+    Task UpdateAsync(RequestType type, CancellationToken cancellationToken);
 }
