@@ -36,6 +36,8 @@ public class Request
     public ICollection<RequestComment> Comments { get; private set; } = new List<RequestComment>();
     public ICollection<RequestAttachment> Attachments { get; private set; } = new List<RequestAttachment>();
 
+    public ICollection<RequestLine> Lines { get; private set; } = new List<RequestLine>();
+
     private Request()
     {
         // For EF Core
@@ -138,14 +140,70 @@ public class Request
         UpdatedAt = updatedAt;
     }
 
+    public void ReplaceLines(
+        IReadOnlyCollection<RequestLine> newLines,
+        DateTimeOffset updatedAt,
+        bool isCurrentStatusFinal)
+    {
+        if (isCurrentStatusFinal)
+        {
+            throw new InvalidOperationException("Cannot update request lines when it is in a final status.");
+        }
+
+        if (newLines is null) throw new ArgumentNullException(nameof(newLines));
+
+        // Validate duplicates
+        var seen = new HashSet<int>();
+        foreach (var line in newLines)
+        {
+            if (line is null) throw new ArgumentException("Lines cannot contain null.", nameof(newLines));
+            if (line.RequestId != Id)
+            {
+                throw new InvalidOperationException("All lines must belong to the same request.");
+            }
+
+            if (!seen.Add(line.LineNo))
+            {
+                throw new InvalidOperationException($"Duplicate LineNo '{line.LineNo}'.");
+            }
+        }
+
+        Lines.Clear();
+        foreach (var line in newLines)
+        {
+            Lines.Add(line);
+        }
+
+        UpdatedAt = updatedAt;
+    }
+
+    /// <summary>
+    /// Валидация тела заявки для выхода из Draft по действию Submit.
+    /// Для SupplyRequest требуется заполнить либо Lines, либо Description.
+    /// </summary>
+    public void EnsureBodyIsValidForSubmit(string requestTypeCode)
+    {
+        if (string.Equals(requestTypeCode, "SupplyRequest", StringComparison.OrdinalIgnoreCase))
+        {
+            var hasLines = Lines.Count > 0;
+            var hasText = !string.IsNullOrWhiteSpace(Description);
+
+            if (!hasLines && !hasText)
+            {
+                throw new InvalidOperationException("SupplyRequest requires either Lines or Description to be filled before Submit.");
+            }
+        }
+    }
+
     public RequestHistory ChangeStatus(
+        RequestStatus currentStatus,
         RequestStatus targetStatus,
         Guid performedBy,
         DateTimeOffset timestamp,
         string action,
-        string? comment,
-        bool isCurrentStatusFinal)
+        string? comment)
     {
+        if (currentStatus == null) throw new ArgumentNullException(nameof(currentStatus));
         if (targetStatus == null) throw new ArgumentNullException(nameof(targetStatus));
 
         if (performedBy == Guid.Empty)
@@ -158,13 +216,12 @@ public class Request
             throw new ArgumentException("Action is required.", nameof(action));
         }
 
-        if (isCurrentStatusFinal)
+        if (currentStatus.IsFinal)
         {
             throw new InvalidOperationException("Cannot change status when current status is final.");
         }
 
-        var oldStatusId = RequestStatusId;
-        var oldStatusCode = Status?.Code.Value ?? string.Empty;
+        var oldStatusCode = currentStatus.Code.Value;
 
         RequestStatusId = targetStatus.Id;
         UpdatedAt = timestamp;

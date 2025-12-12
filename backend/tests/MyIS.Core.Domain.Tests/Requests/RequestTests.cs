@@ -247,9 +247,6 @@ public class RequestTests
             description: null,
             createdAt: createdAt);
 
-        // Симулируем загруженную навигацию Status (как делает EF)
-        SetStatusNavigation(request, initialStatus);
-
         var targetStatus = CreateStatus(RequestStatusCode.InReview, "In review", isFinal: false);
         var performedBy = Guid.NewGuid();
         var timestamp = DateTimeOffset.UtcNow;
@@ -258,12 +255,12 @@ public class RequestTests
 
         // Act
         var historyItem = request.ChangeStatus(
+            initialStatus,
             targetStatus,
             performedBy,
             timestamp,
             action,
-            comment,
-            isCurrentStatusFinal: false);
+            comment);
 
         // Assert: статус и UpdatedAt обновлены
         request.RequestStatusId.Value.Should().Be(targetStatus.Id.Value);
@@ -301,12 +298,12 @@ public class RequestTests
 
         // Act
         Action act = () => request.ChangeStatus(
+            finalStatus,
             targetStatus,
             performedBy: Guid.NewGuid(),
             timestamp: DateTimeOffset.UtcNow,
             action: "Close",
-            comment: null,
-            isCurrentStatusFinal: true);
+            comment: null);
 
         // Assert
         act.Should().Throw<InvalidOperationException>()

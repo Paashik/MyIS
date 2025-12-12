@@ -61,6 +61,35 @@ public sealed class RequestsAccessChecker : IRequestsAccessChecker
         return Task.CompletedTask;
     }
 
+    public Task EnsureCanEditBodyAsync(
+        Guid currentUserId,
+        Request request,
+        CancellationToken cancellationToken)
+    {
+        EnsureAuthenticated(currentUserId);
+        if (request is null) throw new ArgumentNullException(nameof(request));
+
+        // TODO: добавить RBAC/permissions (Requests.EditBody) на следующих итерациях.
+        return Task.CompletedTask;
+    }
+
+    public Task EnsureCanPerformActionAsync(
+        Guid currentUserId,
+        Request request,
+        string actionCode,
+        string? requiredPermission,
+        CancellationToken cancellationToken)
+    {
+        EnsureAuthenticated(currentUserId);
+        if (request is null) throw new ArgumentNullException(nameof(request));
+        if (string.IsNullOrWhiteSpace(actionCode)) throw new ArgumentException("ActionCode is required.", nameof(actionCode));
+
+        // TODO: requiredPermission должен проверяться через расширяемую permission-модель.
+        // На текущей итерации разрешаем все действия аутентифицированному пользователю.
+        _ = requiredPermission;
+        return Task.CompletedTask;
+    }
+
     public Task EnsureCanAddCommentAsync(
         Guid currentUserId,
         RequestId requestId,

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, Button, Spin } from "antd";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth, User } from "../auth/AuthContext";
+import { t } from "../core/i18n/t";
 
 type AuthCheckState =
   | { kind: "idle" }
@@ -56,7 +57,7 @@ const RequireAuth: React.FC = () => {
             kind: "error",
             message:
               text ||
-              `Ошибка при проверке аутентификации (HTTP ${response.status})`,
+              t("auth.check.error.http", { status: response.status }),
           });
           return;
         }
@@ -69,11 +70,13 @@ const RequireAuth: React.FC = () => {
         if (cancelled) return;
 
         const message =
-          error instanceof Error ? error.message : "Неизвестная ошибка сети";
+          error instanceof Error
+            ? error.message
+            : t("common.error.unknownNetwork");
 
         setState({
           kind: "error",
-          message: `Не удалось проверить аутентификацию: ${message}`,
+          message: t("auth.check.error.failed", { message }),
         });
       }
     };
@@ -102,6 +105,7 @@ const RequireAuth: React.FC = () => {
   if (state.kind === "loading" || state.kind === "idle") {
     return (
       <div
+        data-testid="auth-check-loading"
         style={{
           minHeight: "50vh",
           display: "flex",
@@ -109,7 +113,7 @@ const RequireAuth: React.FC = () => {
           justifyContent: "center",
         }}
       >
-        <Spin tip="Проверка аутентификации..." />
+        <Spin tip={t("auth.check.loading")} />
       </div>
     );
   }
@@ -118,16 +122,18 @@ const RequireAuth: React.FC = () => {
     return (
       <div style={{ padding: 24 }}>
         <Alert
+          data-testid="auth-check-error-alert"
           type="error"
-          message="Ошибка аутентификации"
+          message={t("auth.check.error.title")}
           description={
             <>
               <div style={{ marginBottom: 8 }}>{state.message}</div>
               <Button
+                data-testid="auth-check-refresh-button"
                 type="primary"
                 onClick={() => setState({ kind: "idle" })}
               >
-                Обновить
+                {t("common.actions.refresh")}
               </Button>
             </>
           }

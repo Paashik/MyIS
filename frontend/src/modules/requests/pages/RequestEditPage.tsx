@@ -14,6 +14,7 @@ import {
   updateRequest,
 } from "../api/requestsApi";
 import { RequestForm, RequestFormValues } from "../components/RequestForm";
+import { t } from "../../../core/i18n/t";
 
 const { Title } = Typography;
 
@@ -58,7 +59,7 @@ export const RequestEditPage: React.FC = () => {
         const message =
           error instanceof Error
             ? error.message
-            : "Не удалось загрузить данные для формы заявки";
+            : t("requests.edit.error.loadFormData");
         setState({ kind: "error", message });
       }
     };
@@ -110,7 +111,7 @@ export const RequestEditPage: React.FC = () => {
       }
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Не удалось сохранить заявку";
+        error instanceof Error ? error.message : t("requests.edit.error.save");
       setState({ kind: "error", message });
     } finally {
       setSubmitting(false);
@@ -120,6 +121,7 @@ export const RequestEditPage: React.FC = () => {
   if (state.kind === "loading") {
     return (
       <div
+        data-testid="request-edit-loading"
         style={{
           minHeight: "40vh",
           display: "flex",
@@ -127,7 +129,11 @@ export const RequestEditPage: React.FC = () => {
           justifyContent: "center",
         }}
       >
-        <Spin tip={isEdit ? "Загрузка заявки..." : "Подготовка формы..."} />
+        <Spin
+          tip={
+            isEdit ? t("requests.edit.loading.edit") : t("requests.edit.loading.create")
+          }
+        />
       </div>
     );
   }
@@ -136,13 +142,20 @@ export const RequestEditPage: React.FC = () => {
     return (
       <div>
         <Alert
+          data-testid="request-edit-error-alert"
           type="error"
-          message={isEdit ? "Ошибка загрузки заявки" : "Ошибка подготовки формы"}
+          message={
+            isEdit
+              ? t("requests.edit.error.load.title")
+              : t("requests.edit.error.prepare.title")
+          }
           description={state.message}
           showIcon
           style={{ marginBottom: 16 }}
         />
-        <Button onClick={handleCancel}>Назад</Button>
+        <Button data-testid="request-edit-back-button" onClick={handleCancel}>
+          {t("common.actions.back")}
+        </Button>
       </div>
     );
   }
@@ -150,9 +163,10 @@ export const RequestEditPage: React.FC = () => {
   if (isEdit && !request) {
     return (
       <Alert
+        data-testid="request-edit-not-found-alert"
         type="error"
-        message="Заявка не найдена"
-        description="Невозможно отредактировать несуществующую заявку."
+        message={t("requests.edit.error.notFound.title")}
+        description={t("requests.edit.error.notFound.description")}
         showIcon
       />
     );
@@ -172,9 +186,9 @@ export const RequestEditPage: React.FC = () => {
       : undefined;
 
   return (
-    <Card>
+    <Card data-testid="request-edit-card">
       <Title level={3} style={{ marginBottom: 16 }}>
-        {isEdit ? "Редактирование заявки" : "Создание заявки"}
+        {isEdit ? t("requests.edit.title.edit") : t("requests.edit.title.create")}
       </Title>
 
       <RequestForm

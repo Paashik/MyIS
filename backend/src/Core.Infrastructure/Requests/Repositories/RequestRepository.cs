@@ -25,6 +25,7 @@ public sealed class RequestRepository : IRequestRepository
         return await _dbContext.Requests
             .Include(r => r.Type)
             .Include(r => r.Status)
+            .Include(r => r.Lines)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 

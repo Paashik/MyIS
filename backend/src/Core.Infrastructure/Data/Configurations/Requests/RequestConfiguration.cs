@@ -94,5 +94,10 @@ public class RequestConfiguration : IEntityTypeConfiguration<Request>
             .HasForeignKey(r => r.InitiatorId)
             .HasPrincipalKey(u => u.Id)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(r => r.Lines)
+            .WithOne(l => l.Request)
+            .HasForeignKey(l => l.RequestId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

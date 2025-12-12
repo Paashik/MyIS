@@ -24,6 +24,11 @@ public sealed class CreateRequestRequest
     public string? Description { get; init; }
 
     /// <summary>
+    /// Позиционное тело заявки (v0.1: replace-all стратегия).
+    /// </summary>
+    public RequestLineRequest[]? Lines { get; init; }
+
+    /// <summary>
     /// Плановая дата исполнения.
     /// </summary>
     public DateTimeOffset? DueDate { get; init; }

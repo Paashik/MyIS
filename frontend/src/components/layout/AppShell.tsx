@@ -24,6 +24,7 @@ import {
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { t } from "../../core/i18n/t";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -32,42 +33,42 @@ const menuItems: MenuProps["items"] = [
   {
     key: "home",
     icon: <AppstoreOutlined />,
-    label: "Главная",
+    label: t("nav.home"),
   },
   {
     key: "requests",
     icon: <DatabaseOutlined />,
-    label: "Requests",
+    label: t("nav.requests"),
   },
   {
     key: "customers",
     icon: <TeamOutlined />,
-    label: "Customers",
+    label: t("nav.customers"),
   },
   {
     key: "procurement",
     icon: <ShoppingCartOutlined />,
-    label: "Procurement",
+    label: t("nav.procurement"),
   },
   {
     key: "production",
     icon: <DeploymentUnitOutlined />,
-    label: "Production",
+    label: t("nav.production"),
   },
   {
     key: "warehouse",
     icon: <ApartmentOutlined />,
-    label: "Warehouse",
+    label: t("nav.warehouse"),
   },
   {
     key: "engineering",
     icon: <BuildOutlined />,
-    label: "Engineering",
+    label: t("nav.engineering"),
   },
   {
     key: "technology",
     icon: <BuildOutlined />,
-    label: "Technology",
+    label: t("nav.technology"),
   },
 ];
 
@@ -106,15 +107,15 @@ const AppShell: React.FC = () => {
     {
       key: "logout",
       icon: <UserOutlined />,
-      label: "Выйти",
+      label: <span data-testid="user-menu-logout">{t("nav.logout")}</span>,
       onClick: () => {
         void logout();
       },
     },
   ];
 
-  const userName = user?.fullName || user?.login || "Неизвестный пользователь";
-  const userRoles = user?.roles?.length ? user.roles.join(", ") : "Нет ролей";
+  const userName = user?.fullName || user?.login || t("nav.user.unknown");
+  const userRoles = user?.roles?.length ? user.roles.join(", ") : t("nav.roles.none");
 
   return (
     <Layout style={{ minHeight: "100vh" }}>

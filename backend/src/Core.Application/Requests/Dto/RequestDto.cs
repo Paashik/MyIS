@@ -10,6 +10,11 @@ public class RequestDto
 
     public string? Description { get; init; }
 
+    /// <summary>
+    /// Текстовое тело заявки (на текущей итерации совпадает с Description).
+    /// </summary>
+    public string? BodyText { get; init; }
+
     public Guid RequestTypeId { get; init; }
 
     public string RequestTypeCode { get; init; } = null!;
@@ -37,4 +42,6 @@ public class RequestDto
     public DateTimeOffset UpdatedAt { get; init; }
 
     public DateTimeOffset? DueDate { get; init; }
+
+    public RequestLineDto[] Lines { get; init; } = Array.Empty<RequestLineDto>();
 }

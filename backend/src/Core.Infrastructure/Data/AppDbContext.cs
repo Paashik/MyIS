@@ -18,6 +18,8 @@ public class AppDbContext : DbContext
     public DbSet<Request> Requests => Set<Request>();
     public DbSet<RequestType> RequestTypes => Set<RequestType>();
     public DbSet<RequestStatus> RequestStatuses => Set<RequestStatus>();
+    public DbSet<RequestLine> RequestLines => Set<RequestLine>();
+    public DbSet<RequestTransition> RequestTransitions => Set<RequestTransition>();
     public DbSet<RequestHistory> RequestHistory => Set<RequestHistory>();
     public DbSet<RequestComment> RequestComments => Set<RequestComment>();
     public DbSet<RequestAttachment> RequestAttachments => Set<RequestAttachment>();

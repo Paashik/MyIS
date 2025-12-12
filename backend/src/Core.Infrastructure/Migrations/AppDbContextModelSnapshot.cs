@@ -203,6 +203,64 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.ToTable("request_history", "requests");
                 });
 
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("ExternalItemCode")
+                        .HasColumnType("text")
+                        .HasColumnName("external_item_code");
+
+                    b.Property<string>("ExternalRowReferenceId")
+                        .HasColumnType("text")
+                        .HasColumnName("external_row_reference_id");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("line_no");
+
+                    b.Property<DateTimeOffset?>("NeedByDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("need_by_date");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<string>("SupplierContact")
+                        .HasColumnType("text")
+                        .HasColumnName("supplier_contact");
+
+                    b.Property<string>("SupplierName")
+                        .HasColumnType("text")
+                        .HasColumnName("supplier_name");
+
+                    b.Property<Guid?>("UnitOfMeasureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("unit_of_measure_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestId", "LineNo")
+                        .IsUnique();
+
+                    b.ToTable("request_lines", "requests");
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestStatus", b =>
                 {
                     b.Property<Guid>("Id")
@@ -234,6 +292,44 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("request_statuses", "requests");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestTransition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActionCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("action_code");
+
+                    b.Property<string>("FromStatusCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("from_status_code");
+
+                    b.Property<Guid>("RequestTypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_type_id");
+
+                    b.Property<string>("RequiredPermission")
+                        .HasColumnType("text")
+                        .HasColumnName("required_permission");
+
+                    b.Property<string>("ToStatusCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("to_status_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestTypeId", "FromStatusCode", "ActionCode")
+                        .IsUnique();
+
+                    b.ToTable("request_transitions", "requests");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestType", b =>
@@ -438,6 +534,17 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Navigation("Request");
                 });
 
+            modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.RequestLine", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Requests.Entities.Request", "Request")
+                        .WithMany("Lines")
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Users.UserRole", b =>
                 {
                     b.HasOne("MyIS.Core.Domain.Users.Role", "Role")
@@ -464,6 +571,8 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Navigation("Comments");
 
                     b.Navigation("History");
+
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Users.Role", b =>

@@ -16,6 +16,7 @@ import { RequestStatusBadge } from "../components/RequestStatusBadge";
 import { RequestHistoryTimeline } from "../components/RequestHistoryTimeline";
 import { RequestCommentsPanel } from "../components/RequestCommentsPanel";
 import { useCan } from "../../../core/auth/permissions";
+import { t } from "../../../core/i18n/t";
 
 const { Title, Text } = Typography;
 
@@ -62,7 +63,9 @@ export const RequestDetailsPage: React.FC = () => {
 
         // Пытаемся эвристически определить 404 по тексту ошибки
         const message =
-          error instanceof Error ? error.message : "Неизвестная ошибка при загрузке заявки";
+          error instanceof Error
+            ? error.message
+            : t("requests.details.error.load.unknown");
         if (message.includes("404")) {
           setState({ kind: "notFound" });
         } else {
@@ -95,7 +98,9 @@ export const RequestDetailsPage: React.FC = () => {
       } catch (error) {
         if (cancelled) return;
         const message =
-          error instanceof Error ? error.message : "Не удалось загрузить историю заявки";
+          error instanceof Error
+            ? error.message
+            : t("requests.details.history.error.unknown");
         setHistoryError(message);
       } finally {
         setHistoryLoading(false);
@@ -112,7 +117,9 @@ export const RequestDetailsPage: React.FC = () => {
       } catch (error) {
         if (cancelled) return;
         const message =
-          error instanceof Error ? error.message : "Не удалось загрузить комментарии";
+          error instanceof Error
+            ? error.message
+            : t("requests.details.comments.error.unknown");
         setCommentsError(message);
       } finally {
         setCommentsLoading(false);
@@ -156,7 +163,9 @@ export const RequestDetailsPage: React.FC = () => {
       setComments((prev) => [...prev, created]);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Не удалось добавить комментарий";
+        error instanceof Error
+          ? error.message
+          : t("requests.details.comments.add.error");
       setCommentsError(message);
     } finally {
       setAddingComment(false);
@@ -167,11 +176,15 @@ export const RequestDetailsPage: React.FC = () => {
     return (
       <Result
         status="404"
-        title="Заявка не найдена"
-        subTitle="Заявка не существует или была удалена."
+        title={t("requests.details.notFound.title")}
+        subTitle={t("requests.details.notFound.subtitle")}
         extra={
-          <Button type="primary" onClick={handleBackToList}>
-            Вернуться к списку заявок
+          <Button
+            data-testid="request-details-not-found-back-button"
+            type="primary"
+            onClick={handleBackToList}
+          >
+            {t("requests.details.notFound.back")}
           </Button>
         }
       />
@@ -181,6 +194,7 @@ export const RequestDetailsPage: React.FC = () => {
   if (state.kind === "loading") {
     return (
       <div
+        data-testid="request-details-loading"
         style={{
           minHeight: "40vh",
           display: "flex",
@@ -188,7 +202,7 @@ export const RequestDetailsPage: React.FC = () => {
           justifyContent: "center",
         }}
       >
-        <Spin tip="Загрузка заявки..." />
+        <Spin tip={t("requests.details.loading")} />
       </div>
     );
   }
@@ -197,13 +211,16 @@ export const RequestDetailsPage: React.FC = () => {
     return (
       <div>
         <Alert
+          data-testid="request-details-error-alert"
           type="error"
-          message="Не удалось загрузить заявку"
+          message={t("requests.details.error.load.title")}
           description={state.message}
           showIcon
           style={{ marginBottom: 16 }}
         />
-        <Button onClick={handleReload}>Повторить попытку</Button>
+        <Button data-testid="request-details-retry-button" onClick={handleReload}>
+          {t("common.actions.retry")}
+        </Button>
       </div>
     );
   }
@@ -217,7 +234,7 @@ export const RequestDetailsPage: React.FC = () => {
   const dueDate = request.dueDate ? new Date(request.dueDate) : null;
 
   return (
-    <div>
+    <div data-testid="request-details-page">
       <Space
         style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}
         align="center"
@@ -228,69 +245,85 @@ export const RequestDetailsPage: React.FC = () => {
 
         <Space>
           {canEdit && (
-            <Button onClick={handleEdit} type="primary">
-              Редактировать
+            <Button
+              data-testid="request-details-edit-button"
+              onClick={handleEdit}
+              type="primary"
+            >
+              {t("common.actions.edit")}
             </Button>
           )}
-          <Button onClick={handleBackToList}>К списку заявок</Button>
+          <Button data-testid="request-details-back-button" onClick={handleBackToList}>
+            {t("requests.details.actions.backToList")}
+          </Button>
         </Space>
       </Space>
 
       <div style={{ marginBottom: 24 }}>
         <Descriptions column={2} bordered size="small">
-          <Descriptions.Item label="ID" span={2}>
+          <Descriptions.Item label={t("requests.details.fields.id")} span={2}>
             <Text code>{request.id}</Text>
           </Descriptions.Item>
-          <Descriptions.Item label="Тип">
+          <Descriptions.Item label={t("requests.details.fields.type")}>
             <Text strong>{request.requestTypeCode}</Text> {request.requestTypeName}
           </Descriptions.Item>
-          <Descriptions.Item label="Статус">
+          <Descriptions.Item label={t("requests.details.fields.status")}>
             <RequestStatusBadge
               statusCode={request.requestStatusCode}
               statusName={request.requestStatusName}
             />
           </Descriptions.Item>
-          <Descriptions.Item label="Инициатор">
+          <Descriptions.Item label={t("requests.details.fields.initiator")}>
             {request.initiatorFullName || request.initiatorId}
           </Descriptions.Item>
-          <Descriptions.Item label="Создана">
+          <Descriptions.Item label={t("requests.details.fields.createdAt")}>
             {createdAt.toLocaleDateString()} {createdAt.toLocaleTimeString()}
           </Descriptions.Item>
-          <Descriptions.Item label="Обновлена">
+          <Descriptions.Item label={t("requests.details.fields.updatedAt")}>
             {updatedAt.toLocaleDateString()} {updatedAt.toLocaleTimeString()}
           </Descriptions.Item>
-          <Descriptions.Item label="Срок">
+          <Descriptions.Item label={t("requests.details.fields.dueDate")}>
             {dueDate
               ? `${dueDate.toLocaleDateString()} ${dueDate.toLocaleTimeString()}`
-              : "Не задан"}
+              : t("requests.details.value.notSet")}
           </Descriptions.Item>
-          <Descriptions.Item label="Внешний ID">
-            {request.externalReferenceId || <Text type="secondary">Не задан</Text>}
+          <Descriptions.Item label={t("requests.details.fields.externalId")}>
+            {request.externalReferenceId || (
+              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
+            )}
           </Descriptions.Item>
-          <Descriptions.Item label="Связанный объект — тип">
-            {request.relatedEntityType || <Text type="secondary">Не задан</Text>}
+          <Descriptions.Item label={t("requests.details.fields.relatedType")}>
+            {request.relatedEntityType || (
+              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
+            )}
           </Descriptions.Item>
-          <Descriptions.Item label="Связанный объект — ID">
-            {request.relatedEntityId || <Text type="secondary">Не задан</Text>}
+          <Descriptions.Item label={t("requests.details.fields.relatedId")}>
+            {request.relatedEntityId || (
+              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
+            )}
           </Descriptions.Item>
-          <Descriptions.Item label="Описание" span={2}>
-            {request.description || <Text type="secondary">Нет описания</Text>}
+          <Descriptions.Item label={t("requests.details.fields.description")} span={2}>
+            {request.description || (
+              <Text type="secondary">{t("requests.details.value.noDescription")}</Text>
+            )}
           </Descriptions.Item>
         </Descriptions>
       </div>
 
       <Tabs
+        data-testid="request-details-tabs"
         defaultActiveKey="history"
         items={[
           {
             key: "history",
-            label: "История",
+            label: t("requests.details.tabs.history"),
             children: (
               <>
                 {historyError && (
                   <Alert
+                    data-testid="request-details-history-error-alert"
                     type="error"
-                    message="Ошибка при загрузке истории заявки"
+                    message={t("requests.details.history.error.title")}
                     description={historyError}
                     showIcon
                     style={{ marginBottom: 16 }}
@@ -302,7 +335,7 @@ export const RequestDetailsPage: React.FC = () => {
           },
           {
             key: "comments",
-            label: "Комментарии",
+            label: t("requests.details.tabs.comments"),
             children: (
               <RequestCommentsPanel
                 comments={comments}

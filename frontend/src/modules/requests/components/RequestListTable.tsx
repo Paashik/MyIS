@@ -6,6 +6,7 @@ import {
   RequestTypeDto,
 } from "../api/types";
 import { RequestStatusBadge } from "./RequestStatusBadge";
+import { t } from "../../../core/i18n/t";
 
 const { Text } = Typography;
 
@@ -74,7 +75,7 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
 
   const columns: any[] = [
     {
-      title: "ID",
+      title: t("requests.details.fields.id"),
       dataIndex: "id",
       key: "id",
       width: 260,
@@ -83,13 +84,13 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
       ),
     },
     {
-      title: "Заголовок",
+      title: t("requests.table.columns.title"),
       dataIndex: "title",
       key: "title",
       ellipsis: true,
     },
     {
-      title: "Тип",
+      title: t("requests.table.columns.type"),
       dataIndex: "requestTypeName",
       key: "requestTypeName",
       width: 200,
@@ -100,7 +101,7 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
       ),
     },
     {
-      title: "Статус",
+      title: t("requests.table.columns.status"),
       dataIndex: "requestStatusName",
       key: "requestStatusName",
       width: 200,
@@ -112,15 +113,17 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
       ),
     },
     {
-      title: "Инициатор",
+      title: t("requests.table.columns.initiator"),
       dataIndex: "initiatorFullName",
       key: "initiatorFullName",
       width: 220,
       render: (_: any, record: RequestListItemDto) =>
-        record.initiatorFullName || <Text type="secondary">Неизвестно</Text>,
+        record.initiatorFullName || (
+          <Text type="secondary">{t("requests.table.value.unknownInitiator")}</Text>
+        ),
     },
     {
-      title: "Создана",
+      title: t("requests.table.columns.createdAt"),
       dataIndex: "createdAt",
       key: "createdAt",
       width: 180,
@@ -134,13 +137,13 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
       },
     },
     {
-      title: "Срок",
+      title: t("requests.table.columns.dueDate"),
       dataIndex: "dueDate",
       key: "dueDate",
       width: 160,
       render: (value?: string | null) => {
         if (!value) {
-          return <Text type="secondary">Не задан</Text>;
+          return <Text type="secondary">{t("requests.details.value.notSet")}</Text>;
         }
         const date = new Date(value);
         return (
@@ -170,8 +173,9 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
       >
         <Space wrap>
           <Select
+            data-testid="requests-filter-type"
             allowClear
-            placeholder="Тип заявки"
+            placeholder={t("requests.table.filters.type")}
             style={{ minWidth: 200 }}
             value={filters.requestTypeId}
             onChange={handleTypeChange}
@@ -181,8 +185,9 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
             }))}
           />
           <Select
+            data-testid="requests-filter-status"
             allowClear
-            placeholder="Статус"
+            placeholder={t("requests.table.filters.status")}
             style={{ minWidth: 200 }}
             value={filters.requestStatusId}
             onChange={handleStatusChange}
@@ -194,16 +199,18 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
         </Space>
 
         <Segmented
+          data-testid="requests-filter-only-mine"
           value={filters.onlyMine ? "mine" : "all"}
           onChange={handleOnlyMineChange}
           options={[
-            { label: "Все", value: "all" },
-            { label: "Мои", value: "mine" },
+            { label: t("requests.table.filters.onlyMine.all"), value: "all" },
+            { label: t("requests.table.filters.onlyMine.mine"), value: "mine" },
           ]}
         />
       </Space>
 
       <Table
+        data-testid="requests-table"
         rowKey={(record: RequestListItemDto) => record.id}
         loading={loading}
         columns={columns}

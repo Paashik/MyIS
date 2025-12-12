@@ -13,6 +13,7 @@ import {
   getRequests,
 } from "../api/requestsApi";
 import { useCan } from "../../../core/auth/permissions";
+import { t } from "../../../core/i18n/t";
 
 const { Title } = Typography;
 
@@ -94,7 +95,9 @@ export const RequestsListPage: React.FC = () => {
         if (cancelled) return;
 
         const message =
-          error instanceof Error ? error.message : "Неизвестная ошибка при загрузке заявок";
+          error instanceof Error
+            ? error.message
+            : t("requests.list.error.unknown");
         setState({ kind: "error", message });
       }
     };
@@ -126,26 +129,31 @@ export const RequestsListPage: React.FC = () => {
   const showError = state.kind === "error";
 
   return (
-    <div>
+    <div data-testid="requests-list-page">
       <Space
         style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}
         align="center"
       >
         <Title level={2} style={{ margin: 0 }}>
-          Заявки
+          {t("requests.list.title")}
         </Title>
 
         {canCreate && (
-          <Button type="primary" onClick={handleCreateClick}>
-            Создать заявку
+          <Button
+            data-testid="requests-create-button"
+            type="primary"
+            onClick={handleCreateClick}
+          >
+            {t("requests.list.create")}
           </Button>
         )}
       </Space>
 
       {showError && state.kind === "error" && (
         <Alert
+          data-testid="requests-list-error-alert"
           type="error"
-          message="Не удалось загрузить список заявок"
+          message={t("requests.list.error.title")}
           description={state.message}
           showIcon
           style={{ marginBottom: 16 }}

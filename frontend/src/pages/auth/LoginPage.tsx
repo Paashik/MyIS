@@ -3,6 +3,7 @@ import { Alert, Button, Form, Input, Typography } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth, User } from "../../auth/AuthContext";
 import { AuthPageLayout } from "../../components/layout/AuthPageLayout";
+import { t } from "../../core/i18n/t";
 
 
 interface LoginFormValues {
@@ -53,17 +54,17 @@ const LoginPage: React.FC = () => {
       });
 
       if (response.status === 401) {
-        setError("Неверный логин или пароль");
+        setError(t("auth.login.error.invalidCredentials"));
         return;
       }
 
       if (response.status === 403) {
-        setError("Учетная запись заблокирована");
+        setError(t("auth.login.error.userBlocked"));
         return;
       }
 
       if (!response.ok) {
-        setError("Ошибка сервера, повторите попытку позже");
+        setError(t("auth.login.error.server"));
         return;
       }
 
@@ -79,7 +80,7 @@ const LoginPage: React.FC = () => {
 
       navigate(fromPath, { replace: true });
     } catch (e) {
-      setError("Ошибка сети, попробуйте позже");
+      setError(t("auth.login.error.network"));
     } finally {
       setSubmitting(false);
     }
@@ -90,9 +91,10 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <AuthPageLayout title="Вход в MyIS">
+    <AuthPageLayout title={t("auth.login.title")}>
       {error && (
         <Alert
+          data-testid="login-error-alert"
           type="error"
           message={error}
           showIcon
@@ -101,46 +103,52 @@ const LoginPage: React.FC = () => {
       )}
 
       <Form
+        data-testid="login-form"
         form={form}
         layout="vertical"
         initialValues={{ login: "", password: "" }}
         onFinish={handleFinish}
       >
         <Form.Item
-          label="Логин"
+          label={t("auth.login.form.login.label")}
           name="login"
-          rules={[{ required: true, message: "Введите логин" }]}
+          rules={[{ required: true, message: t("auth.login.form.login.required") }]}
         >
-          <Input autoComplete="username" />
+          <Input autoComplete="username" data-testid="login-login-input" />
         </Form.Item>
 
         <Form.Item
-          label="Пароль"
+          label={t("auth.login.form.password.label")}
           name="password"
-          rules={[{ required: true, message: "Введите пароль" }]}
+          rules={[{ required: true, message: t("auth.login.form.password.required") }]}
         >
-          <Input.Password autoComplete="current-password" />
+          <Input.Password
+            autoComplete="current-password"
+            data-testid="login-password-input"
+          />
         </Form.Item>
 
         <Form.Item>
           <Button
+            data-testid="login-submit-button"
             type="primary"
             htmlType="submit"
             loading={submitting}
             block
           >
-            Войти
+            {t("auth.login.form.submit")}
           </Button>
         </Form.Item>
       </Form>
 
       <Button
+        data-testid="login-go-to-db-setup-button"
         type="link"
         block
         style={{ padding: 0, marginTop: 8 }}
         onClick={handleGoToDbSetup}
       >
-        Настроить подключение к БД
+        {t("auth.login.goToDbSetup")}
       </Button>
     </AuthPageLayout>
   );

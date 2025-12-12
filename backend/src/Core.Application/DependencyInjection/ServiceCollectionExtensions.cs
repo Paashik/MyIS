@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using MyIS.Core.Application.Requests.Handlers;
+using MyIS.Core.Application.Requests.Handlers.Workflow;
 
 namespace MyIS.Core.Application.DependencyInjection;
 
@@ -15,6 +16,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CreateRequestHandler>();
         services.AddScoped<UpdateRequestHandler>();
         services.AddScoped<AddRequestCommentHandler>();
+
+        // Requests — workflow actions
+        services.AddScoped<GetRequestActionsHandler>();
+        services.AddScoped<SubmitRequestHandler>();
+        services.AddScoped<StartReviewRequestHandler>();
+        services.AddScoped<ApproveRequestHandler>();
+        services.AddScoped<RejectRequestHandler>();
+        services.AddScoped<StartWorkOnRequestHandler>();
+        services.AddScoped<CompleteRequestHandler>();
+        services.AddScoped<CloseRequestHandler>();
 
         // Requests — запросы
         services.AddScoped<SearchRequestsHandler>();

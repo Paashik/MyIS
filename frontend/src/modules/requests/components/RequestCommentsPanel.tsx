@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { List, Typography, Input, Button, Alert, Space } from "antd";
 import { RequestCommentDto } from "../api/types";
+import { t } from "../../../core/i18n/t";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -45,11 +46,12 @@ export const RequestCommentsPanel: React.FC<RequestCommentsPanelProps> = ({
   };
 
   return (
-    <div>
+    <div data-testid="request-comments-panel">
       {error && (
         <Alert
+          data-testid="request-comments-error-alert"
           type="error"
-          message="Не удалось загрузить комментарии"
+          message={t("requests.comments.error.title")}
           description={error}
           showIcon
           style={{ marginBottom: 16 }}
@@ -57,9 +59,10 @@ export const RequestCommentsPanel: React.FC<RequestCommentsPanelProps> = ({
       )}
 
       <List
+        data-testid="request-comments-list"
         loading={loading}
         dataSource={comments}
-        locale={{ emptyText: "Комментариев пока нет" }}
+        locale={{ emptyText: t("requests.comments.empty") }}
         style={{ marginBottom: 16 }}
         renderItem={(item: RequestCommentDto) => {
           const date = new Date(item.createdAt);
@@ -85,20 +88,22 @@ export const RequestCommentsPanel: React.FC<RequestCommentsPanelProps> = ({
 
       <Space direction="vertical" style={{ width: "100%" }}>
         <TextArea
+          data-testid="request-comments-textarea"
           rows={3}
-          placeholder="Добавить комментарий..."
+          placeholder={t("requests.comments.placeholder")}
           value={text}
           onChange={(e: any) => setText(e.target.value)}
           onPressEnter={handlePressEnter}
         />
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <Button
+            data-testid="request-comments-add-button"
             type="primary"
             onClick={() => void handleSubmit()}
             loading={adding}
             disabled={!text.trim()}
           >
-            Добавить
+            {t("common.actions.add")}
           </Button>
         </div>
       </Space>

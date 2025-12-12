@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Spin } from "antd";
 import { Navigate, Outlet } from "react-router-dom";
+import { t } from "../core/i18n/t";
 
 type DbConnectionSource =
   | "Unknown"
@@ -39,7 +40,10 @@ const DbStatusGuard: React.FC = () => {
         });
 
         if (!response.ok) {
-          const message = `Не удалось получить статус БД: HTTP ${response.status} ${response.statusText}`;
+          const message = t("db.status.error.http", {
+            status: response.status,
+            statusText: response.statusText,
+          });
           if (!cancelled) {
             setState({
               kind: "error",
@@ -53,9 +57,14 @@ const DbStatusGuard: React.FC = () => {
         if (!contentType.toLowerCase().includes("application/json")) {
           const text = await response.text().catch(() => "");
           const snippet = text ? text.slice(0, 200) : "";
-          const details = snippet ? ` Фрагмент ответа: ${snippet}` : "";
+          const details = snippet
+            ? t("db.status.error.responseSnippet", { snippet })
+            : "";
           throw new Error(
-            `Ожидался JSON, но получен иной формат ответа от сервера (content-type: ${contentType}).${details}`
+            t("db.status.error.expectedJson", {
+              contentType,
+              details,
+            })
           );
         }
 
@@ -75,11 +84,13 @@ const DbStatusGuard: React.FC = () => {
         if (cancelled) return;
 
         const message =
-          error instanceof Error ? error.message : "Неизвестная ошибка сети";
+          error instanceof Error
+            ? error.message
+            : t("common.error.unknownNetwork");
 
         setState({
           kind: "error",
-          message: `Не удалось получить статус БД: ${message}`,
+          message: t("db.status.error.failed", { message }),
         });
       }
     };
@@ -98,6 +109,7 @@ const DbStatusGuard: React.FC = () => {
   if (state.kind === "loading") {
     return (
       <div
+        data-testid="db-status-loading"
         style={{
           display: "flex",
           alignItems: "center",
@@ -105,7 +117,7 @@ const DbStatusGuard: React.FC = () => {
           minHeight: "50vh",
         }}
       >
-        <Spin tip="Проверка подключения к базе данных..." />
+        <Spin tip={t("db.status.loading")} />
       </div>
     );
   }
@@ -114,8 +126,9 @@ const DbStatusGuard: React.FC = () => {
     return (
       <div style={{ padding: 24 }}>
         <Alert
+          data-testid="db-status-error-alert"
           type="error"
-          message="Ошибка при проверке статуса базы данных"
+          message={t("db.status.error.title")}
           description={state.message}
           showIcon
         />

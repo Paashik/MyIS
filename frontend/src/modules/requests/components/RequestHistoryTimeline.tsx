@@ -1,6 +1,7 @@
 import React from "react";
 import { List, Typography } from "antd";
 import { RequestHistoryItemDto } from "../api/types";
+import { t } from "../../../core/i18n/t";
 
 const { Text } = Typography;
 
@@ -23,6 +24,7 @@ export const RequestHistoryTimeline: React.FC<RequestHistoryTimelineProps> = ({
 
   return (
     <List
+      data-testid="request-history-list"
       loading={loading}
       dataSource={sorted}
       renderItem={(item: RequestHistoryItemDto) => {
@@ -41,18 +43,18 @@ export const RequestHistoryTimeline: React.FC<RequestHistoryTimelineProps> = ({
               description={
                 <div>
                   <div>
-                    <Text type="secondary">Пользователь:</Text>{" "}
+                    <Text type="secondary">{t("requests.history.field.user")}</Text>{" "}
                     {item.performedByFullName || item.performedBy}
                   </div>
                   <div>
-                    <Text type="secondary">Было:</Text> {item.oldValue}
+                    <Text type="secondary">{t("requests.history.field.was")}</Text> {item.oldValue}
                   </div>
                   <div>
-                    <Text type="secondary">Стало:</Text> {item.newValue}
+                    <Text type="secondary">{t("requests.history.field.became")}</Text> {item.newValue}
                   </div>
                   {item.comment && (
                     <div>
-                      <Text type="secondary">Комментарий:</Text> {item.comment}
+                      <Text type="secondary">{t("requests.history.field.comment")}</Text> {item.comment}
                     </div>
                   )}
                 </div>

@@ -25,4 +25,10 @@ public class UpdateRequestCommand
     public Guid? RelatedEntityId { get; init; }
 
     public string? ExternalReferenceId { get; init; }
+
+    /// <summary>
+    /// Позиционное тело заявки (replace-all стратегия v0.1).
+    /// Если null — строки не трогаем; если задано (в т.ч. пустой массив) — заменяем целиком.
+    /// </summary>
+    public Dto.RequestLineInputDto[]? Lines { get; init; }
 }

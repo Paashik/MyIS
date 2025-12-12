@@ -11,6 +11,7 @@ import {
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import { AuthPageLayout } from "../../components/layout/AuthPageLayout";
+import { t } from "../../core/i18n/t";
 
 const { Text } = Typography;
 
@@ -237,7 +238,7 @@ const DbSetupPage: React.FC = () => {
               kind: "error",
               message:
                 text ||
-                `Ошибка при загрузке статуса базы данных (HTTP ${response.status})`,
+                t("db.setup.errors.loadStatus", { status: response.status }),
             });
           }
           return;
@@ -251,11 +252,11 @@ const DbSetupPage: React.FC = () => {
         if (cancelled) return;
 
         const msg =
-          error instanceof Error ? error.message : "Неизвестная ошибка сети";
+          error instanceof Error ? error.message : t("common.error.unknownNetwork");
 
         setStatusState({
           kind: "error",
-          message: `Не удалось получить статус базы данных: ${msg}`,
+          message: t("db.setup.errors.cannotGetStatus", { message: msg }),
         });
       }
     };
@@ -299,7 +300,7 @@ const DbSetupPage: React.FC = () => {
         const text = await response.text();
         message.error(
           text ||
-            `Ошибка при проверке подключения (HTTP ${response.status})`
+            t("db.setup.errors.testHttp", { status: response.status })
         );
         return;
       }
@@ -307,20 +308,22 @@ const DbSetupPage: React.FC = () => {
       const data = (await response.json()) as DbTestResponse;
 
       if (data.canConnect) {
-        message.success("Подключение успешно установлено.");
+        message.success(t("db.setup.success.testOk"));
 
         const currentValues = form.getFieldsValue() as DbSetupFormValues;
         saveLastSuccessfulDbConfig(currentValues);
       } else {
         message.warning(
           data.lastError
-            ? `Не удалось подключиться: ${data.lastError}`
-            : "Не удалось подключиться к базе данных."
+            ? t("db.setup.errors.testFailedWithDetails", { lastError: data.lastError })
+            : t("db.setup.errors.testFailed")
         );
       }
     } catch (error) {
       if (error instanceof Error) {
-        message.error(`Ошибка при проверке подключения: ${error.message}`);
+        message.error(
+          t("db.setup.errors.testUnexpected", { message: error.message })
+        );
       }
     } finally {
       setTesting(false);
@@ -341,7 +344,7 @@ const DbSetupPage: React.FC = () => {
 
       if (response.status === 403) {
         message.error(
-          "Сохранение настроек базы данных запрещено в этом окружении (Production)."
+          t("db.setup.errors.applyForbidden")
         );
         return;
       }
@@ -349,7 +352,7 @@ const DbSetupPage: React.FC = () => {
       if (!response.ok) {
         const text = await response.text();
         message.error(
-          text || `Ошибка при сохранении настроек (HTTP ${response.status})`
+          text || t("db.setup.errors.applyHttp", { status: response.status })
         );
         return;
       }
@@ -359,8 +362,10 @@ const DbSetupPage: React.FC = () => {
       if (!data.applied) {
         message.error(
           data.lastError
-            ? `Не удалось сохранить конфигурацию: ${data.lastError}`
-            : "Не удалось сохранить конфигурацию базы данных."
+            ? t("db.setup.errors.applyFailedWithDetails", {
+                lastError: data.lastError,
+              })
+            : t("db.setup.errors.applyFailed")
         );
         return;
       }
@@ -368,17 +373,21 @@ const DbSetupPage: React.FC = () => {
       if (!data.canConnect) {
         message.warning(
           data.lastError
-            ? `Конфигурация сохранена, но подключиться не удалось: ${data.lastError}`
-            : "Конфигурация сохранена, но подключиться к БД не удалось."
+            ? t("db.setup.warnings.appliedButCannotConnectWithDetails", {
+                lastError: data.lastError,
+              })
+            : t("db.setup.warnings.appliedButCannotConnect")
         );
       } else if (!data.migrationsApplied) {
         message.warning(
           data.lastError
-            ? `Подключение успешно, но миграции не были применены: ${data.lastError}`
-            : "Подключение успешно, но миграции не были применены."
+            ? t("db.setup.warnings.connectOkMigrationsNotAppliedWithDetails", {
+                lastError: data.lastError,
+              })
+            : t("db.setup.warnings.connectOkMigrationsNotApplied")
         );
       } else {
-        message.success("Конфигурация сохранена и миграции успешно применены.");
+        message.success(t("db.setup.success.applyOk"));
 
         const currentValues = form.getFieldsValue() as DbSetupFormValues;
         saveLastSuccessfulDbConfig(currentValues);
@@ -387,8 +396,8 @@ const DbSetupPage: React.FC = () => {
       navigate("/login", { replace: true });
     } catch (error) {
       const msg =
-        error instanceof Error ? error.message : "Неизвестная ошибка сети";
-      message.error(`Ошибка при сохранении настроек: ${msg}`);
+        error instanceof Error ? error.message : t("common.error.unknownNetwork");
+      message.error(t("db.setup.errors.applyUnexpected", { message: msg }));
     } finally {
       setApplying(false);
     }
@@ -402,8 +411,9 @@ const DbSetupPage: React.FC = () => {
     if (statusState.kind === "loading" || statusState.kind === "idle") {
       return (
         <Alert
+          data-testid="db-setup-status-alert"
           type="info"
-          message="Проверка текущего состояния базы данных..."
+          message={t("db.setup.currentStatus.loading")}
           showIcon
         />
       );
@@ -412,8 +422,9 @@ const DbSetupPage: React.FC = () => {
     if (statusState.kind === "error") {
       return (
         <Alert
+          data-testid="db-setup-status-alert"
           type="error"
-          message="Ошибка статуса базы данных"
+          message={t("db.setup.currentStatus.error.title")}
           description={statusState.message}
           showIcon
         />
@@ -424,9 +435,10 @@ const DbSetupPage: React.FC = () => {
     if (!status.configured) {
       return (
         <Alert
+          data-testid="db-setup-status-alert"
           type="warning"
-          message="База данных не сконфигурирована"
-          description="Строка подключения не настроена. Заполните форму ниже и сохраните конфигурацию."
+          message={t("db.setup.currentStatus.notConfigured.title")}
+          description={t("db.setup.currentStatus.notConfigured.description")}
           showIcon
         />
       );
@@ -435,11 +447,12 @@ const DbSetupPage: React.FC = () => {
     if (!status.canConnect) {
       return (
         <Alert
+          data-testid="db-setup-status-alert"
           type="error"
-          message="Не удается подключиться к базе данных"
+          message={t("db.setup.currentStatus.cannotConnect.title")}
           description={
             status.lastError ||
-            "Система не может подключиться к базе данных по текущей конфигурации."
+            t("db.setup.currentStatus.cannotConnect.descriptionFallback")
           }
           showIcon
         />
@@ -448,11 +461,15 @@ const DbSetupPage: React.FC = () => {
 
     return (
       <Alert
+        data-testid="db-setup-status-alert"
         type="success"
-        message="Подключение к базе данных успешно"
+        message={t("db.setup.currentStatus.ok.title")}
         description={
           status.rawSourceDescription ||
-          `Окружение: ${status.environment}. Источник строки подключения: ${status.connectionStringSource}.`
+          t("db.setup.currentStatus.ok.description", {
+            environment: status.environment,
+            connectionStringSource: status.connectionStringSource,
+          })
         }
         showIcon
       />
@@ -461,13 +478,11 @@ const DbSetupPage: React.FC = () => {
 
   return (
     <AuthPageLayout
-      title="Настройка подключения к базе данных"
+      title={t("db.setup.title")}
       description={
         <>
-          Укажите параметры подключения к PostgreSQL. Эти настройки будут
-          сохранены в{" "}
-          <Text code>appsettings.Local.json</Text> (в режиме Development) и
-          будут использоваться backend-сервисом MyIS.
+          {t("db.setup.description.part1")} <Text code>appsettings.Local.json</Text>{" "}
+          {t("db.setup.description.part2")}
         </>
       }
       cardWidth={720}
@@ -475,6 +490,7 @@ const DbSetupPage: React.FC = () => {
       <div style={{ marginBottom: 16 }}>{currentStatusAlert()}</div>
 
       <Form
+        data-testid="db-setup-form"
         layout="vertical"
         form={form}
         initialValues={{
@@ -488,47 +504,60 @@ const DbSetupPage: React.FC = () => {
         onFinish={handleApply}
       >
         <Form.Item
-          label="Host"
+          label={t("db.setup.form.host.label")}
           name="host"
-          rules={[{ required: true, message: "Укажите хост БД" }]}
+          rules={[{ required: true, message: t("db.setup.form.host.required") }]}
         >
-          <Input placeholder="localhost" />
+          <Input
+            data-testid="db-setup-host-input"
+            placeholder={t("db.setup.form.host.placeholder")}
+          />
         </Form.Item>
 
         <Form.Item
-          label="Port"
+          label={t("db.setup.form.port.label")}
           name="port"
-          rules={[{ required: true, message: "Укажите порт БД" }]}
+          rules={[{ required: true, message: t("db.setup.form.port.required") }]}
         >
-          <InputNumber style={{ width: "100%" }} min={1} max={65535} />
+          <InputNumber
+            data-testid="db-setup-port-input"
+            style={{ width: "100%" }}
+            min={1}
+            max={65535}
+          />
         </Form.Item>
 
         <Form.Item
-          label="Database"
+          label={t("db.setup.form.database.label")}
           name="database"
-          rules={[{ required: true, message: "Укажите имя базы данных" }]}
+          rules={[{ required: true, message: t("db.setup.form.database.required") }]}
         >
-          <Input placeholder="myis" />
+          <Input
+            data-testid="db-setup-database-input"
+            placeholder={t("db.setup.form.database.placeholder")}
+          />
         </Form.Item>
 
         <Form.Item
-          label="Username"
+          label={t("db.setup.form.username.label")}
           name="username"
-          rules={[{ required: true, message: "Укажите пользователя БД" }]}
+          rules={[{ required: true, message: t("db.setup.form.username.required") }]}
         >
-          <Input />
+          <Input data-testid="db-setup-username-input" />
         </Form.Item>
 
         <Form.Item
-          label="Password"
+          label={t("db.setup.form.password.label")}
           name="password"
-          rules={[{ required: true, message: "Укажите пароль" }]}
+          rules={[{ required: true, message: t("db.setup.form.password.required") }]}
         >
-          <Input.Password />
+          <Input.Password data-testid="db-setup-password-input" />
         </Form.Item>
 
         <Form.Item name="runMigrations" valuePropName="checked">
-          <Checkbox>Запустить миграции после сохранения</Checkbox>
+          <Checkbox data-testid="db-setup-run-migrations-checkbox">
+            {t("db.setup.form.runMigrations")}
+          </Checkbox>
         </Form.Item>
 
         <Form.Item>
@@ -541,18 +570,24 @@ const DbSetupPage: React.FC = () => {
             }}
           >
             <Button htmlType="button" onClick={handleCancel}>
-              Отмена
+              {t("common.actions.cancel")}
             </Button>
             <Button
+              data-testid="db-setup-test-connection-button"
               type="default"
               htmlType="button"
               loading={testing}
               onClick={handleTestConnection}
             >
-              Проверить подключение
+              {t("db.setup.actions.test")}
             </Button>
-            <Button type="primary" htmlType="submit" loading={applying}>
-              Сохранить и применить
+            <Button
+              data-testid="db-setup-apply-button"
+              type="primary"
+              htmlType="submit"
+              loading={applying}
+            >
+              {t("db.setup.actions.apply")}
             </Button>
           </div>
         </Form.Item>

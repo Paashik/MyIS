@@ -12,6 +12,8 @@ import {
   UpdateRequestPayload,
 } from "./types";
 
+import { t } from "../../../core/i18n/t";
+
 /**
  * Базовый helper для HTTP-запросов к backend API.
  * Гарантирует:
@@ -36,7 +38,10 @@ async function httpRequest<TResponse>(
     const text = await response.text().catch(() => "");
     const message =
       text ||
-      `Ошибка при обращении к API (${response.status} ${response.statusText})`;
+      t("requests.api.error.http", {
+        status: response.status,
+        statusText: response.statusText,
+      });
     throw new Error(message);
   }
 
@@ -47,7 +52,10 @@ async function httpRequest<TResponse>(
     const text = await response.text().catch(() => "");
     const snippet = text ? text.slice(0, 200) : "";
     throw new Error(
-      `Ожидался JSON-ответ от сервера, но получен иной формат (content-type: ${contentType}). ${snippet}`
+      t("requests.api.error.expectedJson", {
+        contentType,
+        snippet,
+      })
     );
   }
 

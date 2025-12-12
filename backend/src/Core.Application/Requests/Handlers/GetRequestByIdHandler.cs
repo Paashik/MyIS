@@ -84,6 +84,7 @@ public class GetRequestByIdHandler
             Id = request.Id.Value,
             Title = request.Title,
             Description = request.Description,
+            BodyText = request.Description,
             RequestTypeId = requestType.Id.Value,
             RequestTypeCode = requestType.Code,
             RequestTypeName = requestType.Name,
@@ -97,7 +98,36 @@ public class GetRequestByIdHandler
             ExternalReferenceId = request.ExternalReferenceId,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
-            DueDate = request.DueDate
+            DueDate = request.DueDate,
+            Lines = MapToLineDtos(request)
         };
+    }
+
+    private static RequestLineDto[] MapToLineDtos(Request request)
+    {
+        if (request.Lines.Count == 0) return Array.Empty<RequestLineDto>();
+
+        var result = new RequestLineDto[request.Lines.Count];
+        var i = 0;
+        foreach (var line in request.Lines)
+        {
+            result[i++] = new RequestLineDto
+            {
+                Id = line.Id.Value,
+                LineNo = line.LineNo,
+                ItemId = line.ItemId,
+                ExternalItemCode = line.ExternalItemCode,
+                Description = line.Description,
+                Quantity = line.Quantity,
+                UnitOfMeasureId = line.UnitOfMeasureId,
+                NeedByDate = line.NeedByDate,
+                SupplierName = line.SupplierName,
+                SupplierContact = line.SupplierContact,
+                ExternalRowReferenceId = line.ExternalRowReferenceId
+            };
+        }
+
+        Array.Sort(result, (a, b) => a.LineNo.CompareTo(b.LineNo));
+        return result;
     }
 }

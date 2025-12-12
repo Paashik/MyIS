@@ -7,8 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MyIS.Core.Application.Common.Dto;
 using MyIS.Core.Application.Requests.Commands;
+using MyIS.Core.Application.Requests.Commands.Workflow;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Handlers;
+using MyIS.Core.Application.Requests.Handlers.Workflow;
 using MyIS.Core.Application.Requests.Queries;
 
 namespace MyIS.Core.WebApi.Controllers.Requests;
@@ -25,6 +27,14 @@ public sealed class RequestsController : ControllerBase
     private readonly GetRequestHistoryHandler _historyHandler;
     private readonly GetRequestCommentsHandler _commentsHandler;
     private readonly AddRequestCommentHandler _addCommentHandler;
+    private readonly GetRequestActionsHandler _actionsHandler;
+    private readonly SubmitRequestHandler _submitHandler;
+    private readonly StartReviewRequestHandler _startReviewHandler;
+    private readonly ApproveRequestHandler _approveHandler;
+    private readonly RejectRequestHandler _rejectHandler;
+    private readonly StartWorkOnRequestHandler _startWorkHandler;
+    private readonly CompleteRequestHandler _completeHandler;
+    private readonly CloseRequestHandler _closeHandler;
     private readonly ILogger<RequestsController> _logger;
 
     public RequestsController(
@@ -35,6 +45,14 @@ public sealed class RequestsController : ControllerBase
         GetRequestHistoryHandler historyHandler,
         GetRequestCommentsHandler commentsHandler,
         AddRequestCommentHandler addCommentHandler,
+        GetRequestActionsHandler actionsHandler,
+        SubmitRequestHandler submitHandler,
+        StartReviewRequestHandler startReviewHandler,
+        ApproveRequestHandler approveHandler,
+        RejectRequestHandler rejectHandler,
+        StartWorkOnRequestHandler startWorkHandler,
+        CompleteRequestHandler completeHandler,
+        CloseRequestHandler closeHandler,
         ILogger<RequestsController> logger)
     {
         _createHandler = createHandler ?? throw new ArgumentNullException(nameof(createHandler));
@@ -44,6 +62,14 @@ public sealed class RequestsController : ControllerBase
         _historyHandler = historyHandler ?? throw new ArgumentNullException(nameof(historyHandler));
         _commentsHandler = commentsHandler ?? throw new ArgumentNullException(nameof(commentsHandler));
         _addCommentHandler = addCommentHandler ?? throw new ArgumentNullException(nameof(addCommentHandler));
+        _actionsHandler = actionsHandler ?? throw new ArgumentNullException(nameof(actionsHandler));
+        _submitHandler = submitHandler ?? throw new ArgumentNullException(nameof(submitHandler));
+        _startReviewHandler = startReviewHandler ?? throw new ArgumentNullException(nameof(startReviewHandler));
+        _approveHandler = approveHandler ?? throw new ArgumentNullException(nameof(approveHandler));
+        _rejectHandler = rejectHandler ?? throw new ArgumentNullException(nameof(rejectHandler));
+        _startWorkHandler = startWorkHandler ?? throw new ArgumentNullException(nameof(startWorkHandler));
+        _completeHandler = completeHandler ?? throw new ArgumentNullException(nameof(completeHandler));
+        _closeHandler = closeHandler ?? throw new ArgumentNullException(nameof(closeHandler));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -132,6 +158,21 @@ public sealed class RequestsController : ControllerBase
             RequestTypeId = request.RequestTypeId,
             Title = request.Title,
             Description = request.Description,
+            Lines = request.Lines is null
+                ? null
+                : Array.ConvertAll(request.Lines, l => new MyIS.Core.Application.Requests.Dto.RequestLineInputDto
+                {
+                    LineNo = l.LineNo,
+                    ItemId = l.ItemId,
+                    ExternalItemCode = l.ExternalItemCode,
+                    Description = l.Description,
+                    Quantity = l.Quantity,
+                    UnitOfMeasureId = l.UnitOfMeasureId,
+                    NeedByDate = l.NeedByDate,
+                    SupplierName = l.SupplierName,
+                    SupplierContact = l.SupplierContact,
+                    ExternalRowReferenceId = l.ExternalRowReferenceId
+                }),
             DueDate = request.DueDate,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
@@ -171,6 +212,21 @@ public sealed class RequestsController : ControllerBase
             CurrentUserId = currentUserId,
             Title = request.Title,
             Description = request.Description,
+            Lines = request.Lines is null
+                ? null
+                : Array.ConvertAll(request.Lines, l => new MyIS.Core.Application.Requests.Dto.RequestLineInputDto
+                {
+                    LineNo = l.LineNo,
+                    ItemId = l.ItemId,
+                    ExternalItemCode = l.ExternalItemCode,
+                    Description = l.Description,
+                    Quantity = l.Quantity,
+                    UnitOfMeasureId = l.UnitOfMeasureId,
+                    NeedByDate = l.NeedByDate,
+                    SupplierName = l.SupplierName,
+                    SupplierContact = l.SupplierContact,
+                    ExternalRowReferenceId = l.ExternalRowReferenceId
+                }),
             DueDate = request.DueDate,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
@@ -185,6 +241,97 @@ public sealed class RequestsController : ControllerBase
         catch (InvalidOperationException)
         {
             return NotFound();
+        }
+    }
+
+    /// <summary>
+    /// Доступные действия workflow для заявки (type + status + права).
+    /// </summary>
+    [HttpGet("{id:guid}/actions")]
+    public async Task<ActionResult<Contracts.Requests.RequestAvailableActionsResponse>> GetActions(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var query = new GetRequestActionsQuery
+        {
+            RequestId = id,
+            CurrentUserId = currentUserId
+        };
+
+        try
+        {
+            var actions = await _actionsHandler.Handle(query, cancellationToken);
+            return Ok(new Contracts.Requests.RequestAvailableActionsResponse { Actions = actions });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("was not found", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPost("{id:guid}/submit")]
+    public Task<ActionResult<RequestDto>> Submit(Guid id, [FromBody] Contracts.Requests.RequestActionRequest? request, CancellationToken cancellationToken = default)
+        => ExecuteWorkflowAction(id, request?.Comment, (rid, uid, cmt) => new SubmitRequestCommand { RequestId = rid, CurrentUserId = uid, Comment = cmt }, _submitHandler.Handle, cancellationToken);
+
+    [HttpPost("{id:guid}/start-review")]
+    public Task<ActionResult<RequestDto>> StartReview(Guid id, [FromBody] Contracts.Requests.RequestActionRequest? request, CancellationToken cancellationToken = default)
+        => ExecuteWorkflowAction(id, request?.Comment, (rid, uid, cmt) => new StartReviewRequestCommand { RequestId = rid, CurrentUserId = uid, Comment = cmt }, _startReviewHandler.Handle, cancellationToken);
+
+    [HttpPost("{id:guid}/approve")]
+    public Task<ActionResult<RequestDto>> Approve(Guid id, [FromBody] Contracts.Requests.RequestActionRequest? request, CancellationToken cancellationToken = default)
+        => ExecuteWorkflowAction(id, request?.Comment, (rid, uid, cmt) => new ApproveRequestCommand { RequestId = rid, CurrentUserId = uid, Comment = cmt }, _approveHandler.Handle, cancellationToken);
+
+    [HttpPost("{id:guid}/reject")]
+    public Task<ActionResult<RequestDto>> Reject(Guid id, [FromBody] Contracts.Requests.RequestActionRequest? request, CancellationToken cancellationToken = default)
+        => ExecuteWorkflowAction(id, request?.Comment, (rid, uid, cmt) => new RejectRequestCommand { RequestId = rid, CurrentUserId = uid, Comment = cmt }, _rejectHandler.Handle, cancellationToken);
+
+    [HttpPost("{id:guid}/start-work")]
+    public Task<ActionResult<RequestDto>> StartWork(Guid id, [FromBody] Contracts.Requests.RequestActionRequest? request, CancellationToken cancellationToken = default)
+        => ExecuteWorkflowAction(id, request?.Comment, (rid, uid, cmt) => new StartWorkOnRequestCommand { RequestId = rid, CurrentUserId = uid, Comment = cmt }, _startWorkHandler.Handle, cancellationToken);
+
+    [HttpPost("{id:guid}/complete")]
+    public Task<ActionResult<RequestDto>> Complete(Guid id, [FromBody] Contracts.Requests.RequestActionRequest? request, CancellationToken cancellationToken = default)
+        => ExecuteWorkflowAction(id, request?.Comment, (rid, uid, cmt) => new CompleteRequestCommand { RequestId = rid, CurrentUserId = uid, Comment = cmt }, _completeHandler.Handle, cancellationToken);
+
+    [HttpPost("{id:guid}/close")]
+    public Task<ActionResult<RequestDto>> Close(Guid id, [FromBody] Contracts.Requests.RequestActionRequest? request, CancellationToken cancellationToken = default)
+        => ExecuteWorkflowAction(id, request?.Comment, (rid, uid, cmt) => new CloseRequestCommand { RequestId = rid, CurrentUserId = uid, Comment = cmt }, _closeHandler.Handle, cancellationToken);
+
+    private async Task<ActionResult<RequestDto>> ExecuteWorkflowAction<TCommand>(
+        Guid requestId,
+        string? comment,
+        Func<Guid, Guid, string?, TCommand> commandFactory,
+        Func<TCommand, CancellationToken, Task<RequestDto>> handler,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var command = commandFactory(requestId, currentUserId, comment);
+
+        try
+        {
+            var dto = await handler(command, cancellationToken);
+            return Ok(dto);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("was not found", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
     }
 

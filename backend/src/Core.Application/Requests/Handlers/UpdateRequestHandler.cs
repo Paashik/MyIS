@@ -78,6 +78,14 @@ public class UpdateRequestHandler
             now,
             isCurrentStatusFinal: status.IsFinal);
 
+        // 4.1. Позиционное тело (v0.1: replace-all)
+        if (command.Lines is not null)
+        {
+            await _accessChecker.EnsureCanEditBodyAsync(command.CurrentUserId, request, cancellationToken);
+            var lines = MapToDomainLines(request.Id, command.Lines);
+            request.ReplaceLines(lines, now, isCurrentStatusFinal: status.IsFinal);
+        }
+
         // 5. Сохранение
         await _requestRepository.UpdateAsync(request, cancellationToken);
 
@@ -98,6 +106,7 @@ public class UpdateRequestHandler
             Id = request.Id.Value,
             Title = request.Title,
             Description = request.Description,
+            BodyText = request.Description,
             RequestTypeId = requestType.Id.Value,
             RequestTypeCode = requestType.Code,
             RequestTypeName = requestType.Name,
@@ -111,7 +120,59 @@ public class UpdateRequestHandler
             ExternalReferenceId = request.ExternalReferenceId,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
-            DueDate = request.DueDate
+            DueDate = request.DueDate,
+            Lines = MapToLineDtos(request)
         };
+    }
+
+    private static RequestLine[] MapToDomainLines(RequestId requestId, RequestLineInputDto[] lines)
+    {
+        var result = new RequestLine[lines.Length];
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var l = lines[i];
+            result[i] = RequestLine.Create(
+                requestId,
+                l.LineNo,
+                l.ItemId,
+                l.ExternalItemCode,
+                l.Description,
+                l.Quantity,
+                l.UnitOfMeasureId,
+                l.NeedByDate,
+                l.SupplierName,
+                l.SupplierContact,
+                l.ExternalRowReferenceId);
+        }
+
+        return result;
+    }
+
+    private static RequestLineDto[] MapToLineDtos(Request request)
+    {
+        if (request.Lines.Count == 0) return Array.Empty<RequestLineDto>();
+
+        var result = new RequestLineDto[request.Lines.Count];
+        var i = 0;
+        foreach (var line in request.Lines)
+        {
+            result[i++] = new RequestLineDto
+            {
+                Id = line.Id.Value,
+                LineNo = line.LineNo,
+                ItemId = line.ItemId,
+                ExternalItemCode = line.ExternalItemCode,
+                Description = line.Description,
+                Quantity = line.Quantity,
+                UnitOfMeasureId = line.UnitOfMeasureId,
+                NeedByDate = line.NeedByDate,
+                SupplierName = line.SupplierName,
+                SupplierContact = line.SupplierContact,
+                ExternalRowReferenceId = line.ExternalRowReferenceId
+            };
+        }
+
+        Array.Sort(result, (a, b) => a.LineNo.CompareTo(b.LineNo));
+        return result;
     }
 }

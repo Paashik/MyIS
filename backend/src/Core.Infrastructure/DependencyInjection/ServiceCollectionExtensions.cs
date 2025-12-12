@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRequestRepository, RequestRepository>();
         services.AddScoped<IRequestTypeRepository, RequestTypeRepository>();
         services.AddScoped<IRequestStatusRepository, RequestStatusRepository>();
+        services.AddScoped<IRequestTransitionRepository, RequestTransitionRepository>();
         services.AddScoped<IRequestHistoryRepository, RequestHistoryRepository>();
         services.AddScoped<IRequestCommentRepository, RequestCommentRepository>();
         services.AddScoped<IRequestAttachmentRepository, RequestAttachmentRepository>();

@@ -1,14 +1,15 @@
 import React from "react";
 import { Typography } from "antd";
+import { t } from "../core/i18n/t";
 
 const { Title, Paragraph } = Typography;
 
 const HomePage: React.FC = () => {
   return (
     <Typography>
-      <Title level={2}>Добро пожаловать в MyIS</Title>
+      <Title level={2}>{t("home.title")}</Title>
       <Paragraph>
-        Выберите раздел в меню слева, чтобы перейти к соответствующему домену системы.
+        {t("home.subtitle")}
       </Paragraph>
     </Typography>
   );

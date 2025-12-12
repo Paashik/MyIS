@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Form, Input, DatePicker, Button, Space } from "antd";
 import { RequestTypeDto } from "../api/types";
+import { t } from "../../../core/i18n/t";
 
 export interface RequestFormValues {
   requestTypeId: string;
@@ -81,6 +82,7 @@ export const RequestForm: React.FC<RequestFormProps> = ({
 
   return (
     <Form
+      data-testid="request-form"
       layout="vertical"
       form={form}
       initialValues={{
@@ -94,12 +96,15 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       onFinish={handleFinish}
     >
       <Form.Item
-        label="Тип заявки"
+        label={t("requests.form.type.label")}
         name="requestTypeId"
-        rules={[{ required: true, message: "Выберите тип заявки" }]}
+        rules={[{ required: true, message: t("requests.form.type.required") }]}
       >
-        <select style={{ width: "100%", padding: 8 }}>
-          <option value="">Выберите тип</option>
+        <select
+          data-testid="request-form-type-select"
+          style={{ width: "100%", padding: 8 }}
+        >
+          <option value="">{t("requests.form.type.placeholder")}</option>
           {requestTypes.map((t) => (
             <option key={t.id} value={t.id}>
               {t.code} — {t.name}
@@ -109,42 +114,51 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       </Form.Item>
 
       <Form.Item
-        label="Заголовок"
+        label={t("requests.form.title.label")}
         name="title"
-        rules={[{ required: true, message: "Введите заголовок" }]}
+        rules={[{ required: true, message: t("requests.form.title.required") }]}
       >
-        <Input />
+        <Input data-testid="request-form-title-input" />
       </Form.Item>
 
-      <Form.Item label="Описание" name="description">
-        <Input.TextArea rows={4} />
+      <Form.Item label={t("requests.form.description.label")} name="description">
+        <Input.TextArea data-testid="request-form-description-input" rows={4} />
       </Form.Item>
 
-      <Form.Item label="Срок" name="dueDate">
-        <DatePicker style={{ width: "100%" }} />
+      <Form.Item label={t("requests.form.dueDate.label")} name="dueDate">
+        <DatePicker data-testid="request-form-due-date-input" style={{ width: "100%" }} />
       </Form.Item>
 
-      <Form.Item label="Связанный объект — тип" name="relatedEntityType">
-        <Input />
+      <Form.Item label={t("requests.form.relatedType.label")} name="relatedEntityType">
+        <Input data-testid="request-form-related-type-input" />
       </Form.Item>
 
-      <Form.Item label="Связанный объект — идентификатор" name="relatedEntityId">
-        <Input />
+      <Form.Item label={t("requests.form.relatedId.label")} name="relatedEntityId">
+        <Input data-testid="request-form-related-id-input" />
       </Form.Item>
 
-      <Form.Item label="Внешний идентификатор" name="externalReferenceId">
-        <Input />
+      <Form.Item label={t("requests.form.externalId.label")} name="externalReferenceId">
+        <Input data-testid="request-form-external-id-input" />
       </Form.Item>
 
       <Form.Item>
         <Space style={{ display: "flex", justifyContent: "flex-end" }}>
           {onCancel && (
-            <Button htmlType="button" onClick={onCancel}>
-              Отмена
+            <Button
+              data-testid="request-form-cancel-button"
+              htmlType="button"
+              onClick={onCancel}
+            >
+              {t("common.actions.cancel")}
             </Button>
           )}
-          <Button type="primary" htmlType="submit" loading={submitting}>
-            {mode === "create" ? "Создать" : "Сохранить"}
+          <Button
+            data-testid="request-form-submit-button"
+            type="primary"
+            htmlType="submit"
+            loading={submitting}
+          >
+            {mode === "create" ? t("common.actions.create") : t("common.actions.save")}
           </Button>
         </Space>
       </Form.Item>

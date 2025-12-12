@@ -42,6 +42,27 @@ public interface IRequestsAccessChecker
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Проверка права на редактирование тела заявки (Description/Lines).
+    /// На текущей итерации минимальная реализация может совпадать с EnsureCanUpdateAsync,
+    /// а ограничения по финальному статусу должны быть обеспечены доменной логикой.
+    /// </summary>
+    Task EnsureCanEditBodyAsync(
+        Guid currentUserId,
+        Request request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Проверка права на выполнение действия workflow над заявкой.
+    /// requiredPermission берётся из конфигурации перехода (RequestTransition.RequiredPermission).
+    /// </summary>
+    Task EnsureCanPerformActionAsync(
+        Guid currentUserId,
+        Request request,
+        string actionCode,
+        string? requiredPermission,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Проверка права на добавление комментария к заявке.
     /// </summary>
     Task EnsureCanAddCommentAsync(

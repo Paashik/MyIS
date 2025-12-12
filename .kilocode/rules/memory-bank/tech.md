@@ -110,6 +110,12 @@ API Login/Auth:
 - Ant Design 5;
 - React Router v6.
 
+Дополнительно (норматив для UI и тестов):
+
+- язык интерфейса по умолчанию — **RU (ru-RU)**;
+- автотесты UI должны опираться на устойчивые селекторы (`data-testid`/`role`/`aria-*`/имена полей/URL), а не на отображаемые тексты;
+- рекомендуемый базовый паттерн i18n (RU-словарь + `t(key)`), а также требования к «антихрупким» тестам — см. `6` в [`guidelines.md`](.kilocode/rules/memory-bank/guidelines.md).
+
 Структура:
 
 - App Shell на основе Ant Design Layout:
