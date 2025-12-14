@@ -68,15 +68,35 @@ const AppShell: React.FC = () => {
     return "/";
   }, [location.pathname]);
 
-  const computedOpenKeys = useMemo(() => {
-    if (collapsed) return [];
-    if (location.pathname.startsWith("/requests")) return ["/requests"];
-    if (location.pathname.startsWith("/settings/requests"))
-      return ["/settings", "/settings/requests"];
-    if (location.pathname.startsWith("/settings/security"))
-      return ["/settings", "/settings/security"];
-    if (location.pathname.startsWith("/settings")) return ["/settings"];
-    return [];
+  // Авто-раскрытие веток меню при смене раздела, при этом пользовательские
+  // раскрытия внутри раздела сохраняются, пока не меняется pathname.
+  React.useEffect(() => {
+    if (collapsed) {
+      setOpenKeys([]);
+      return;
+    }
+
+    if (location.pathname.startsWith("/requests")) {
+      setOpenKeys(["/requests"]);
+      return;
+    }
+
+    if (location.pathname.startsWith("/settings/requests")) {
+      setOpenKeys(["/settings", "/settings/requests"]);
+      return;
+    }
+
+    if (location.pathname.startsWith("/settings/security")) {
+      setOpenKeys(["/settings", "/settings/security"]);
+      return;
+    }
+
+    if (location.pathname.startsWith("/settings")) {
+      setOpenKeys(["/settings"]);
+      return;
+    }
+
+    setOpenKeys([]);
   }, [collapsed, location.pathname]);
 
   const menuItems: MenuProps["items"] = useMemo(() => {
@@ -239,7 +259,7 @@ const AppShell: React.FC = () => {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          openKeys={computedOpenKeys.length ? computedOpenKeys : openKeys}
+          openKeys={openKeys}
           onOpenChange={(keys: string[]) => setOpenKeys(keys)}
           items={menuItems}
           onClick={handleMenuClick}
