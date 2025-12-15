@@ -1,6 +1,0 @@
-{
-  "MyIS.Core.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\MyIS\\backend\\src\\Core.Application",
-  "MyIS.Core.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\MyIS\\backend\\src\\Core.Domain",
-  "MyIS.Core.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\MyIS\\backend\\src\\Core.Infrastructure",
-  "MyIS.Core.WebApi, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "d:\\MyIS\\backend\\src\\Core.WebApi"
-}
