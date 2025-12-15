@@ -58,7 +58,17 @@ dotnet ef database update --project backend/src/Core.Infrastructure/MyIS.Core.In
 
 Убедитесь, что строка подключения к PostgreSQL в `appsettings.Development.json` или `appsettings.Local.json` указывает на доступную БД, к которой у вас есть права на создание/изменение схемы.
 
-### 2.4. Открытие портов в Windows Firewall (для доступа из локальной сети)
+### 2.4. Локальная конфигурация `appsettings.Local.json`
+
+Backend ищет дополнительные настройки в файле `backend/src/Core.WebApi/appsettings.Local.json`. Чтобы подготовить рабочий экземпляр:
+
+1. Скопируйте шаблон [`backend/src/Core.WebApi/appsettings.Local.example.json`](backend/src/Core.WebApi/appsettings.Local.example.json:1) в файл `backend/src/Core.WebApi/appsettings.Local.json`.
+2. Обновите значение `ConnectionStrings:Default`, указав фактический хост, порт, БД и учётные данные PostgreSQL.
+3. Не коммитьте этот файл — он добавлен в `.gitignore`, так как содержит локальные секреты.
+
+Этот файл читается подсистемой [`C#.AdminDbController`](backend/src/Core.WebApi/Controllers/AdminDbController.cs:1) и используется при работе мастера `/db-setup` (эндоинты `db-config/test` и `db-config/apply`). При смене строки подключения через UI контроллер перезаписывает `appsettings.Local.json`, поэтому важно, чтобы файл существовал и был доступен для записи.
+
+### 2.5. Открытие портов в Windows Firewall (для доступа из локальной сети)
 
 Если вы планируете открывать доступ к стенду с других устройств в локальной сети (например, с ноутбука, телефона или тестового планшета), необходимо разрешить входящие подключения на порты backend и frontend в брандмауэре Windows.
 
