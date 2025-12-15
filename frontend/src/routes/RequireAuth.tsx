@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Button, Spin } from "antd";
+import { Alert, Button, Result, Spin } from "antd";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth, User } from "../auth/AuthContext";
 import { t } from "../core/i18n/t";
@@ -9,6 +9,7 @@ type AuthCheckState =
   | { kind: "loading" }
   | { kind: "authorized" }
   | { kind: "unauthorized" }
+  | { kind: "forbidden"; message?: string }
   | { kind: "error"; message: string };
 
 const mapUserDto = (dto: any): User => {
@@ -22,7 +23,7 @@ const mapUserDto = (dto: any): User => {
 
 const RequireAuth: React.FC = () => {
   const location = useLocation();
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const [state, setState] = useState<AuthCheckState>({ kind: "idle" });
 
   const fromLocation = (location.state as any)?.from;
@@ -47,7 +48,27 @@ const RequireAuth: React.FC = () => {
         if (cancelled) return;
 
         if (response.status === 401) {
+          setUser(null);
           setState({ kind: "unauthorized" });
+          return;
+        }
+
+        if (response.status === 403) {
+          setUser(null);
+          let message: string | undefined;
+          try {
+            const text = (await response.text()).trim();
+            message = text.length > 0 ? text : undefined;
+          } catch {
+            // игнорируем ошибки чтения тела ответа
+          }
+
+          setState({
+            kind: "forbidden",
+            message:
+              message ??
+              t("auth.check.forbidden.subtitle"),
+          });
           return;
         }
 
@@ -87,6 +108,29 @@ const RequireAuth: React.FC = () => {
       cancelled = true;
     };
   }, [user, setUser]);
+
+  if (state.kind === "forbidden") {
+    return (
+      <div style={{ padding: 24 }}>
+        <Result
+          status="403"
+          title={t("auth.check.forbidden.title")}
+          subTitle={state.message ?? t("auth.check.forbidden.subtitle")}
+          extra={
+            <Button
+              type="primary"
+              data-testid="auth-check-forbidden-login-button"
+              onClick={() => {
+                void logout();
+              }}
+            >
+              {t("auth.check.forbidden.goToLogin")}
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   if (user && (state.kind === "idle" || state.kind === "authorized")) {
     return <Outlet />;

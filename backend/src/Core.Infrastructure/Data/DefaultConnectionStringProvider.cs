@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Npgsql;
 
 namespace MyIS.Core.Infrastructure.Data;
 
@@ -41,8 +40,7 @@ public sealed class DefaultConnectionStringProvider : IConnectionStringProvider
                     IsConfigured = true,
                     ConnectionString = fromConfig,
                     Source = ConnectionStringSource.Configuration,
-                    RawSourceDescription = BuildSafeDescription(
-                        fromConfig,
+                    RawSourceDescription = BuildSourceDescription(
                         $"Configuration.GetConnectionString(\"{DefaultConnectionName}\")")
                 };
             }
@@ -137,8 +135,7 @@ public sealed class DefaultConnectionStringProvider : IConnectionStringProvider
                 IsConfigured = true,
                 ConnectionString = connectionString,
                 Source = ConnectionStringSource.AppSettingsLocal,
-                RawSourceDescription = BuildSafeDescription(
-                    connectionString,
+                RawSourceDescription = BuildSourceDescription(
                     "appsettings.Local.json: ConnectionStrings:Default")
             };
         }
@@ -155,20 +152,8 @@ public sealed class DefaultConnectionStringProvider : IConnectionStringProvider
         }
     }
 
-    private static string BuildSafeDescription(string connectionString, string prefix)
+    private static string BuildSourceDescription(string prefix)
     {
-        try
-        {
-            var builder = new NpgsqlConnectionStringBuilder(connectionString);
-
-            // Формируем безопасное описание без пароля / Secret'ов
-            return
-                $"{prefix} (Host={builder.Host}; Port={builder.Port}; Database={builder.Database}; Username={builder.Username}; SSL Mode={builder.SslMode}; Timeout={builder.Timeout}; Pooling={builder.Pooling})";
-        }
-        catch
-        {
-            // В случае, если строка не парсится — не падаем и не светим её целиком
-            return $"{prefix} (unparsed connection string)";
-        }
+        return $"{prefix} (value hidden)";
     }
 }

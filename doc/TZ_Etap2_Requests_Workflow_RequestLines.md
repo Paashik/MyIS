@@ -144,6 +144,7 @@ public class RequestTransition
 - NeedByDate;
 - SupplierName / SupplierContact (как текст);
 - ExternalRowReferenceId (для связи с Компонент-2020).
+  Детализированная схема доступа к объектам Компонент‑2020, которой следует придерживаться при работе с этими ссылками, приведена в [Component2020_Access_schema_mermaid.md](../.kilocode/rules/Component2020_Access_schema_mermaid.md).
 
 Поля для связи с `PurchaseOrder` можно оставить на будущее (nullable, без использования).
 

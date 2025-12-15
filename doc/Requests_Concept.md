@@ -389,7 +389,7 @@ CREATE INDEX ix_request_comments_request ON requests.request_comments(request_id
   - `warehouse` (складские операции),
   - `procurement` (строки заказов поставщикам).
 
-- `ExternalReferenceId` и `ExternalRowReferenceId` позволяют интегрировать MyIS с Компонент-2020 и другими внешними системами без нарушения внутренней нормализации модели.
+- `ExternalReferenceId` и `ExternalRowReferenceId` позволяют интегрировать MyIS с Компонент-2020 и другими внешними системами без нарушения внутренней нормализации модели. Конкретные уровни доступа к объектам Компонент‑2020, которые следует учитывать при проектировании интеграции, описаны в [Component2020_Access_schema_mermaid.md](../.kilocode/rules/Component2020_Access_schema_mermaid.md).
 
 Данный документ является базой для:
 - ТЗ Этапа 2 по Requests (workflow + строки);

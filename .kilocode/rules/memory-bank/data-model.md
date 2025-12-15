@@ -16,6 +16,7 @@
 Одна БД PostgreSQL (например, *myis_db*), схемы по доменам:
 
 - `core` — пользователи, роли, измерения, атрибуты, файлы.
+- `org` — сотрудники и организационные сущности (базовый HR-контур).
 - `mdm` — номенклатура и классификация (`Item`, `ItemRevision` и т.п.).
 - `engineering` — изделия, BOM, КД, ревизии.
 - `technology` — ТП, маршруты, операции, рабочие центры, оборудование.
@@ -58,14 +59,20 @@
 - `core.UnitOfMeasure` — единицы измерения:
   - `Id`, `Code`, `Name`, `Dimension`.
 
-### 4.2. mdm (Master Data)
+### 4.2. org
+
+- `org.Employee` — сотрудники подразделения (`backend/src/Core.Domain/Organization/Employee.cs:1`):
+  - `Id`, `FullName`, `Email`, `Phone`, `Notes`, `IsActive`, `CreatedAt`, `UpdatedAt`;
+  - таблица `org.employees` используется модулем Settings для ведения справочника сотрудников и связана с административными use case’ами (`backend/src/Core.Application/Security/Handlers/Admin/GetAdminEmployeesHandler.cs:1`).
+
+### 4.3. mdm (Master Data)
 
 - `mdm.Item` — номенклатура (компонент, материал, узел, изделие, услуга):
   - `Id`, `Code`, `Name`, `ItemType`, `DefaultUoMId`, `IsStocked`, `IsActive`.
 - `mdm.ItemRevision` — ревизия номенклатуры:
   - `Id`, `ItemId`, `RevisionCode`, `Status`, `EffectiveFrom`, `EffectiveTo`, `CreatedAt`, `CreatedBy`.
 
-### 4.3. engineering
+### 4.4. engineering
 
 - `engineering.Product` — изделие (часто ссылка 1:1 на `Item` определённого типа).
 - `engineering.ProductRevision` — ревизия изделия:
@@ -75,7 +82,7 @@
   - `BOMRevision`: `Id`, `BOMHeaderId`, `RevisionCode`, `Status`, `CreatedAt`, `CreatedBy`.
   - `BOMItem`: `Id`, `BOMRevisionId`, `ComponentItemRevisionId`, `QuantityValue`, `QuantityUoMId`, `IsOptional`, `Notes`.
 
-### 4.4. technology
+### 4.5. technology
 
 - `TechProcess` / `TechProcessRevision` — технологические процессы и их ревизии.
 - `Route` / `RouteOperation` — маршруты и операции:
@@ -83,14 +90,14 @@
   - `RouteOperation`: `Id`, `RouteId`, `Sequence`, `OperationTypeId`, `WorkCenterId`, `EquipmentId`, `PlannedDurationMinutes`.
 - `WorkCenter`, `Equipment` — рабочие центры и оборудование.
 
-### 4.5. warehouse
+### 4.6. warehouse
 
 - `Warehouse` — склады (`Id`, `Code`, `Name`).
 - `Location` — ячейки/зоны склада (`Id`, `WarehouseId`, `Code`, `Name`).
 - `StockItem` — агрегированная запись по запасам (`ItemRevisionId`, `WarehouseId`, количество + UoM).
 - `StockBatch` — партии и серийные номера (`StockItemId`, `BatchNumber`, `SerialNumber`, даты).
 
-### 4.6. requests
+### 4.7. requests
 
 - `Request` — универсальная заявка:
   - `Id`, `RequestTypeId`, `StatusId`, `Title`, `Description`, `CreatedBy`, `CreatedAt`, `DueDate`, `RelatedEntityType`, `RelatedEntityId`.
@@ -98,6 +105,8 @@
 - `RequestStatus` — статусы заявок (`Id`, `Code`, `Name`).
 
 Подробнее о домене Requests (типах заявок, структуре агрегата, связях с другими доменами, интеграции и инвариантах) см. специализированный конспект [`requests.md`](.kilocode/rules/memory-bank/requests.md:1).
+
+Справочники Requests (`request_types`, `request_statuses`, `request_transitions`) управляются через модуль Settings (`frontend/src/modules/settings/requests/dictionaries/pages/RequestWorkflowSettingsPage.tsx:1`, `backend/src/Core.Application/Requests/Handlers/Admin/ReplaceAdminRequestWorkflowTransitionsHandler.cs:1`), что позволяет поддерживать workflow без правок кода.
 
 Остальные домены (`customers`, `production`, `procurement`, `costing`, `integration`) подробно раскрыты в исходном документе и должны использоваться оттуда при проектировании.
 

@@ -12,11 +12,14 @@ namespace MyIS.Core.Application.Requests.Handlers;
 public class GetRequestTypesHandler
 {
     private readonly IRequestTypeRepository _requestTypeRepository;
+    private readonly IRequestsAccessChecker _accessChecker;
 
     public GetRequestTypesHandler(
-        IRequestTypeRepository requestTypeRepository)
+        IRequestTypeRepository requestTypeRepository,
+        IRequestsAccessChecker accessChecker)
     {
         _requestTypeRepository = requestTypeRepository ?? throw new ArgumentNullException(nameof(requestTypeRepository));
+        _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
     }
 
     public async Task<GetRequestTypesResult> Handle(
@@ -29,6 +32,11 @@ public class GetRequestTypesHandler
         {
             throw new ArgumentException("CurrentUserId is required.", nameof(query));
         }
+
+        await _accessChecker.EnsureCanReadReferenceDataAsync(
+            query.CurrentUserId,
+            nameof(RequestType),
+            cancellationToken);
 
         var types = await _requestTypeRepository.GetAllAsync(includeInactive: false, cancellationToken);
 

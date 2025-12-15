@@ -102,6 +102,9 @@ public class DefaultConnectionStringProviderTests
                 result.ConnectionString);
             Assert.NotNull(result.RawSourceDescription);
             Assert.Contains("appsettings.Local.json", result.RawSourceDescription);
+            Assert.Contains("value hidden", result.RawSourceDescription!, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("localdb", result.RawSourceDescription!, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Password=p", result.RawSourceDescription!, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -156,6 +159,9 @@ public class DefaultConnectionStringProviderTests
                 result.ConnectionString);
             Assert.NotNull(result.RawSourceDescription);
             Assert.Contains("Configuration.GetConnectionString", result.RawSourceDescription);
+            Assert.Contains("value hidden", result.RawSourceDescription!, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("configdb", result.RawSourceDescription!, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Password=p", result.RawSourceDescription!, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

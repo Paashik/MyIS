@@ -69,4 +69,13 @@ public interface IRequestsAccessChecker
         Guid currentUserId,
         RequestId requestId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Проверка права на чтение справочной информации модуля Requests (типы, статусы, workflow).
+    /// referenceDataScope используется только для логов/аудита и может содержать произвольный код справочника.
+    /// </summary>
+    Task EnsureCanReadReferenceDataAsync(
+        Guid currentUserId,
+        string referenceDataScope,
+        CancellationToken cancellationToken);
 }

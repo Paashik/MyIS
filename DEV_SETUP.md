@@ -1,13 +1,13 @@
 # Локальная разработка и запуск стенда (backend + frontend)
 
-Этот файл описывает, как развернуть и запустить проект из репозитория [`d:/MyIS`](./): backend (.NET) и frontend (React 18 + Vite), с поддержкой автоматического перезапуска и доступом по IP в локальной сети.
+Этот файл описывает, как развернуть и запустить проект из репозитория [`d:/MyIS`](./): backend (.NET) и frontend (React 18 + Vite), с поддержкой автоматического перезапуска и доступом по IP в локальной сети. Для тестовых/боевых сценариев используйте эксплуатационный [`RUNBOOK`](Doc/RUNBOOK.md:1).
 
 ## 1. Предварительные требования
 
 Перед первым запуском убедитесь, что на машине установлено следующее:
 
 - **.NET SDK 8.0+** — скачать можно с официального сайта .NET (`https://dotnet.microsoft.com/`).
-- **Node.js 18+** (вместе с npm) — нужен для сборки и запуска frontend (Vite dev server).
+- **Node.js 18+** (вместе с npm) — нужен для сборки и запуска frontend (Vite dev server). Проверьте доступность команд `node --version` и `npm --version` (рекомендуется npm 9+).
 - **PostgreSQL** — СУБД для работы backend. Можно использовать локальный экземпляр PostgreSQL или доступный в сети инстанс.
 - **Git** — рекомендуется для клонирования репозитория и управления версиями.
 
@@ -54,7 +54,7 @@ dotnet ef database update --project backend/src/Core.Infrastructure/MyIS.Core.In
 - создаст (или обновит) схему БД;
 - применит миграции, включая миграцию с созданием администратора по умолчанию `Admin`/`admin`.
 
-Создание администратора реализовано в миграции [`C#.SeedAdminUser`](backend/src/Core.Infrastructure/Migrations/20251210075627_SeedAdminUser.cs:1).
+Создание администратора реализовано в миграции [`SeedAdminUser`](backend/src/Core.Infrastructure/Migrations/20251210075627_SeedAdminUser.cs:1).
 
 Убедитесь, что строка подключения к PostgreSQL в `appsettings.Development.json` или `appsettings.Local.json` указывает на доступную БД, к которой у вас есть права на создание/изменение схемы.
 
@@ -63,10 +63,11 @@ dotnet ef database update --project backend/src/Core.Infrastructure/MyIS.Core.In
 Backend ищет дополнительные настройки в файле `backend/src/Core.WebApi/appsettings.Local.json`. Чтобы подготовить рабочий экземпляр:
 
 1. Скопируйте шаблон [`backend/src/Core.WebApi/appsettings.Local.example.json`](backend/src/Core.WebApi/appsettings.Local.example.json:1) в файл `backend/src/Core.WebApi/appsettings.Local.json`.
-2. Обновите значение `ConnectionStrings:Default`, указав фактический хост, порт, БД и учётные данные PostgreSQL.
-3. Не коммитьте этот файл — он добавлен в `.gitignore`, так как содержит локальные секреты.
+2. Заполните секцию `ConnectionStrings:Default`, указав хост, порт, базу, пользователя и пароль PostgreSQL. При необходимости добавьте локальные флаги логирования или других сервисов.
+3. Проверьте права на запись: мастер `/db-setup` обновляет файл при вызове `POST /api/admin/db-config/apply`.
+4. Не коммитьте `appsettings.Local.json` — файл уже добавлен в `.gitignore` и хранит локальные секреты.
 
-Этот файл читается подсистемой [`C#.AdminDbController`](backend/src/Core.WebApi/Controllers/AdminDbController.cs:1) и используется при работе мастера `/db-setup` (эндоинты `db-config/test` и `db-config/apply`). При смене строки подключения через UI контроллер перезаписывает `appsettings.Local.json`, поэтому важно, чтобы файл существовал и был доступен для записи.
+Файл читается подсистемой [`AdminDbController`](backend/src/Core.WebApi/Controllers/AdminDbController.cs:1) и используется при работе мастера `/db-setup` (эндоинты `db-config/test` и `db-config/apply`). При смене строки подключения через UI контроллер перезаписывает `appsettings.Local.json`, поэтому важно, чтобы файл существовал и был доступен для записи. Для тестовых и промышленных окружений действуют отдельные правила, описанные в [`RUNBOOK`](Doc/RUNBOOK.md:1).
 
 ### 2.5. Открытие портов в Windows Firewall (для доступа из локальной сети)
 
@@ -83,7 +84,7 @@ netsh advfirewall firewall add rule name="MyIS Frontend 5173" dir=in action=allo
 
 ## 3. Запуск стенда для разработки
 
-Для удобного одновременного запуска backend и frontend используется скрипт [`dev.cmd`](dev.cmd:1) в корне репозитория.
+Для удобного одновременного запуска backend и frontend используется скрипт [`dev.cmd`](dev.cmd:1) в корне репозитория. Для тестовых/боевых окружений применяются релизные шаги из [`RUNBOOK`](Doc/RUNBOOK.md:1).
 
 ### 3.1. Запуск dev-стенда
 
@@ -153,7 +154,7 @@ ipconfig
 - применяет необходимые миграции к указанной БД;
 - после успешного применения позволяет войти в приложение под учётной записью администратора `Admin`/`admin` уже в новой базе.
 
-Данный функционал реализован в контроллере [`C#.AdminDbController`](backend/src/Core.WebApi/Controllers/AdminDbController.cs:1).
+Данный функционал реализован в контроллере [`AdminDbController`](backend/src/Core.WebApi/Controllers/AdminDbController.cs:1).
 
 ## 6. Отладка и перезапуск
 
@@ -166,3 +167,19 @@ ipconfig
   - если frontend упал или завис — аналогично закройте окно «MyIS Frontend» и снова выполните [`dev.cmd`](dev.cmd:1).
 
 При необходимости можно запускать backend и frontend вручную (без [`dev.cmd`](dev.cmd:1)), используя команды из самого скрипта, однако для повседневной разработки достаточно один раз настроить окружение и затем пользоваться [`dev.cmd`](dev.cmd:1) для быстрого старта обоих процессов.
+
+## 7. Сборка и тесты
+
+- **Backend**:
+  - Сборка: `dotnet build MyIS.sln -c Debug` (или `-c Release`).
+  - Тесты: `dotnet test MyIS.sln` — запускает все доступные unit/integration-тесты .NET.
+- **Frontend**:
+  - Проверка типов и базовая валидация: `npm run lint` или `npm run check` (обе команды выполняют `tsc --noEmit`).
+  - Сборка: `npm run build` — компилирует TypeScript (`tsc --noEmit`) и выполняет `vite build`.
+  - Просмотр собранной версии: `npm run preview -- --host 0.0.0.0 --port 4173`.
+
+Расширенные Release-процедуры, публикации артефактов и эксплуатационные чек-листы приведены в [`RUNBOOK`](Doc/RUNBOOK.md:1).
+
+## 8. Автоматические проверки (CI)
+
+Все обязательные проверки (backend build/test и frontend lint/type-check/build) запускаются автоматически в GitHub Actions через workflow [`ci.yml`](.github/workflows/ci.yml:1). Он стартует на `push` и `pull_request` в ветку `master` и выполняет `dotnet restore/build/test`, а затем `npm ci`, `npm run lint`, `npm run check` и `npm run build`. Перед созданием Pull Request рекомендуется выполнить те же команды локально, чтобы избежать отказа пайплайна.

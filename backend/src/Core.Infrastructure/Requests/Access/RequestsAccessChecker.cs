@@ -104,4 +104,19 @@ public sealed class RequestsAccessChecker : IRequestsAccessChecker
         // TODO: в будущем можно запретить комментарии для некоторых статусов/ролей.
         return Task.CompletedTask;
     }
+
+    public Task EnsureCanReadReferenceDataAsync(
+        Guid currentUserId,
+        string referenceDataScope,
+        CancellationToken cancellationToken)
+    {
+        EnsureAuthenticated(currentUserId);
+        if (string.IsNullOrWhiteSpace(referenceDataScope))
+        {
+            throw new ArgumentException("Reference data scope must be provided.", nameof(referenceDataScope));
+        }
+
+        // TODO: привязать к permissions (например, Requests.ViewReferenceData) на следующих итерациях.
+        return Task.CompletedTask;
+    }
 }

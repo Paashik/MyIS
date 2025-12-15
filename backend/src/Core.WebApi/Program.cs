@@ -3,9 +3,12 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using MyIS.Core.Application.DependencyInjection;
 using MyIS.Core.Infrastructure.Data;
 using MyIS.Core.Infrastructure.DependencyInjection;
+using MyIS.Core.WebApi.Middleware;
  
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,6 +96,28 @@ builder.Services.AddAuthorization(options =>
 var app = builder.Build();
 
 
+// Логируем источник строки подключения на старте, без раскрытия секретов
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+var connectionStringProvider = app.Services.GetRequiredService<IConnectionStringProvider>();
+var connectionInfo = connectionStringProvider.GetDefaultConnection();
+var description = connectionInfo.RawSourceDescription ?? "Connection string info is unavailable.";
+
+if (connectionInfo.IsConfigured && !string.IsNullOrWhiteSpace(connectionInfo.ConnectionString))
+{
+    startupLogger.LogInformation(
+        "Connection string source: {Source}. Details: {Description}",
+        connectionInfo.Source,
+        description);
+}
+else
+{
+    startupLogger.LogWarning(
+        "Connection string is not configured. Source: {Source}. Details: {Description}",
+        connectionInfo.Source,
+        description);
+}
+
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -105,6 +130,7 @@ app.UseHttpsRedirection();
 // ВАЖНО: аутентификация и авторизация
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<UnauthorizedAccessExceptionMiddleware>();
 
 // Маршрутизация контроллеров
 app.MapControllers();

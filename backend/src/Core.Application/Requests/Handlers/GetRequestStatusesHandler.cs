@@ -33,8 +33,11 @@ public class GetRequestStatusesHandler
             throw new ArgumentException("CurrentUserId is required.", nameof(query));
         }
 
-        // На Iteration 1 AccessChecker может реализовывать упрощённую логику либо быть no-op,
-        // но точка расширения оставлена.
+        await _accessChecker.EnsureCanReadReferenceDataAsync(
+            query.CurrentUserId,
+            nameof(RequestStatus),
+            cancellationToken);
+
         var statuses = await _requestStatusRepository.GetAllAsync(includeInactive: false, cancellationToken);
 
         var dtos = new List<RequestStatusDto>(statuses.Count);

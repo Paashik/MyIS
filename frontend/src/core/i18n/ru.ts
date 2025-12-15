@@ -57,6 +57,10 @@ export const ru = {
   "auth.check.error.title": "Ошибка аутентификации",
   "auth.check.error.http": "Ошибка при проверке аутентификации (HTTP {status})",
   "auth.check.error.failed": "Не удалось проверить аутентификацию: {message}",
+  "auth.check.forbidden.title": "Недостаточно прав",
+  "auth.check.forbidden.subtitle":
+    "У вас нет доступа к этому разделу. Обратитесь к администратору системы.",
+  "auth.check.forbidden.goToLogin": "Вернуться ко входу",
 
   "db.status.loading": "Проверка подключения к базе данных...",
   "db.status.error.title": "Ошибка при проверке статуса базы данных",

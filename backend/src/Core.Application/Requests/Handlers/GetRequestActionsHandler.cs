@@ -70,9 +70,9 @@ public sealed class GetRequestActionsHandler
 
                 allowed.Add(t.ActionCode);
             }
-            catch
+            catch (UnauthorizedAccessException)
             {
-                // ignore
+                // Пользователь не имеет прав на действие — просто не добавляем его в список.
             }
         }
 

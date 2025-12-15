@@ -1,6 +1,7 @@
 # Build outputs
 **/bin/
 **/obj/
+**/dist/
 publish/
 coverage/
 
@@ -24,7 +25,8 @@ pnpm-debug.log*
 .vscode/
 
 # Frontend artifacts
-frontend/node_modules/
+node_modules/
+**/node_modules/
 frontend/dist/
 
 # Local configuration (not committed)
