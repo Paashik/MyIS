@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Button, Descriptions, Spin, Tabs, Typography, Result, Space } from "antd";
+import { Alert, Button, Descriptions, Divider, Result, Spin, Table, Tabs, Typography } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   RequestCommentDto,
@@ -18,6 +18,7 @@ import { RequestCommentsPanel } from "../components/RequestCommentsPanel";
 import { RequestBodyRenderer } from "../components/RequestBodyRenderer";
 import { useCan } from "../../../core/auth/permissions";
 import { t } from "../../../core/i18n/t";
+import { CommandBar } from "../../../components/ui/CommandBar";
 
 const { Title, Text } = Typography;
 
@@ -43,7 +44,10 @@ export const RequestDetailsPage: React.FC = () => {
     const rawType = sp.get("type");
     const type = ((rawType || "").trim() || "all");
 
-    return { direction, type };
+    const rawOnlyMine = (sp.get("onlyMine") || "").trim().toLowerCase();
+    const onlyMine = rawOnlyMine === "1" || rawOnlyMine === "true";
+
+    return { direction, type, onlyMine };
   })();
 
   const [request, setRequest] = useState<RequestDto | null>(null);
@@ -161,13 +165,17 @@ export const RequestDetailsPage: React.FC = () => {
   };
 
   const handleBackToList = () => {
-    navigate(`/requests/${encodeURIComponent(returnContext.direction)}?type=${encodeURIComponent(returnContext.type)}`);
+    const sp = new URLSearchParams();
+    sp.set("direction", returnContext.direction);
+    sp.set("type", returnContext.type);
+    if (returnContext.onlyMine) sp.set("onlyMine", "1");
+    navigate(`/requests/journal?${sp.toString()}`);
   };
 
   const handleEdit = () => {
     if (!id) return;
     navigate(
-      `/requests/${encodeURIComponent(id)}/edit?direction=${encodeURIComponent(returnContext.direction)}&type=${encodeURIComponent(returnContext.type)}`
+      `/requests/${encodeURIComponent(id)}/edit?direction=${encodeURIComponent(returnContext.direction)}&type=${encodeURIComponent(returnContext.type)}${returnContext.onlyMine ? "&onlyMine=1" : ""}`
     );
   };
 
@@ -252,29 +260,41 @@ export const RequestDetailsPage: React.FC = () => {
 
   return (
     <div data-testid="request-details-page">
-      <Space
-        style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}
-        align="center"
-      >
-        <Title level={2} style={{ margin: 0 }}>
-          {request.title}
-        </Title>
-
-        <Space>
-          {canEdit && (
-            <Button
-              data-testid="request-details-edit-button"
-              onClick={handleEdit}
-              type="primary"
-            >
-              {t("common.actions.edit")}
+      <CommandBar
+        left={
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <Title level={3} style={{ margin: 0 }}>
+                {request.requestTypeCode}{" "}
+                <Text type="secondary" style={{ fontSize: 14 }}>
+                  <Text code>{request.id}</Text>
+                </Text>
+              </Title>
+              <RequestStatusBadge
+                statusCode={request.requestStatusCode}
+                statusName={request.requestStatusName}
+              />
+            </div>
+            <Text style={{ fontSize: 16 }}>{request.title}</Text>
+          </div>
+        }
+        right={
+          <>
+            {canEdit && (
+              <Button
+                data-testid="request-details-edit-button"
+                onClick={handleEdit}
+                type="primary"
+              >
+                {t("common.actions.edit")}
+              </Button>
+            )}
+            <Button data-testid="request-details-back-button" onClick={handleBackToList}>
+              {t("requests.details.actions.backToList")}
             </Button>
-          )}
-          <Button data-testid="request-details-back-button" onClick={handleBackToList}>
-            {t("requests.details.actions.backToList")}
-          </Button>
-        </Space>
-      </Space>
+          </>
+        }
+      />
 
       <div style={{ marginBottom: 24 }}>
         <Descriptions column={2} bordered size="small">
@@ -324,11 +344,11 @@ export const RequestDetailsPage: React.FC = () => {
 
       <Tabs
         data-testid="request-details-tabs"
-        defaultActiveKey="details"
+        defaultActiveKey="general"
         items={[
           {
-            key: "details",
-            label: t("requests.details.tabs.details"),
+            key: "general",
+            label: t("requests.card.tabs.general"),
             children: (
               <RequestBodyRenderer
                 mode="details"
@@ -338,8 +358,71 @@ export const RequestDetailsPage: React.FC = () => {
             ),
           },
           {
+            key: "composition",
+            label: t("requests.card.tabs.composition"),
+            children: (
+              <>
+                <Table
+                  data-testid="request-details-lines-table"
+                  rowKey={(r: any) => r.id}
+                  size="small"
+                  pagination={false}
+                  columns={[
+                    { title: "#", dataIndex: "lineNo", key: "lineNo", width: 60 },
+                    {
+                      title: t("requests.supply.lines.columns.description"),
+                      dataIndex: "description",
+                      key: "description",
+                      render: (v: string | null | undefined, r: any) =>
+                        v || r.externalItemCode || "",
+                    },
+                    {
+                      title: t("requests.supply.lines.columns.quantity"),
+                      dataIndex: "quantity",
+                      key: "quantity",
+                      width: 120,
+                    },
+                    {
+                      title: t("requests.supply.lines.columns.needByDate"),
+                      dataIndex: "needByDate",
+                      key: "needByDate",
+                      width: 180,
+                      render: (value?: string | null) => {
+                        if (!value) return <Text type="secondary">{t("requests.details.value.notSet")}</Text>;
+                        const date = new Date(value);
+                        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                      },
+                    },
+                    {
+                      title: t("requests.supply.lines.columns.supplierName"),
+                      dataIndex: "supplierName",
+                      key: "supplierName",
+                      width: 220,
+                    },
+                    {
+                      title: t("requests.supply.lines.columns.supplierContact"),
+                      dataIndex: "supplierContact",
+                      key: "supplierContact",
+                      width: 220,
+                    },
+                  ] as any}
+                  dataSource={request.lines ?? []}
+                />
+              </>
+            ),
+          },
+          {
+            key: "documents",
+            label: t("requests.card.tabs.documents"),
+            children: (
+              <Typography.Text type="secondary">
+                {t("requests.card.tabs.documents.empty")}
+              </Typography.Text>
+            ),
+          },
+          {
             key: "history",
-            label: t("requests.details.tabs.history"),
+            label: t("requests.card.tabs.history"),
             children: (
               <>
                 {historyError && (
@@ -353,20 +436,35 @@ export const RequestDetailsPage: React.FC = () => {
                   />
                 )}
                 <RequestHistoryTimeline items={history} loading={historyLoading} />
+
+                <Divider />
+
+                <RequestCommentsPanel
+                  comments={comments}
+                  loading={commentsLoading}
+                  adding={addingComment}
+                  error={commentsError}
+                  onAddComment={handleAddComment}
+                />
               </>
             ),
           },
           {
-            key: "comments",
-            label: t("requests.details.tabs.comments"),
+            key: "tasks",
+            label: t("requests.card.tabs.tasks"),
             children: (
-              <RequestCommentsPanel
-                comments={comments}
-                loading={commentsLoading}
-                adding={addingComment}
-                error={commentsError}
-                onAddComment={handleAddComment}
-              />
+              <Typography.Text type="secondary">
+                {t("requests.card.tabs.tasks.empty")}
+              </Typography.Text>
+            ),
+          },
+          {
+            key: "integrations",
+            label: t("requests.card.tabs.integrations"),
+            children: (
+              <Typography.Text type="secondary">
+                {t("requests.card.tabs.integrations.empty")}
+              </Typography.Text>
             ),
           },
         ]}

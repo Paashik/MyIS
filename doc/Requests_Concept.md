@@ -1,6 +1,6 @@
 # MyIS — Концепция модуля заявок (Requests) v1.0
 
-Файл: `Doc/Requests_Concept.md`  
+Файл: `doc/Requests_Concept.md`  
 Связан с документами:
 - *MyIS_Conceptual_Data_Model_v0.x*
 - *MyIS_Architecture_Core_Requirements.md*

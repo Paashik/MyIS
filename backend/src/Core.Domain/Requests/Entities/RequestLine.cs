@@ -1,5 +1,6 @@
 using System;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Mdm.ValueObjects;
 
 namespace MyIS.Core.Domain.Requests.Entities;
 
@@ -12,7 +13,7 @@ public class RequestLine
     public int LineNo { get; private set; }
 
     // Reference to MDM/Integration (v0.1: no strict FK)
-    public Guid? ItemId { get; private set; }
+    public ItemId? ItemId { get; private set; }
     public string? ExternalItemCode { get; private set; }
     public string? Description { get; private set; }
 
@@ -37,7 +38,7 @@ public class RequestLine
         RequestLineId id,
         RequestId requestId,
         int lineNo,
-        Guid? itemId,
+        ItemId? itemId,
         string? externalItemCode,
         string? description,
         decimal quantity,
@@ -79,7 +80,7 @@ public class RequestLine
     public static RequestLine Create(
         RequestId requestId,
         int lineNo,
-        Guid? itemId,
+        ItemId? itemId,
         string? externalItemCode,
         string? description,
         decimal quantity,

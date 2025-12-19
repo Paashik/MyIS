@@ -1,26 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Form, Input, Space, Table, Typography, message } from "antd";
+import { Alert, Button, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import Modal from "antd/es/modal";
+import { useNavigate } from "react-router-dom";
 
-import { t } from "../../../../core/i18n/t";
+import { CommandBar } from "../../../../components/ui/CommandBar";
 import { useCan } from "../../../../core/auth/permissions";
-import { createAdminRole, getAdminRoles, updateAdminRole } from "../api/adminSecurityApi";
-import type { AdminRoleDto, CreateAdminRolePayload, UpdateAdminRolePayload } from "../api/types";
-
-type Mode = "create" | "edit";
+import { t } from "../../../../core/i18n/t";
+import { getAdminRoles } from "../api/adminSecurityApi";
+import type { AdminRoleDto } from "../api/types";
 
 export const RolesSettingsPage: React.FC = () => {
   const canEdit = useCan("Admin.Security.EditRoles");
+  const navigate = useNavigate();
 
   const [items, setItems] = useState<AdminRoleDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>("create");
-  const [editing, setEditing] = useState<AdminRoleDto | null>(null);
-  const [form] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -39,45 +34,6 @@ export const RolesSettingsPage: React.FC = () => {
     void load();
   }, [load]);
 
-  const openCreate = () => {
-    setMode("create");
-    setEditing(null);
-    form.resetFields();
-    setModalOpen(true);
-  };
-
-  const openEdit = (item: AdminRoleDto) => {
-    setMode("edit");
-    setEditing(item);
-    form.resetFields();
-    form.setFieldsValue({ code: item.code, name: item.name });
-    setModalOpen(true);
-  };
-
-  const onSubmit = async () => {
-    const values = await form.validateFields();
-    try {
-      if (mode === "create") {
-        const payload: CreateAdminRolePayload = {
-          code: values.code,
-          name: values.name,
-        };
-        await createAdminRole(payload);
-        message.success(t("common.actions.save"));
-      } else {
-        if (!editing) return;
-        const payload: UpdateAdminRolePayload = { name: values.name };
-        await updateAdminRole(editing.id, payload);
-        message.success(t("common.actions.save"));
-      }
-
-      setModalOpen(false);
-      await load();
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  };
-
   const columns: ColumnsType<AdminRoleDto> = useMemo(
     () => [
       {
@@ -94,103 +50,59 @@ export const RolesSettingsPage: React.FC = () => {
         title: t("settings.security.common.columns.actions"),
         key: "actions",
         render: (_, record) => (
-          <Space>
-            <Button
-              size="small"
-              onClick={() => openEdit(record)}
-              disabled={!canEdit}
-              data-testid={`settings-security-roles-edit-${record.id}`}
-            >
-              {t("common.actions.edit")}
-            </Button>
-          </Space>
+          <Button
+            size="small"
+            onClick={() => navigate(`/administration/security/roles/${encodeURIComponent(record.id)}`)}
+            disabled={!canEdit}
+            data-testid={`administration-security-roles-open-${record.id}`}
+          >
+            {t("common.actions.edit")}
+          </Button>
         ),
       },
     ],
-    [canEdit]
+    [canEdit, navigate]
   );
 
   return (
-    <div>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        {t("settings.security.roles.title")}
-      </Typography.Title>
+    <div data-testid="administration-security-roles-journal">
+      <CommandBar
+        left={
+          <Typography.Title level={2} style={{ margin: 0 }}>
+            {t("settings.security.roles.title")}
+          </Typography.Title>
+        }
+        right={
+          <>
+            <Button onClick={() => void load()} data-testid="administration-security-roles-refresh">
+              {t("common.actions.refresh")}
+            </Button>
+            <Button
+              type="primary"
+              onClick={() => navigate("/administration/security/roles/new")}
+              disabled={!canEdit}
+              data-testid="administration-security-roles-create"
+            >
+              {t("common.actions.create")}
+            </Button>
+          </>
+        }
+      />
 
       {!canEdit && (
-        <Alert
-          type="warning"
-          showIcon
-          message={t("settings.forbidden")}
-          style={{ marginBottom: 12 }}
-        />
+        <Alert type="warning" showIcon message={t("settings.forbidden")} style={{ marginBottom: 12 }} />
       )}
 
-      {error && (
-        <Alert
-          type="error"
-          showIcon
-          message={error}
-          style={{ marginBottom: 12 }}
-        />
-      )}
-
-      <Space style={{ marginBottom: 12 }}>
-        <Button onClick={() => void load()} data-testid="settings-security-roles-refresh">
-          {t("common.actions.refresh")}
-        </Button>
-        <Button
-          type="primary"
-          onClick={openCreate}
-          disabled={!canEdit}
-          data-testid="settings-security-roles-create"
-        >
-          {t("common.actions.create")}
-        </Button>
-      </Space>
+      {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
 
       <Table
-        data-testid="settings-security-roles-table"
+        data-testid="administration-security-roles-table"
         rowKey={(r: AdminRoleDto) => r.id}
         loading={loading}
         columns={columns}
         dataSource={items}
         pagination={false}
       />
-
-      <Modal
-        open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        onOk={() => void onSubmit()}
-        okButtonProps={{
-          disabled: !canEdit,
-          "data-testid": "settings-security-roles-save",
-        }}
-        cancelButtonProps={{
-          "data-testid": "settings-security-roles-cancel",
-        }}
-        title={mode === "create" ? t("common.actions.create") : t("common.actions.edit")}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            label={t("settings.security.roles.columns.code")}
-            name="code"
-            rules={[{ required: true, message: "Введите код" }]}
-          >
-            <Input
-              disabled={mode === "edit"}
-              data-testid="settings-security-roles-form-code"
-            />
-          </Form.Item>
-
-          <Form.Item
-            label={t("settings.security.roles.columns.name")}
-            name="name"
-            rules={[{ required: true, message: "Введите название" }]}
-          >
-            <Input data-testid="settings-security-roles-form-name" />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

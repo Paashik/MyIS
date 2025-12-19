@@ -124,43 +124,43 @@ erDiagram
 
   %% Component — справочник компонентов
   Component {
-    autonumber ID PK
-    int32 Group FK
-    text(100) Name
-    int32 Body FK
-    int32 Manufact FK
-    int32 Store FK
-    text(200) Description
-    int32 PriceMethod
-    float PriceValue
-    type11 Photo
-    text(50) PartNumber
-    text(20) Code
-    int32 MinQty
-    int32 Multiple
-    int32 UnitID FK
-    text(200) DataSheet
-    int32 StatusID FK
-    int32 SymbolID FK
-    datetime DT
-    int32 UserID FK
-    int32 SParID FK
-    text(30) Val0
-    text(30) Val1
-    text(30) Val2
-    text(30) Val3
-    text(30) Val4
-    text(100) Val5
-    text(30) Marking
-    int32 BOMSection
-    text(50) QRCode
-    int32 Margin
-    text(255) URL
-    bool Hidden
-    text(255) AltURL
-    bool CanMeans
-    bool HaveDate
-    int32 ProviderID FK
+    autonumber ID PK %% Идентификатор
+    int32 Group FK %% Категория (на справочник Groups)
+    text(100) Name %% Наименование
+    int32 Body FK %% Ссылка на тип корпуса
+    int32 Manufact FK %% Ссылка на производителч
+    int32 Store FK %% Ссылка на место хранения
+    text(200) Description %% Описание компонента
+    int32 PriceMethod %% Метод формирования цены: Стандарт. наценка (0), Специальная наценка (1), фиксированная цена (3) 
+    float PriceValue %% Наценка
+    type11 Photo %% Бинарное поле для картинки
+    text(50) PartNumber %% Номер по каталогу производителя
+    text(20) Code %% Номенклатурный номер (уникальный инкрементный, может быть null)
+    int32 MinQty %% Минимальный запас
+    int32 Multiple %% Кратность заказа
+    int32 UnitID FK %% Ссылка на единицы измерения
+    text(200) DataSheet %% Ссылка на DataSheet
+    int32 StatusID FK %% Ссылка на статус жизненого цикла
+    int32 SymbolID FK %% Ссылка на условное графическое изображений для Altium
+    datetime DT %% ДАта последнего изменения
+    int32 UserID FK %% Сылка на пользователя последним изменившим.
+    int32 SParID FK %% Ссылка на название набора параметров
+    text(30) Val0 %% Параметр 1
+    text(30) Val1 %% Параметр 2
+    text(30) Val2 %% Параметр 3
+    text(30) Val3 %% Параметр 4
+    text(30) Val4 %% Параметр 5
+    text(100) Val5 %% Параметр 5
+    text(30) Marking %% Варианты маркировки
+    int32 BOMSection %% Раздел спецификации (по ЕСКД): Прочие (0), Стандартные (1), Материалы(3)
+    text(50) QRCode %% Данные для QR-кода
+    int32 Margin %% Технологический запас, %
+    text(255) URL %% Интернет ссылка
+    bool Hidden %% Архивный
+    text(255) AltURL %% Альтернативная ссылка
+    bool CanMeans %% Может служить средством производства
+    bool HaveDate %% Установлен срок годности
+    int32 ProviderID FK %% Приоритетный поставщик
   }
 
   %% Contacts — контактные лица
@@ -677,44 +677,44 @@ erDiagram
 
   %% Product — перечень изделий
   Product {
-    autonumber ID PK
-    int32 Parent
-    text(50) Name
-    text(100) Description
-    int32 PlateX
-    int32 PlateY
-    type11 Photo
-    int32 Plan
-    text(50) Project
-    int32 Height
-    text(255) Annex
-    int32 Qty
-    float Price
-    int32 Duration
-    int32 AssemblyTime
-    decimal Weight
-    text(100) Note
-    text(10) Prefix
-    int32 SNLen
-    int32 GroupID FK
-    int32 Kind
-    int32 Goods
-    int32 Own
-    int32 Blank
-    int32 MaterialID
-    decimal MaterialQty
-    int32 DetailID
-    int32 Warranty
-    int32 ProviderID
-    text(50) QRCode
-    int32 NeedSN
-    bool Hidden
-    text(50) PartNumber
-    longtext Prices
-    int32 MinQty
-    datetime DT
-    int32 UserID FK
-    int32 DeptID FK
+    autonumber ID PK  %% Идентификатор
+    int32 Parent  %% Родитель
+    text(50) Name  %% Обозначение
+    text(100)  %% Description Наименование
+    int32 PlateX  %% Длина
+    int32 PlateY  %% Ширина
+    type11 Photo  %% бинарное поле для картинки
+    int32 Plan  %% План выпуска
+    text(50) Project %% Проект
+    int32 Height %% Высота
+    text(255) Annex  %% Ссылка на файл
+    int32 Qty 
+    float Price %% Цена базовая
+    int32 Duration %% Срок изготовления
+    int32 AssemblyTime %% Время сборки
+    decimal Weight %% Масса
+    text(100) Note %% Примечание
+    text(10) Prefix %% Префикс серийного номера
+    int32 SNLen %% Число цифр серийного номера
+    int32 GroupID FK %% Категория (на справочник Groups)
+    int32 Kind %% Вид издели: сборочная единица (0), деталь (1), комплекс (2)
+    int32 Goods %% Назначение: товарная продукция (0), полуфабрикат (1)
+    int32 Own %% Способ получения: Собств. производство (0), покуп. изд. (1), покуп. с доработкой (2), покуп. с ДС и доработкой (3), Не изготавливается (4), покуп. с ДС
+    int32 Blank %% Загатовка: Материал (0), деталь-загатовка(1)
+    int32 MaterialID %% Ссылка на материал на справочник компонентов (component)
+    decimal MaterialQty %% Кол. материала
+    int32 DetailID %% Ссылка на деталь-заготовку на справочник компонентов (component)
+    int32 Warranty %% Гарантийный срок
+    int32 ProviderID %% Ссылка на поставщика
+    text(50) QRCode %% Данные для QR-кода
+    int32 NeedSN %% Нумерация изделий: Нет (0), Единая (1), Особая (2)
+    bool Hidden %% Снято с производства (1)
+    text(50) PartNumber %% Артикул
+    longtext Prices %% Оптовые цены
+    int32 MinQty %% Минимальное запас
+    datetime DT %% Время последнего изменения
+    int32 UserID FK %% Кто изменял
+    int32 DeptID FK %% Ссылка на участок изготавления (на производственную структуру)
   }
 
   %% ProductStruct — структура изделий

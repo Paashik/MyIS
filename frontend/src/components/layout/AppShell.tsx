@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Layout,
   Menu,
@@ -7,6 +7,8 @@ import {
   Dropdown,
   Space,
   Button,
+  Input,
+  Badge,
   theme,
 } from "antd";
 import type { MenuProps } from "antd";
@@ -22,6 +24,10 @@ import {
   DatabaseOutlined,
   ApartmentOutlined,
 } from "@ant-design/icons";
+import BellOutlined from "@ant-design/icons/BellOutlined";
+import BookOutlined from "@ant-design/icons/BookOutlined";
+import SafetyCertificateOutlined from "@ant-design/icons/SafetyCertificateOutlined";
+import SettingOutlined from "@ant-design/icons/SettingOutlined";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { t } from "../../core/i18n/t";
@@ -37,40 +43,68 @@ const AppShell: React.FC = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
 
-  const canSeeSettings = useCan("Admin.Settings.Access");
+  const canSeeReferences =
+    useCan("Admin.Requests.EditTypes") ||
+    useCan("Admin.Requests.EditStatuses") ||
+    useCan("Admin.Integration.View");
+  const canSeeIntegrations = useCan("Admin.Integration.View");
+  const canSeeAdministration =
+    useCan("Admin.Settings.Access") ||
+    useCan("Admin.Security.EditEmployees") ||
+    useCan("Admin.Security.EditUsers") ||
+    useCan("Admin.Security.EditRoles") ||
+    useCan("Admin.Requests.EditWorkflow") ||
+    useCan("Admin.Integration.View") ||
+    useCan("Admin.Integration.Execute");
 
   const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   const selectedKey = useMemo(() => {
-    // Requests: подсветка именно /requests/incoming или /requests/outgoing (см. Iteration 3.2)
-    if (location.pathname.startsWith("/requests/outgoing")) return "/requests/outgoing";
-    if (location.pathname.startsWith("/requests/incoming")) return "/requests/incoming";
-    if (location.pathname.startsWith("/requests")) return "/requests";
-    if (location.pathname.startsWith("/settings/requests/types"))
-      return "/settings/requests/types";
-    if (location.pathname.startsWith("/settings/requests/statuses"))
-      return "/settings/requests/statuses";
-    if (location.pathname.startsWith("/settings/requests/workflow"))
-      return "/settings/requests/workflow";
-    if (location.pathname.startsWith("/settings/security/employees"))
-      return "/settings/security/employees";
-    if (location.pathname.startsWith("/settings/security/users"))
-      return "/settings/security/users";
-    if (location.pathname.startsWith("/settings/security/roles"))
-      return "/settings/security/roles";
-    if (location.pathname.startsWith("/settings")) return "/settings";
+    if (location.pathname.startsWith("/requests")) {
+      const sp = new URLSearchParams(location.search);
+      const onlyMine = (sp.get("onlyMine") || "").trim().toLowerCase();
+      if (onlyMine === "1" || onlyMine === "true") return "/requests/my";
+      return "/requests/journal";
+    }
+
+    if (location.pathname.startsWith("/references/requests/types"))
+      return "/references/requests/types";
+    if (location.pathname.startsWith("/references/requests/statuses"))
+      return "/references/requests/statuses";
+    if (location.pathname.startsWith("/references/mdm/")) {
+      const parts = location.pathname.split("/").filter(Boolean);
+      const dict = parts.length >= 3 ? parts[2] : "";
+      if (dict) return `/references/mdm/${dict}`;
+      return "/references";
+    }
+    if (location.pathname.startsWith("/references")) return "/references";
+
+    if (location.pathname.startsWith("/administration/security/employees"))
+      return "/administration/security/employees";
+    if (location.pathname.startsWith("/administration/security/users"))
+      return "/administration/security/users";
+    if (location.pathname.startsWith("/administration/security/roles"))
+      return "/administration/security/roles";
+    if (location.pathname.startsWith("/administration/mdm")) return "/administration/mdm";
+    if (location.pathname.startsWith("/administration/requests/workflow"))
+      return "/administration/requests/workflow";
+    if (location.pathname.startsWith("/administration/integrations/component2020"))
+      return "/administration/integrations/component2020";
+    if (location.pathname.startsWith("/administration/system/paths"))
+      return "/administration/system/paths";
+    if (location.pathname.startsWith("/administration")) return "/administration";
+
     if (location.pathname.startsWith("/customers")) return "/customers";
     if (location.pathname.startsWith("/procurement")) return "/procurement";
     if (location.pathname.startsWith("/production")) return "/production";
     if (location.pathname.startsWith("/warehouse")) return "/warehouse";
     if (location.pathname.startsWith("/engineering")) return "/engineering";
     if (location.pathname.startsWith("/technology")) return "/technology";
+    if (location.pathname.startsWith("/quality")) return "/quality";
     return "/";
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
-  // Авто-раскрытие веток меню при смене раздела, при этом пользовательские
-  // раскрытия внутри раздела сохраняются, пока не меняется pathname.
-  React.useEffect(() => {
+  useEffect(() => {
     if (collapsed) {
       setOpenKeys([]);
       return;
@@ -81,18 +115,13 @@ const AppShell: React.FC = () => {
       return;
     }
 
-    if (location.pathname.startsWith("/settings/requests")) {
-      setOpenKeys(["/settings", "/settings/requests"]);
+    if (location.pathname.startsWith("/references")) {
+      setOpenKeys(["/references"]);
       return;
     }
 
-    if (location.pathname.startsWith("/settings/security")) {
-      setOpenKeys(["/settings", "/settings/security"]);
-      return;
-    }
-
-    if (location.pathname.startsWith("/settings")) {
-      setOpenKeys(["/settings"]);
+    if (location.pathname.startsWith("/administration")) {
+      setOpenKeys(["/administration"]);
       return;
     }
 
@@ -111,21 +140,11 @@ const AppShell: React.FC = () => {
         icon: <DatabaseOutlined />,
         label: t("nav.requests"),
         children: [
-          {
-            key: "/requests/incoming",
-            label: t("nav.requests.incoming"),
-          },
-          {
-            key: "/requests/outgoing",
-            label: t("nav.requests.outgoing"),
-          },
+          { key: "/requests/journal", label: t("nav.requests.journal") },
+          { key: "/requests/my", label: t("nav.requests.my") },
         ],
       },
-      {
-        key: "/customers",
-        icon: <TeamOutlined />,
-        label: t("nav.customers"),
-      },
+      { key: "/customers", icon: <TeamOutlined />, label: t("nav.customers") },
       {
         key: "/procurement",
         icon: <ShoppingCartOutlined />,
@@ -136,92 +155,93 @@ const AppShell: React.FC = () => {
         icon: <DeploymentUnitOutlined />,
         label: t("nav.production"),
       },
+      { key: "/warehouse", icon: <ApartmentOutlined />, label: t("nav.warehouse") },
+      { key: "/engineering", icon: <BuildOutlined />, label: t("nav.engineering") },
+      { key: "/technology", icon: <BuildOutlined />, label: t("nav.technology") },
       {
-        key: "/warehouse",
-        icon: <ApartmentOutlined />,
-        label: t("nav.warehouse"),
-      },
-      {
-        key: "/engineering",
-        icon: <BuildOutlined />,
-        label: t("nav.engineering"),
-      },
-      {
-        key: "/technology",
-        icon: <BuildOutlined />,
-        label: t("nav.technology"),
+        key: "/quality",
+        icon: <SafetyCertificateOutlined />,
+        label: t("nav.quality"),
       },
     ];
 
-    if (canSeeSettings) {
+    if (canSeeReferences) {
       items.push({
-        key: "/settings",
-        icon: <BuildOutlined />,
-        label: t("nav.settings"),
+        key: "/references",
+        icon: <BookOutlined />,
+        label: t("nav.references"),
         children: [
-          {
-            key: "/settings/requests",
-            label: t("nav.settings.requests"),
-            children: [
-              {
-                key: "/settings/requests/types",
-                label: t("nav.settings.requests.types"),
-              },
-              {
-                key: "/settings/requests/statuses",
-                label: t("nav.settings.requests.statuses"),
-              },
-              {
-                key: "/settings/requests/workflow",
-                label: t("nav.settings.requests.workflow"),
-              },
-            ],
-          },
-          {
-            key: "/settings/security",
-            label: t("nav.settings.security"),
-            children: [
-              {
-                key: "/settings/security/employees",
-                label: t("nav.settings.security.employees"),
-              },
-              {
-                key: "/settings/security/users",
-                label: t("nav.settings.security.users"),
-              },
-              {
-                key: "/settings/security/roles",
-                label: t("nav.settings.security.roles"),
-              },
-            ],
-          },
+          { key: "/references/requests/types", label: t("nav.references.requests.types") },
+          { key: "/references/requests/statuses", label: t("nav.references.requests.statuses") },
+          { type: "divider" },
+          { key: "/references/mdm/units", label: t("references.mdm.units.title") },
+          { key: "/references/mdm/counterparties", label: t("references.mdm.counterparties.title") },
+          { key: "/references/mdm/items", label: t("references.mdm.items.title") },
+          { key: "/references/mdm/manufacturers", label: t("references.mdm.manufacturers.title") },
+          { key: "/references/mdm/body-types", label: t("references.mdm.bodyTypes.title") },
+          { key: "/references/mdm/currencies", label: t("references.mdm.currencies.title") },
+          { key: "/references/mdm/technical-parameters", label: t("references.mdm.technicalParameters.title") },
+          { key: "/references/mdm/parameter-sets", label: t("references.mdm.parameterSets.title") },
+          { key: "/references/mdm/symbols", label: t("references.mdm.symbols.title") },
+        ],
+      });
+    }
+
+    if (canSeeAdministration) {
+      items.push({
+        key: "/administration",
+        icon: <SettingOutlined />,
+        label: t("nav.administration"),
+        children: [
+          { key: "/administration/mdm", label: t("administration.mdm.title") },
+          { key: "/administration/security/users", label: t("nav.administration.security.users") },
+          { key: "/administration/security/roles", label: t("nav.administration.security.roles") },
+          { key: "/administration/security/employees", label: t("nav.administration.security.employees") },
+          { key: "/administration/requests/workflow", label: t("nav.administration.requests.workflow") },
+          { key: "/administration/system/paths", label: t("nav.administration.system.paths") },
+          ...(canSeeIntegrations
+            ? [
+                {
+                  key: "/administration/integrations/component2020",
+                  label: t("nav.administration.integrations.component2020"),
+                },
+              ]
+            : []),
         ],
       });
     }
 
     return items;
-  }, [canSeeSettings]);
+  }, [canSeeAdministration, canSeeIntegrations, canSeeReferences]);
 
   type MenuClickInfo = { key: React.Key };
 
   const handleMenuClick = (info: MenuClickInfo) => {
     const path = String(info.key);
+
     if (path === "/requests") {
-      navigate("/requests/incoming?type=all");
+      navigate("/requests/journal?direction=incoming&type=all");
       return;
     }
-    if (path === "/settings") {
-      navigate("/settings/requests/types");
+    if (path === "/requests/journal") {
+      navigate("/requests/journal?direction=incoming&type=all");
       return;
     }
-    if (path === "/settings/requests") {
-      navigate("/settings/requests/types");
+    if (path === "/requests/my") {
+      navigate("/requests/journal?direction=incoming&type=all&onlyMine=1");
       return;
     }
-    if (path === "/settings/security") {
-      navigate("/settings/security/employees");
+
+    if (path === "/references") {
+      navigate("/references");
       return;
     }
+
+    if (path === "/administration") {
+      navigate("/administration");
+      return;
+    }
+
     navigate(path);
   };
 
@@ -286,17 +306,36 @@ const AppShell: React.FC = () => {
             </Title>
           </Space>
 
-          <Dropdown menu={{ items: userMenuItems }} trigger={["click"]}>
-            <Space align="center" style={{ cursor: "pointer" }}>
-              <Avatar icon={<UserOutlined />} />
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <Text strong>{userName}</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {userRoles}
-                </Text>
-              </div>
-            </Space>
-          </Dropdown>
+          <Space align="center" size="middle">
+            <Input.Search
+              placeholder={t("nav.search.placeholder")}
+              allowClear
+              style={{ width: 360, maxWidth: "40vw" }}
+              onSearch={() => {
+                // Global search is not implemented yet.
+              }}
+            />
+
+            <Badge count={0} size="small">
+              <Button
+                type="text"
+                icon={<BellOutlined />}
+                aria-label={t("nav.notifications")}
+              />
+            </Badge>
+
+            <Dropdown menu={{ items: userMenuItems }} trigger={["click"]}>
+              <Space align="center" style={{ cursor: "pointer" }}>
+                <Avatar icon={<UserOutlined />} />
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <Text strong>{userName}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {userRoles}
+                  </Text>
+                </div>
+              </Space>
+            </Dropdown>
+          </Space>
         </Header>
         <Content
           style={{

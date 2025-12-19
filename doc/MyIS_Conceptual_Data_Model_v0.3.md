@@ -104,7 +104,7 @@ public        – служебные таблицы EF Core (migrations)
 ```csharp
 public readonly record struct Quantity(
     decimal Value,
-    string UnitCode // ссылка на core.UnitOfMeasure.Code
+    string UnitCode // ссылка на mdm.UnitOfMeasure.Code (в текущей реализации)
 );
 ```
 
@@ -141,7 +141,7 @@ public readonly record struct Quantity(
 Сущности (концептуально):
 
 - `User`, `Role`, `Permission`, `UserRole`
-- `UnitOfMeasure`, `Currency`
+- `Currency`
 - `Document` (файлы)
 - `AttributeDefinition`, `AttributeGroup`, `AttributeValue`, `ObjectAttributeValue`
 
@@ -157,8 +157,12 @@ public readonly record struct Quantity(
 
 - `Item` — номенклатура (компоненты, изделия, материалы, услуги)
 - `ItemRevision` — ревизия номенклатуры/изделия (для PDM)
-- `ItemCategory`, `ItemGroup`
+- `ItemGroup` — дерево групп номенклатуры
+- `UnitOfMeasure` — единицы измерения (в текущей реализации находятся в `mdm`, а не в `core`)
 - `Manufacturer`
+- `Counterparty` — контрагенты (единая запись на организацию)
+- `CounterpartyRole` — роли контрагента (`Supplier`/`Customer`)
+- `CounterpartyExternalLink` — внешние ключи (например, `Component2020:Providers:ID`)
 - (опционально) базовый `Supplier` / `Customer` – могут быть вынесены в `procurement`/`customers`
 
 Назначение: единый источник правды по номенклатуре и классификации.
@@ -240,8 +244,7 @@ public readonly record struct Quantity(
 
 Сущности:
 
-- `Customer`
-- `CustomerContact`
+- `Counterparty` (в `mdm`, роль `Customer`)
 - `CustomerOrder`
 - `CustomerOrderLine`
 
@@ -270,7 +273,7 @@ public readonly record struct Quantity(
 
 Сущности:
 
-- `Supplier`
+- `Counterparty` (в `mdm`, роль `Supplier`)
 - `PurchaseOrder`
 - `PurchaseOrderLine`
 - `SupplierContract`
@@ -299,12 +302,13 @@ public readonly record struct Quantity(
 
 Схема: `integration`
 
-Сущности:
+Сущности (реализация в репозитории):
 
-- `ExternalSystem`
-- `ExternalReference`
-- `SyncQueue`
-- `SyncLog`
+- `ExternalEntityLink` — универсальная таблица внешних ключей (привязки сущностей MyIS к записям внешних систем)
+- `Component2020Connection` — параметры подключения к Access (Component-2020)
+- `Component2020SyncCursor` — курсоры инкрементальной синхронизации
+- `Component2020SyncRun` / `Component2020SyncError` — журнал прогонов синхронизации и ошибок
+- `Component2020SyncSchedule` — расписание прогонов (текущая реализация упрощённая)
 
 Назначение: интеграция с Компонент-2020 и другими внешними системами. Детализированная структура доступов Компонент‑2020, которой следует придерживаться при проектировании этого домена, описана в [Component2020_Access_schema_mermaid.md](../.kilocode/rules/Component2020_Access_schema_mermaid.md).
 
@@ -321,8 +325,9 @@ erDiagram
 
   %% MDM
   Item ||--o{ ItemRevision : versions
-  Item ||--o{ ItemCategory : categorized-as
   Item ||--o{ ItemGroup : grouped-into
+  ItemGroup ||--o{ ItemGroup : parent-child
+  UnitOfMeasure ||--o{ Item : uom
 
   %% ENGINEERING
   ItemRevision ||--o{ ProductRevision : specialized-as
@@ -351,7 +356,7 @@ erDiagram
   Request ||--o{ RequestHistory : traced-by
 
   %% CUSTOMERS & ORDERS
-  Customer ||--o{ CustomerOrder : places
+  Counterparty ||--o{ CustomerOrder : places
   CustomerOrder ||--o{ CustomerOrderLine : contains
   CustomerOrderLine }o--|| ItemRevision : ordered-item
 
@@ -361,7 +366,7 @@ erDiagram
   ProductionOrderOperation }o--|| RouteOperation : based-on
 
   %% PROCUREMENT
-  Supplier ||--o{ PurchaseOrder : receives
+  Counterparty ||--o{ PurchaseOrder : receives
   PurchaseOrder ||--o{ PurchaseOrderLine : contains
   PurchaseOrderLine }o--|| ItemRevision : purchased-item
 
@@ -370,9 +375,11 @@ erDiagram
   ProductionOrder ||--o{ ActualCost : results-in
 
   %% INTEGRATION
-  ExternalSystem ||--o{ ExternalReference : owns
-  ExternalReference }o--|| Item : maps-item
-  ExternalReference }o--|| Supplier : maps-supplier
+  ExternalEntityLink }o--|| Item : maps-item
+  ExternalEntityLink }o--|| ItemGroup : maps-item-group
+  ExternalEntityLink }o--|| UnitOfMeasure : maps-uom
+  ExternalEntityLink }o--|| Manufacturer : maps-manufacturer
+  ExternalEntityLink }o--|| Counterparty : maps-counterparty
 ```
 
 ---
@@ -406,18 +413,21 @@ erDiagram
 | Name     | string | ✔     | Название |
 | IsSystem | bool   | ✔     | Системная роль (нельзя удалять) |
 
-#### 5.1.3. `core.UnitOfMeasure`
-
-| Поле      | Тип    | Обяз. | Описание |
-|----------|--------|-------|----------|
-| Id       | Guid   | ✔     | Идентификатор |
-| Code     | string | ✔     | Код (шт, м, кг, час…) |
-| Name     | string | ✔     | Название |
-| Dimension| string |       | Измеряемая величина (length, mass, time…) |
-
 ---
 
 ### 5.2. mdm
+
+#### 5.2.0. `mdm.UnitOfMeasure`
+
+> В текущей реализации единицы измерения находятся в схеме `mdm` (см. `backend/src/Core.Infrastructure/Data/Configurations/Mdm/UnitOfMeasureConfiguration.cs`).
+
+| Поле       | Тип    | Обяз. | Описание |
+|-----------|--------|-------|----------|
+| Id        | Guid   | ✔     | Идентификатор |
+| Code      | string |       | Код (опционально) |
+| Name      | string | ✔     | Название |
+| Symbol    | string | ✔     | Обозначение |
+| IsActive  | bool   | ✔     | Активность |
 
 #### 5.2.1. `mdm.Item`
 
@@ -426,10 +436,44 @@ erDiagram
 | Id        | Guid     | ✔     | Идентификатор |
 | Code      | string   | ✔     | Код номенклатуры |
 | Name      | string   | ✔     | Наименование |
-| ItemType  | string   | ✔     | Тип (Component, Material, Assembly, FinishedProduct, Service…) |
-| DefaultUoMId | Guid  | ✔     | Ссылка на core.UnitOfMeasure |
-| IsStocked | bool     | ✔     | Учитывается на складе |
+| ItemKind  | enum     | ✔     | Тип/вид позиции (в коде: `ItemKind`) |
+| UnitOfMeasureId | Guid | ✔   | Ссылка на `mdm.UnitOfMeasure` |
 | IsActive  | bool     | ✔     | Признак активности |
+| ItemGroupId | Guid?  |       | Группа номенклатуры (дерево `mdm.ItemGroup`) |
+| IsEskd    | bool     | ✔     | Признак ЕСКД |
+| IsEskdDocument | bool? |     | Признак ЕСКД-документа (если применимо) |
+| ManufacturerPartNumber | string? | | MPN/артикул/PartNumber (если применимо) |
+| ExternalSystem | string? |     | Legacy-внешняя система (обратная совместимость) |
+| ExternalId | string? |        | Legacy-внешний ID (обратная совместимость) |
+| SyncedAt  | DateTimeOffset? |  | Время последней синхронизации |
+
+#### 5.2.1a. `mdm.ItemGroup`
+
+> В текущей реализации группы — дерево (любой глубины) в таблице `mdm.item_groups` (см. `backend/src/Core.Infrastructure/Data/Configurations/Mdm/ItemGroupConfiguration.cs`).
+
+| Поле      | Тип     | Обяз. | Описание |
+|----------|---------|-------|----------|
+| Id       | Guid    | ✔     | Идентификатор |
+| Code     | string  | ✔     | Уникальный код группы |
+| Name     | string  | ✔     | Название |
+| ParentId | Guid?   |       | Родительская группа |
+| IsActive | bool    | ✔     | Активность |
+
+#### 5.2.1b. `mdm.Item` — расширения по доменам (план)
+
+Карточка `Item` в UI строится как “шапка + вкладки по контекстам” (ECAD/MCAD/Закупка/Склад/…).
+Чтобы не раздувать `mdm.items` десятками колонок, данные вкладок хранятся либо:
+
+- в 1:1 таблицах‑расширениях (`mdm.item_ecad`, `mdm.item_mcad`, `mdm.item_procurement`, `mdm.item_storage`, …),
+- либо в универсальном механизме атрибутов/параметров (наборы параметров + значения), применимость — через `ItemGroup`/категорию.
+
+#### 5.2.1b. `mdm.Item` — расширения по доменам (план)
+
+Карточка `Item` в UI строится как “шапка + вкладки по контекстам” (ECAD/MCAD/Закупка/Склад/…).
+Чтобы не раздувать `mdm.items` десятками колонок, данные вкладок хранятся либо:
+
+- в 1:1 таблицах‑расширениях (`mdm.item_ecad`, `mdm.item_mcad`, `mdm.item_procurement`, `mdm.item_storage`, …),
+- либо в универсальном механизме атрибутов/параметров (наборы параметров + значения), применимость — через `ItemGroup`/категорию.
 
 #### 5.2.2. `mdm.ItemRevision`
 
@@ -642,7 +686,7 @@ erDiagram
 Для того, чтобы данная модель данных использовалась **и в документации, и ИИ-агентами (Kilo Code)**, необходимо:
 
 1. **Положить данный файл в репозиторий**, например:  
-   `Doc/MyIS_Conceptual_Data_Model_v0.3.md`
+   `doc/MyIS_Conceptual_Data_Model_v0.3.md`
 
 2. В документе **«Правила проектирования кода MyIS»** добавить раздел:
 
@@ -655,7 +699,7 @@ erDiagram
 3. В настройках **Kilo Code** (или другого ИИ-агента) использовать следующий фрагмент в системном/проектном промпте:
 
    > Ты работаешь в проекте MyIS (многослойная система для приборостроения).  
-   > Основой для всех моделей данных является документ `Doc/MyIS_Conceptual_Data_Model_v0.3.md`.  
+   > Основой для всех моделей данных является документ `doc/MyIS_Conceptual_Data_Model_v0.3.md`.  
    > - Всегда проверяй, к какому домену относится новая сущность (core, mdm, engineering, technology, warehouse, requests, customers, production, procurement, costing, integration).  
    > - Не изобретай свои сущности, если уже есть подходящие (Item, ItemRevision, ProductRevision, BOMItem, TechProcessRevision, Request…).  
    > - Соблюдай единые принципы: GUID Id, ревизии через *Revision, количество через Quantity (Value + UnitOfMeasure).  

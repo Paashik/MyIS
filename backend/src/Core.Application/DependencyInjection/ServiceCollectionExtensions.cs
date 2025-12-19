@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using MyIS.Core.Application.Integration.Component2020.Handlers;
 using MyIS.Core.Application.Requests.Handlers;
 using MyIS.Core.Application.Requests.Handlers.Admin;
 using MyIS.Core.Application.Requests.Handlers.Workflow;
@@ -73,6 +74,13 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<GetAdminUserRolesHandler>();
         services.AddScoped<ReplaceAdminUserRolesHandler>();
+
+        // Integration.Component2020
+        services.AddScoped<RunComponent2020SyncHandler>();
+        services.AddScoped<ScheduleComponent2020SyncHandler>();
+        services.AddScoped<GetComponent2020SyncStatusHandler>();
+        services.AddScoped<GetComponent2020SyncRunsHandler>();
+        services.AddScoped<GetComponent2020SyncRunErrorsHandler>();
 
         return services;
     }

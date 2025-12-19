@@ -1,6 +1,6 @@
 # Settings → Requests → Dictionaries (Iteration S1) — Реализация
 
-Нормативный ТЗ: [`TZ_Iteration_S1_Settings_Module_Requests_Dictionaries.md`](Doc/TZ_Iteration_S1_Settings_Module_Requests_Dictionaries.md:1).
+Нормативный ТЗ: [`TZ_Iteration_S1_Settings_Module_Requests_Dictionaries.md`](doc/TZ_Iteration_S1_Settings_Module_Requests_Dictionaries.md:1).
 
 ## 1) Admin API (backend)
 
@@ -74,4 +74,3 @@
 Дополнительно снято ограничение канонических кодов типов заявок (иначе нельзя создавать новые типы из Settings):
 
 - миграция: [`S1_AllowCustomRequestTypes`](backend/src/Core.Infrastructure/Migrations/20251212143740_S1_AllowCustomRequestTypes.cs:1)
-

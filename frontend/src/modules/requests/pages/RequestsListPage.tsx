@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Space, Tabs, Typography } from "antd";
+import { Alert, Button, Segmented, Select, Tabs, Typography } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
 import { RequestListTable, RequestListTableFilters } from "../components/RequestListTable";
 import {
@@ -14,6 +14,7 @@ import {
 } from "../api/requestsApi";
 import { useCan } from "../../../core/auth/permissions";
 import { t } from "../../../core/i18n/t";
+import { CommandBar } from "../../../components/ui/CommandBar";
 
 const { Title } = Typography;
 
@@ -34,14 +35,26 @@ export const RequestsListPage: React.FC = () => {
   type RequestsTypeTabKey = "all" | string;
 
   const direction: RequestsDirectionSegment = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    const raw = (sp.get("direction") || "").trim().toLowerCase();
+    if (raw === "outgoing") return "outgoing";
+    if (raw === "incoming") return "incoming";
+
+    // Backward-compatible (old routes used path segment)
     const seg = (location.pathname.split("/")[2] || "").toLowerCase();
     return seg === "outgoing" ? "outgoing" : "incoming";
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   const getTypeFromLocation = (): RequestsTypeTabKey => {
     const sp = new URLSearchParams(location.search);
     const raw = (sp.get("type") || "").trim();
     return raw ? raw : "all";
+  };
+
+  const getOnlyMineFromLocation = (): boolean => {
+    const sp = new URLSearchParams(location.search);
+    const raw = (sp.get("onlyMine") || "").trim().toLowerCase();
+    return raw === "1" || raw === "true";
   };
 
   const [activeTypeKey, setActiveTypeKey] = useState<RequestsTypeTabKey>(getTypeFromLocation());
@@ -56,7 +69,7 @@ export const RequestsListPage: React.FC = () => {
 
   const [filters, setFilters] = useState<RequestListTableFilters>({
     requestStatusId: undefined,
-    onlyMine: false,
+    onlyMine: getOnlyMineFromLocation(),
   });
 
   const [state, setState] = useState<LoadState>({ kind: "idle" });
@@ -64,8 +77,29 @@ export const RequestsListPage: React.FC = () => {
   // синхронизация вкладки типа с URL (?type=all|<typeCode>)
   useEffect(() => {
     setActiveTypeKey(getTypeFromLocation());
+    setFilters((prev) => ({ ...prev, onlyMine: getOnlyMineFromLocation() }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+
+    const rawDirection = (sp.get("direction") || "").trim().toLowerCase();
+    const hasDirection = rawDirection === "incoming" || rawDirection === "outgoing";
+    if (!hasDirection) {
+      sp.set("direction", direction);
+    }
+
+    const rawType = (sp.get("type") || "").trim();
+    const hasType = !!rawType;
+    if (!hasType) {
+      sp.set("type", "all");
+    }
+
+    if (!hasDirection || !hasType) {
+      navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
+    }
+  }, [direction, location.pathname, location.search, navigate]);
 
   const requestTypesForDirection = useMemo(() => {
     const expected = direction === "incoming" ? "Incoming" : "Outgoing";
@@ -181,6 +215,11 @@ export const RequestsListPage: React.FC = () => {
 
   const handleFiltersChange = (next: RequestListTableFilters) => {
     setFilters(next);
+
+    const sp = new URLSearchParams(location.search);
+    if (next.onlyMine) sp.set("onlyMine", "1");
+    else sp.delete("onlyMine");
+    navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
   };
 
   const handlePageChange = (page: number, size: number) => {
@@ -189,47 +228,77 @@ export const RequestsListPage: React.FC = () => {
   };
 
   const handleRowClick = (item: RequestListItemDto) => {
+    const sp = new URLSearchParams();
+    sp.set("direction", direction);
+    sp.set("type", activeTypeKey);
+    if (filters.onlyMine) {
+      sp.set("onlyMine", "1");
+    }
+
     navigate(
-      `/requests/${encodeURIComponent(item.id)}?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(activeTypeKey)}`
+      `/requests/${encodeURIComponent(item.id)}?${sp.toString()}`
     );
   };
 
   const handleCreateClick = () => {
     if (activeTypeKey === "all") return;
-    navigate(`/requests/${encodeURIComponent(direction)}/new?type=${encodeURIComponent(activeTypeKey)}`);
+    navigate(
+      `/requests/new?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(activeTypeKey)}`
+    );
   };
 
   const showError = state.kind === "error";
 
   return (
     <div data-testid="requests-list-page">
-      <Space
-        style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}
-        align="center"
-      >
-        <Title level={2} style={{ margin: 0 }}>
-          {t("requests.list.title")}
-        </Title>
+      <CommandBar
+        left={
+          <Title level={2} style={{ margin: 0 }}>
+            {t("requests.list.title")}
+          </Title>
+        }
+        right={
+          <>
+            <Segmented
+              value={direction}
+              options={[
+                { label: t("nav.requests.incoming"), value: "incoming" },
+                { label: t("nav.requests.outgoing"), value: "outgoing" },
+              ]}
+              onChange={(v: string | number) => {
+                const next = String(v) === "outgoing" ? "outgoing" : "incoming";
+                const sp = new URLSearchParams(location.search);
+                sp.set("direction", next);
+                navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
+              }}
+            />
 
-        {canCreate && (
-          <Space align="center">
-            <Button
-              data-testid="requests-create-button"
-              type="primary"
-              onClick={handleCreateClick}
-              disabled={activeTypeKey === "all"}
-              title={activeTypeKey === "all" ? t("requests.list.create.selectTypeHint") : undefined}
-            >
-              {t("requests.list.create")}
-            </Button>
-            {activeTypeKey === "all" && (
-              <Typography.Text type="secondary">
-                {t("requests.list.create.selectTypeHint")}
-              </Typography.Text>
+            <Select
+              value={filters.onlyMine ? "mine" : "all"}
+              style={{ width: 160 }}
+              options={[
+                { value: "all", label: t("requests.list.views.all") },
+                { value: "mine", label: t("requests.list.views.mine") },
+              ]}
+              onChange={(v: "all" | "mine") => {
+                handleFiltersChange({ ...filters, onlyMine: v === "mine" });
+              }}
+            />
+
+            {canCreate && (
+              <Button
+                data-testid="requests-create-button"
+                type="primary"
+                onClick={handleCreateClick}
+                disabled={activeTypeKey === "all"}
+                title={activeTypeKey === "all" ? t("requests.list.create.selectTypeHint") : undefined}
+              >
+                {t("requests.list.create")}
+              </Button>
             )}
-          </Space>
-        )}
-      </Space>
+          </>
+        }
+      />
 
       {showError && state.kind === "error" && (
         <Alert

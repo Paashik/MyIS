@@ -6,6 +6,7 @@ using MyIS.Core.Application.Requests.Commands;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Mdm.ValueObjects;
 
 namespace MyIS.Core.Application.Requests.Handlers;
 
@@ -129,7 +130,7 @@ public class CreateRequestHandler
             result[i] = RequestLine.Create(
                 requestId,
                 l.LineNo,
-                l.ItemId,
+                l.ItemId.HasValue ? ItemId.From(l.ItemId.Value) : null,
                 l.ExternalItemCode,
                 l.Description,
                 l.Quantity,
@@ -155,7 +156,7 @@ public class CreateRequestHandler
             {
                 Id = line.Id.Value,
                 LineNo = line.LineNo,
-                ItemId = line.ItemId,
+                ItemId = line.ItemId?.Value,
                 ExternalItemCode = line.ExternalItemCode,
                 Description = line.Description,
                 Quantity = line.Quantity,

@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MyIS.Core.Application.DependencyInjection;
 using MyIS.Core.Infrastructure.Data;
 using MyIS.Core.Infrastructure.DependencyInjection;
+using MyIS.Core.Infrastructure.Integration.Component2020.BackgroundServices;
 using MyIS.Core.WebApi.Middleware;
  
 var builder = WebApplication.CreateBuilder(args);
@@ -47,6 +49,9 @@ builder.Services.AddApplication();
  
 // Инфраструктура (AuthService, BCrypt и т.п.)
 builder.Services.AddInfrastructure();
+
+// Background services
+builder.Services.AddHostedService<Component2020SchedulerHostedService>();
 
 // Cookie-аутентификация
 builder.Services
@@ -91,6 +96,21 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Admin.Security.EditEmployees", policy => policy.RequireRole("ADMIN"));
     options.AddPolicy("Admin.Security.EditUsers", policy => policy.RequireRole("ADMIN"));
     options.AddPolicy("Admin.Security.EditRoles", policy => policy.RequireRole("ADMIN"));
+
+    // Integration.Component2020
+    options.AddPolicy("Admin.Integration.View", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Integration.Execute", policy => policy.RequireRole("ADMIN"));
+
+    // MDM (read-only сейчас, CRUD позже)
+    options.AddPolicy("Admin.Mdm.EditUnits", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditSuppliers", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditItems", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditManufacturers", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditBodyTypes", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditCurrencies", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditTechnicalParameters", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditParameterSets", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Mdm.EditSymbols", policy => policy.RequireRole("ADMIN"));
 });
 
 var app = builder.Build();

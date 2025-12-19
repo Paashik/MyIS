@@ -6,6 +6,7 @@ using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Workflow;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Mdm.ValueObjects;
 
 namespace MyIS.Core.Application.Requests.Handlers.Workflow;
 
@@ -138,7 +139,7 @@ public abstract class RequestWorkflowActionHandlerBase
             {
                 Id = line.Id.Value,
                 LineNo = line.LineNo,
-                ItemId = line.ItemId,
+                ItemId = line.ItemId?.Value,
                 ExternalItemCode = line.ExternalItemCode,
                 Description = line.Description,
                 Quantity = line.Quantity,

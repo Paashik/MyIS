@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Button, Card, Spin, Typography } from "antd";
+import { Alert, Button, Card, Form, Spin, Typography } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   CreateRequestPayload,
@@ -16,6 +16,7 @@ import {
 } from "../api/requestsApi";
 import { RequestForm, RequestFormValues } from "../components/RequestForm";
 import { t } from "../../../core/i18n/t";
+import { CommandBar } from "../../../components/ui/CommandBar";
 
 const { Title } = Typography;
 
@@ -32,11 +33,6 @@ export const RequestEditPage: React.FC = () => {
 
   type RequestsDirectionSegment = "incoming" | "outgoing";
 
-  const directionFromPath: RequestsDirectionSegment = (() => {
-    const seg = (location.pathname.split("/")[2] || "").toLowerCase();
-    return seg === "outgoing" ? "outgoing" : "incoming";
-  })();
-
   const returnContext = (() => {
     const sp = new URLSearchParams(location.search);
 
@@ -46,12 +42,15 @@ export const RequestEditPage: React.FC = () => {
     const rawType = sp.get("type");
     const type = ((rawType || "").trim() || "all");
 
-    return { direction, type };
+    const rawOnlyMine = (sp.get("onlyMine") || "").trim().toLowerCase();
+    const onlyMine = rawOnlyMine === "1" || rawOnlyMine === "true";
+
+    return { direction, type, onlyMine };
   })();
 
   // Для create: направление берём из сегмента URL (/requests/{direction}/new)
   // Для edit: направление нужно только для возврата в список/детали, поэтому берём из query (?direction=...)
-  const direction: RequestsDirectionSegment = isEdit ? returnContext.direction : directionFromPath;
+  const direction: RequestsDirectionSegment = returnContext.direction;
 
   const typeKeyFromQuery = (() => {
     const sp = new URLSearchParams(location.search);
@@ -65,6 +64,7 @@ export const RequestEditPage: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [createContextError, setCreateContextError] = useState<string | null>(null);
   const [fixedCreateTypeId, setFixedCreateTypeId] = useState<string | null>(null);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     let cancelled = false;
@@ -126,11 +126,15 @@ export const RequestEditPage: React.FC = () => {
   const handleCancel = () => {
     if (isEdit && id) {
       navigate(
-        `/requests/${encodeURIComponent(id)}?direction=${encodeURIComponent(returnContext.direction)}&type=${encodeURIComponent(returnContext.type)}`
+        `/requests/${encodeURIComponent(id)}?direction=${encodeURIComponent(returnContext.direction)}&type=${encodeURIComponent(returnContext.type)}${returnContext.onlyMine ? "&onlyMine=1" : ""}`
       );
     } else {
       const typeParam = typeKeyFromQuery && typeKeyFromQuery !== "all" ? typeKeyFromQuery : "all";
-      navigate(`/requests/${encodeURIComponent(direction)}?type=${encodeURIComponent(typeParam)}`);
+      const sp = new URLSearchParams();
+      sp.set("direction", direction);
+      sp.set("type", typeParam);
+      if (returnContext.onlyMine) sp.set("onlyMine", "1");
+      navigate(`/requests/journal?${sp.toString()}`);
     }
   };
 
@@ -152,7 +156,7 @@ export const RequestEditPage: React.FC = () => {
 
         const updated = await updateRequest(id, payload);
         navigate(
-          `/requests/${encodeURIComponent(updated.id)}?direction=${encodeURIComponent(returnContext.direction)}&type=${encodeURIComponent(returnContext.type)}`,
+          `/requests/${encodeURIComponent(updated.id)}?direction=${encodeURIComponent(returnContext.direction)}&type=${encodeURIComponent(returnContext.type)}${returnContext.onlyMine ? "&onlyMine=1" : ""}`,
           { replace: true }
         );
       } else {
@@ -169,7 +173,7 @@ export const RequestEditPage: React.FC = () => {
 
         const created = await createRequest(payload);
         navigate(
-          `/requests/${encodeURIComponent(created.id)}?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(typeKeyFromQuery)}`,
+          `/requests/${encodeURIComponent(created.id)}?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(typeKeyFromQuery)}${returnContext.onlyMine ? "&onlyMine=1" : ""}`,
           { replace: true }
         );
       }
@@ -291,10 +295,29 @@ export const RequestEditPage: React.FC = () => {
         : undefined;
 
   return (
-    <Card data-testid="request-edit-card">
-      <Title level={3} style={{ marginBottom: 16 }}>
-        {isEdit ? t("requests.edit.title.edit") : t("requests.edit.title.create")}
-      </Title>
+    <div data-testid="request-edit-page">
+      <CommandBar
+        left={
+          <Title level={2} style={{ margin: 0 }}>
+            {isEdit ? t("requests.edit.title.edit") : t("requests.edit.title.create")}
+          </Title>
+        }
+        right={
+          <>
+            <Button data-testid="request-edit-cancel" onClick={handleCancel}>
+              {t("common.actions.cancel")}
+            </Button>
+            <Button
+              data-testid="request-edit-save"
+              type="primary"
+              loading={submitting}
+              onClick={() => form.submit()}
+            >
+              {isEdit ? t("common.actions.save") : t("common.actions.create")}
+            </Button>
+          </>
+        }
+      />
 
       {saveError && (
         <Alert
@@ -307,16 +330,20 @@ export const RequestEditPage: React.FC = () => {
         />
       )}
 
-      <RequestForm
-        mode={isEdit ? "edit" : "create"}
-        requestTypeCode={request?.requestTypeCode}
-        initialValues={initialValues}
-        requestTypes={requestTypes}
-        fixedRequestTypeId={!isEdit ? fixedCreateTypeId ?? undefined : undefined}
-        submitting={submitting}
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-      />
-    </Card>
+      <Card data-testid="request-edit-card">
+        <RequestForm
+          mode={isEdit ? "edit" : "create"}
+          requestTypeCode={request?.requestTypeCode}
+          initialValues={initialValues}
+          requestTypes={requestTypes}
+          fixedRequestTypeId={!isEdit ? fixedCreateTypeId ?? undefined : undefined}
+          form={form}
+          showActions={false}
+          submitting={submitting}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+        />
+      </Card>
+    </div>
   );
 };

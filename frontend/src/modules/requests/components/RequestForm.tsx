@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Form, Input, DatePicker, Button, Space } from "antd";
+import { Button, DatePicker, Form, Input, Select, Space, Tabs, Typography } from "antd";
+import type { FormInstance } from "rc-field-form";
+
 import type { RequestLineInputDto, RequestTypeDto } from "../api/types";
 import { RequestBodyRenderer } from "./RequestBodyRenderer";
+import { SupplyLinesEditor } from "./SupplyLinesEditor";
 import { getRequestTypeProfile } from "../typeProfiles/registry";
 import { t } from "../../../core/i18n/t";
+
+const { Text } = Typography;
 
 export interface RequestFormValues {
   requestTypeId: string;
@@ -22,9 +27,11 @@ export interface RequestFormProps {
   initialValues?: RequestFormValues;
   requestTypeCode?: string;
   requestTypes: RequestTypeDto[];
+  form?: FormInstance;
+  showActions?: boolean;
   /**
-   * Фиксированный тип для режима создания (Iteration 3.2).
-   * Если задан — выбор типа не показывается, значение берётся из этого поля.
+   * Fixed type for create (from list context / URL).
+   * If set — type selector is hidden, and the value is taken from this field.
    */
   fixedRequestTypeId?: string;
   submitting: boolean;
@@ -32,28 +39,25 @@ export interface RequestFormProps {
   onCancel?: () => void;
 }
 
-/**
- * Форма создания/редактирования заявки.
- *
- * Несёт только UI-валидацию (обязательность полей и базовые проверки формата),
- * без доменной логики статусов или workflow.
- */
 export const RequestForm: React.FC<RequestFormProps> = ({
   mode,
   initialValues,
   requestTypeCode,
   requestTypes,
+  form: externalForm,
+  showActions = true,
   fixedRequestTypeId,
   submitting,
   onSubmit,
   onCancel,
 }) => {
-  const [form] = Form.useForm();
+  const [innerForm] = Form.useForm();
+  const form = (externalForm ?? innerForm) as any;
 
   const isGuid = (value: string): boolean => {
-    // Accept canonical GUID format: 8-4-4-4-12 hex.
-    // Backend expects Guid/Guid? in JSON, so any other value will be rejected with 400.
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value
+    );
   };
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | undefined>(
@@ -74,18 +78,15 @@ export const RequestForm: React.FC<RequestFormProps> = ({
   }, [mode, requestTypeCode, requestTypes, selectedTypeId]);
 
   useEffect(() => {
-    if (initialValues) {
-      form.setFieldsValue({
-        ...initialValues,
-        // dueDate оставляем как есть (backend ожидает строку/ISO),
-        // преобразование в строку делаем при сабмите.
-      });
+    if (!initialValues) return;
 
-      setSelectedTypeId(initialValues.requestTypeId);
-    }
+    form.setFieldsValue({
+      ...initialValues,
+      lines: initialValues.lines ?? [],
+    });
+    setSelectedTypeId(initialValues.requestTypeId);
   }, [initialValues, form]);
 
-  // Режим создания с фиксированным типом (из контекста списка/URL)
   useEffect(() => {
     if (mode !== "create") return;
     if (!fixedRequestTypeId) return;
@@ -110,12 +111,10 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       return undefined;
     };
 
-    const due = values.dueDate;
-    const dueDate = toIso(due);
+    const dueDate = toIso(values.dueDate);
 
     const typeCode = selectedTypeCode;
     if (!typeCode) {
-      // тип не выбран — это поймают rules required на поле типа
       return;
     }
 
@@ -140,7 +139,6 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       });
 
       if (errors.length > 0) {
-        // Группируем ошибки по полю и пробрасываем в AntD Form
         const byKey = new Map<string, { name: (string | number)[]; errors: string[] }>();
         for (const e of errors) {
           const key = e.path.join(".");
@@ -189,117 +187,163 @@ export const RequestForm: React.FC<RequestFormProps> = ({
         requestTypeId: fixedRequestTypeId ?? initialValues?.requestTypeId,
         title: initialValues?.title ?? "",
         description: initialValues?.description ?? "",
+        lines: initialValues?.lines ?? [],
         relatedEntityType: initialValues?.relatedEntityType ?? "",
         relatedEntityId: initialValues?.relatedEntityId ?? "",
         externalReferenceId: initialValues?.externalReferenceId ?? "",
       }}
       onFinish={handleFinish}
     >
-      {mode === "create" && fixedRequestTypeId ? (
-        <Form.Item
-          name="requestTypeId"
-          hidden
-          rules={[{ required: true, message: t("requests.form.type.required") }]}
-        >
-          <Input />
-        </Form.Item>
-      ) : (
-        <Form.Item
-          label={t("requests.form.type.label")}
-          name="requestTypeId"
-          rules={[{ required: true, message: t("requests.form.type.required") }]}
-        >
-          <select
-            data-testid="request-form-type-select"
-            style={{ width: "100%", padding: 8 }}
-            disabled={mode === "edit"}
-            onChange={(e) => {
-              const next = e.target.value;
-              setSelectedTypeId(next || undefined);
-              // синхронизируем с antd form
-              form.setFieldValue("requestTypeId", next);
-            }}
-          >
-            <option value="">{t("requests.form.type.placeholder")}</option>
-            {requestTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.code} — {t.name}
-              </option>
-            ))}
-          </select>
-        </Form.Item>
-      )}
-
-      <Form.Item
-        label={t("requests.form.title.label")}
-        name="title"
-        rules={[{ required: true, message: t("requests.form.title.required") }]}
-      >
-        <Input data-testid="request-form-title-input" />
-      </Form.Item>
-
-      <RequestBodyRenderer
-        mode="edit"
-        requestTypeCode={selectedTypeCode}
-        form={form}
-        editMode={mode}
-      />
-
-      <Form.Item label={t("requests.form.dueDate.label")} name="dueDate">
-        <DatePicker data-testid="request-form-due-date-input" style={{ width: "100%" }} />
-      </Form.Item>
-
-      <Form.Item label={t("requests.form.relatedType.label")} name="relatedEntityType">
-        <Input data-testid="request-form-related-type-input" />
-      </Form.Item>
-
-      <Form.Item
-        label={t("requests.form.relatedId.label")}
-        name="relatedEntityId"
-        rules={[
+      <Tabs
+        items={[
           {
-            validator: async (_rule: any, value: any) => {
-              if (value === null || value === undefined) return;
-              if (typeof value !== "string") return;
+            key: "general",
+            label: t("requests.card.tabs.general"),
+            children: (
+              <>
+                {mode === "create" && fixedRequestTypeId ? (
+                  <Form.Item
+                    name="requestTypeId"
+                    hidden
+                    rules={[{ required: true, message: t("requests.form.type.required") }]}
+                  >
+                    <Input />
+                  </Form.Item>
+                ) : (
+                  <Form.Item
+                    label={t("requests.form.type.label")}
+                    name="requestTypeId"
+                    rules={[{ required: true, message: t("requests.form.type.required") }]}
+                  >
+                    <Select
+                      data-testid="request-form-type-select"
+                      disabled={mode === "edit"}
+                      showSearch
+                      optionFilterProp="label"
+                      options={requestTypes.map((t) => ({
+                        value: t.id,
+                        label: `${t.code} — ${t.name}`,
+                      }))}
+                      onChange={(next: string) => {
+                        setSelectedTypeId(next || undefined);
+                        form.setFieldValue("requestTypeId", next);
+                      }}
+                    />
+                  </Form.Item>
+                )}
 
-              const trimmed = value.trim();
-              if (!trimmed) return;
+                <Form.Item
+                  label={t("requests.form.title.label")}
+                  name="title"
+                  rules={[{ required: true, message: t("requests.form.title.required") }]}
+                >
+                  <Input data-testid="request-form-title-input" />
+                </Form.Item>
 
-              if (!isGuid(trimmed)) {
-                throw new Error(t("requests.form.relatedId.invalidGuid"));
-              }
-            },
+                <RequestBodyRenderer
+                  mode="edit"
+                  requestTypeCode={selectedTypeCode}
+                  form={form}
+                  editMode={mode}
+                />
+
+                <Form.Item label={t("requests.form.dueDate.label")} name="dueDate">
+                  <DatePicker
+                    data-testid="request-form-due-date-input"
+                    style={{ width: "100%" }}
+                    showTime
+                  />
+                </Form.Item>
+
+                <Form.Item label={t("requests.form.relatedType.label")} name="relatedEntityType">
+                  <Input data-testid="request-form-related-type-input" />
+                </Form.Item>
+
+                <Form.Item
+                  label={t("requests.form.relatedId.label")}
+                  name="relatedEntityId"
+                  rules={[
+                    {
+                      validator: async (_rule: any, value: any) => {
+                        if (value === null || value === undefined) return;
+                        if (typeof value !== "string") return;
+
+                        const trimmed = value.trim();
+                        if (!trimmed) return;
+
+                        if (!isGuid(trimmed)) {
+                          throw new Error(t("requests.form.relatedId.invalidGuid"));
+                        }
+                      },
+                    },
+                  ]}
+                >
+                  <Input data-testid="request-form-related-id-input" />
+                </Form.Item>
+
+                <Form.Item label={t("requests.form.externalId.label")} name="externalReferenceId">
+                  <Input data-testid="request-form-external-id-input" />
+                </Form.Item>
+              </>
+            ),
+          },
+          {
+            key: "composition",
+            label: t("requests.card.tabs.composition"),
+            children: <SupplyLinesEditor name="lines" />,
+          },
+          {
+            key: "documents",
+            label: t("requests.card.tabs.documents"),
+            disabled: mode === "create",
+            children: <Text type="secondary">{t("requests.card.tabs.documents.afterCreate")}</Text>,
+          },
+          {
+            key: "history",
+            label: t("requests.card.tabs.history"),
+            disabled: mode === "create",
+            children: <Text type="secondary">{t("requests.card.tabs.history.afterCreate")}</Text>,
+          },
+          {
+            key: "tasks",
+            label: t("requests.card.tabs.tasks"),
+            disabled: mode === "create",
+            children: <Text type="secondary">{t("requests.card.tabs.tasks.afterCreate")}</Text>,
+          },
+          {
+            key: "integrations",
+            label: t("requests.card.tabs.integrations"),
+            disabled: mode === "create",
+            children: (
+              <Text type="secondary">{t("requests.card.tabs.integrations.afterCreate")}</Text>
+            ),
           },
         ]}
-      >
-        <Input data-testid="request-form-related-id-input" />
-      </Form.Item>
+      />
 
-      <Form.Item label={t("requests.form.externalId.label")} name="externalReferenceId">
-        <Input data-testid="request-form-external-id-input" />
-      </Form.Item>
-
-      <Form.Item>
-        <Space style={{ display: "flex", justifyContent: "flex-end" }}>
-          {onCancel && (
+      {showActions && (
+        <Form.Item>
+          <Space style={{ display: "flex", justifyContent: "flex-end" }}>
+            {onCancel && (
+              <Button
+                data-testid="request-form-cancel-button"
+                htmlType="button"
+                onClick={onCancel}
+              >
+                {t("common.actions.cancel")}
+              </Button>
+            )}
             <Button
-              data-testid="request-form-cancel-button"
-              htmlType="button"
-              onClick={onCancel}
+              data-testid="request-form-submit-button"
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
             >
-              {t("common.actions.cancel")}
+              {mode === "create" ? t("common.actions.create") : t("common.actions.save")}
             </Button>
-          )}
-          <Button
-            data-testid="request-form-submit-button"
-            type="primary"
-            htmlType="submit"
-            loading={submitting}
-          >
-            {mode === "create" ? t("common.actions.create") : t("common.actions.save")}
-          </Button>
-        </Space>
-      </Form.Item>
+          </Space>
+        </Form.Item>
+      )}
     </Form>
   );
 };

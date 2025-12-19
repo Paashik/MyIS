@@ -15,6 +15,10 @@ import { ProductionPage } from "./pages/production/ProductionPage";
 import { WarehousePage } from "./pages/warehouse/WarehousePage";
 import { EngineeringPage } from "./pages/engineering/EngineeringPage";
 import { TechnologyPage } from "./pages/technology/TechnologyPage";
+import { QualityPage } from "./pages/quality/QualityPage";
+import { ReferencesPage } from "./pages/references/ReferencesPage";
+import { AdministrationPage } from "./pages/administration/AdministrationPage";
+import { MdmOwnershipPage } from "./pages/administration/MdmOwnershipPage";
 
 // Requests module pages
 import { RequestsListPage } from "./modules/requests/pages/RequestsListPage";
@@ -25,11 +29,30 @@ import { RequestEditPage } from "./modules/requests/pages/RequestEditPage";
 import { RequestTypesSettingsPage } from "./modules/settings/requests/dictionaries/pages/RequestTypesSettingsPage";
 import { RequestStatusesSettingsPage } from "./modules/settings/requests/dictionaries/pages/RequestStatusesSettingsPage";
 import { RequestWorkflowSettingsPage } from "./modules/settings/requests/dictionaries/pages/RequestWorkflowSettingsPage";
+import { RequestTypeCardPage } from "./modules/settings/requests/dictionaries/pages/RequestTypeCardPage";
+import { RequestStatusCardPage } from "./modules/settings/requests/dictionaries/pages/RequestStatusCardPage";
+import { RequestWorkflowTransitionCardPage } from "./modules/settings/requests/dictionaries/pages/RequestWorkflowTransitionCardPage";
 
 // Settings module (Security)
 import { EmployeesSettingsPage } from "./modules/settings/security/pages/EmployeesSettingsPage";
 import { UsersSettingsPage } from "./modules/settings/security/pages/UsersSettingsPage";
 import { RolesSettingsPage } from "./modules/settings/security/pages/RolesSettingsPage";
+import { EmployeeCardPage } from "./modules/settings/security/pages/EmployeeCardPage";
+import { UserCardPage } from "./modules/settings/security/pages/UserCardPage";
+import { UserRolesCardPage } from "./modules/settings/security/pages/UserRolesCardPage";
+import { UserResetPasswordCardPage } from "./modules/settings/security/pages/UserResetPasswordCardPage";
+import { RoleCardPage } from "./modules/settings/security/pages/RoleCardPage";
+
+// Settings module (Integrations)
+import { Component2020SettingsPage } from "./modules/settings/integrations/component2020/pages/Component2020SettingsPage";
+import { Component2020RunCardPage } from "./modules/settings/integrations/component2020/pages/Component2020RunCardPage";
+
+// References (MDM dictionaries - read-only)
+import { MdmDictionaryJournalPage } from "./modules/references/mdm/pages/MdmDictionaryJournalPage";
+import { MdmDictionaryCardPage } from "./modules/references/mdm/pages/MdmDictionaryCardPage";
+
+// Settings module (System)
+import { GlobalPathsSettingsPage } from "./modules/settings/system/pages/GlobalPathsSettingsPage";
 
 const App: React.FC = () => {
   return (
@@ -45,12 +68,36 @@ const App: React.FC = () => {
             <Route index element={<HomePage />} />
             <Route
               path="requests"
-              element={<Navigate to="/requests/incoming?type=all" replace />}
+              element={
+                <Navigate to="/requests/journal?direction=incoming&type=all" replace />
+              }
             />
-            <Route path="requests/incoming" element={<RequestsListPage />} />
-            <Route path="requests/outgoing" element={<RequestsListPage />} />
-            <Route path="requests/incoming/new" element={<RequestEditPage />} />
-            <Route path="requests/outgoing/new" element={<RequestEditPage />} />
+
+            {/* Requests (Journal -> Card) */}
+            <Route path="requests/journal" element={<RequestsListPage />} />
+            <Route path="requests/new" element={<RequestEditPage />} />
+
+            {/* Backward-compatible Requests routes */}
+            <Route
+              path="requests/incoming"
+              element={
+                <Navigate to="/requests/journal?direction=incoming&type=all" replace />
+              }
+            />
+            <Route
+              path="requests/outgoing"
+              element={
+                <Navigate to="/requests/journal?direction=outgoing&type=all" replace />
+              }
+            />
+            <Route
+              path="requests/incoming/new"
+              element={<Navigate to="/requests/new?direction=incoming" replace />}
+            />
+            <Route
+              path="requests/outgoing/new"
+              element={<Navigate to="/requests/new?direction=outgoing" replace />}
+            />
             <Route path="requests/:id" element={<RequestDetailsPage />} />
             <Route path="requests/:id/edit" element={<RequestEditPage />} />
             <Route path="customers" element={<CustomersPage />} />
@@ -59,31 +106,143 @@ const App: React.FC = () => {
             <Route path="warehouse" element={<WarehousePage />} />
             <Route path="engineering" element={<EngineeringPage />} />
             <Route path="technology" element={<TechnologyPage />} />
+            <Route path="quality" element={<QualityPage />} />
 
-            {/* Settings */}
+            {/* References */}
+            <Route path="references" element={<ReferencesPage />} />
             <Route
-              path="settings"
-              element={<Navigate to="/settings/requests/types" replace />}
-            />
-            <Route
-              path="settings/requests/types"
+              path="references/requests/types"
               element={<RequestTypesSettingsPage />}
             />
             <Route
-              path="settings/requests/statuses"
+              path="references/requests/types/new"
+              element={<RequestTypeCardPage />}
+            />
+            <Route
+              path="references/requests/types/:id"
+              element={<RequestTypeCardPage />}
+            />
+            <Route
+              path="references/requests/statuses"
               element={<RequestStatusesSettingsPage />}
             />
             <Route
-              path="settings/requests/workflow"
-              element={<RequestWorkflowSettingsPage />}
+              path="references/requests/statuses/new"
+              element={<RequestStatusCardPage />}
             />
-
             <Route
-              path="settings/security/employees"
+              path="references/requests/statuses/:id"
+              element={<RequestStatusCardPage />}
+            />
+            <Route path="references/mdm/:dict" element={<MdmDictionaryJournalPage />} />
+            <Route path="references/mdm/:dict/:id" element={<MdmDictionaryCardPage />} />
+
+            {/* Administration */}
+            <Route path="administration" element={<AdministrationPage />} />
+            <Route path="administration/mdm" element={<MdmOwnershipPage />} />
+            <Route
+              path="administration/security/employees"
               element={<EmployeesSettingsPage />}
             />
-            <Route path="settings/security/users" element={<UsersSettingsPage />} />
-            <Route path="settings/security/roles" element={<RolesSettingsPage />} />
+            <Route
+              path="administration/security/employees/new"
+              element={<EmployeeCardPage />}
+            />
+            <Route
+              path="administration/security/employees/:id"
+              element={<EmployeeCardPage />}
+            />
+            <Route
+              path="administration/security/users"
+              element={<UsersSettingsPage />}
+            />
+            <Route
+              path="administration/security/users/new"
+              element={<UserCardPage />}
+            />
+            <Route
+              path="administration/security/users/:id"
+              element={<UserCardPage />}
+            />
+            <Route
+              path="administration/security/users/:id/roles"
+              element={<UserRolesCardPage />}
+            />
+            <Route
+              path="administration/security/users/:id/reset-password"
+              element={<UserResetPasswordCardPage />}
+            />
+            <Route
+              path="administration/security/roles"
+              element={<RolesSettingsPage />}
+            />
+            <Route
+              path="administration/security/roles/new"
+              element={<RoleCardPage />}
+            />
+            <Route
+              path="administration/security/roles/:id"
+              element={<RoleCardPage />}
+            />
+            <Route
+              path="administration/requests/workflow"
+              element={<RequestWorkflowSettingsPage />}
+            />
+            <Route
+              path="administration/requests/workflow/:typeCode/new"
+              element={<RequestWorkflowTransitionCardPage />}
+            />
+            <Route
+              path="administration/requests/workflow/:typeCode/:id"
+              element={<RequestWorkflowTransitionCardPage />}
+            />
+            <Route
+              path="administration/integrations/component2020"
+              element={<Component2020SettingsPage />}
+            />
+            <Route
+              path="administration/integrations/component2020/runs/:runId"
+              element={<Component2020RunCardPage />}
+            />
+            <Route
+              path="administration/system/paths"
+              element={<GlobalPathsSettingsPage />}
+            />
+
+            {/* Backward-compatible Settings routes */}
+            <Route path="settings" element={<Navigate to="/administration" replace />} />
+            <Route
+              path="settings/requests/types"
+              element={<Navigate to="/references/requests/types" replace />}
+            />
+            <Route
+              path="settings/requests/statuses"
+              element={<Navigate to="/references/requests/statuses" replace />}
+            />
+            <Route
+              path="settings/requests/workflow"
+              element={<Navigate to="/administration/requests/workflow" replace />}
+            />
+            <Route
+              path="settings/security/employees"
+              element={<Navigate to="/administration/security/employees" replace />}
+            />
+            <Route
+              path="settings/security/users"
+              element={<Navigate to="/administration/security/users" replace />}
+            />
+            <Route
+              path="settings/security/roles"
+              element={<Navigate to="/administration/security/roles" replace />}
+            />
+            <Route
+              path="settings/integrations/component2020"
+              element={<Navigate to="/administration/integrations/component2020" replace />}
+            />
+            <Route
+              path="settings/system/paths"
+              element={<Navigate to="/administration/system/paths" replace />}
+            />
           </Route>
         </Route>
       </Route>

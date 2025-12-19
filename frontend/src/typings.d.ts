@@ -116,6 +116,7 @@ declare module "antd" {
   export const Alert: any;
   export const Spin: any;
   export const Card: any;
+  export const Modal: any;
   export const Input: any;
   export const InputNumber: any;
   export const Checkbox: any;

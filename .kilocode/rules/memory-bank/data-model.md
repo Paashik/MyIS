@@ -1,6 +1,6 @@
 # MyIS — Концептуальная модель данных (memory bank)
 
-Этот файл конспектирует и фиксирует основные правила из документа [`MyIS_Conceptual_Data_Model_v0.3.md`](Doc/MyIS_Conceptual_Data_Model_v0.3.md:2).
+Этот файл конспектирует и фиксирует основные правила из документа [`MyIS_Conceptual_Data_Model_v0.3.md`](doc/MyIS_Conceptual_Data_Model_v0.3.md:2).
 Полная подробная модель всегда берётся из исходного документа; здесь только «оперативный» срез для ИИ.
 
 ## 1. Назначение
@@ -9,7 +9,7 @@
 - Не допустить дублирования сущностей и «самодельных» таблиц, противоречащих модели.
 - Подсказывать ИИ, где размещать новые сущности и какие поля у базовых объектов.
 
-Если при генерации кода возникает противоречие между этим файлом и исходным документом, приоритет у [`MyIS_Conceptual_Data_Model_v0.3.md`](Doc/MyIS_Conceptual_Data_Model_v0.3.md:2).
+Если при генерации кода возникает противоречие между этим файлом и исходным документом, приоритет у [`MyIS_Conceptual_Data_Model_v0.3.md`](doc/MyIS_Conceptual_Data_Model_v0.3.md:2).
 
 ## 2. Доменная структура и схемы БД
 
@@ -46,7 +46,7 @@
   - справочник в своей схеме (`RequestStatus`, `RevisionStatus`),
   - либо enum/VO в коде с маппингом в таблицу.
 - Количество и единицы измерения моделируются через VO `Quantity`:
-  - на физическом уровне — пара полей `...Value` (decimal) + `...UoMId` (ссылка на `core.UnitOfMeasure`).
+  - на физическом уровне — пара полей `...Value` (decimal) + `...UoMId` (ссылка на `mdm.UnitOfMeasure` в текущей реализации).
 
 ## 4. Ключевые сущности по доменам (укороченный список)
 
@@ -56,8 +56,8 @@
   - `Id`, `UserName`, `FullName`, `Email`, `IsActive`, `CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy`.
 - `core.Role` — роли:
   - `Id`, `Code`, `Name`, `IsSystem`.
-- `core.UnitOfMeasure` — единицы измерения:
-  - `Id`, `Code`, `Name`, `Dimension`.
+- `mdm.UnitOfMeasure` — единицы измерения (в текущей реализации находятся в `mdm`):
+  - `Id`, `Code?`, `Name`, `Symbol`, `IsActive`.
 
 ### 4.2. org
 
@@ -68,9 +68,10 @@
 ### 4.3. mdm (Master Data)
 
 - `mdm.Item` — номенклатура (компонент, материал, узел, изделие, услуга):
-  - `Id`, `Code`, `Name`, `ItemType`, `DefaultUoMId`, `IsStocked`, `IsActive`.
+  - `Id`, `Code`, `Name`, `ItemKind`, `UnitOfMeasureId`, `ItemGroupId?`, `IsEskd`, `ManufacturerPartNumber?`, `IsActive`.
 - `mdm.ItemRevision` — ревизия номенклатуры:
   - `Id`, `ItemId`, `RevisionCode`, `Status`, `EffectiveFrom`, `EffectiveTo`, `CreatedAt`, `CreatedBy`.
+  - Карточка `Item` в UI проектируется как “шапка + вкладки по контекстам” (ECAD/MCAD/Закупка/Склад/…); детали вкладок планируются как 1:1 расширения (`mdm.item_ecad`, `mdm.item_mcad`, `mdm.item_procurement`, …) или как параметрические наборы.
 
 ### 4.4. engineering
 
@@ -115,7 +116,7 @@
 ИИ, генерируя код MyIS, обязан:
 
 - Сначала определить домен новой функциональности и использовать соответствующую схему (см. раздел 2).
-- Проверять, не существует ли уже подходящей сущности в [`MyIS_Conceptual_Data_Model_v0.3.md`](Doc/MyIS_Conceptual_Data_Model_v0.3.md:382) перед созданием новой.
+- Проверять, не существует ли уже подходящей сущности в [`MyIS_Conceptual_Data_Model_v0.3.md`](doc/MyIS_Conceptual_Data_Model_v0.3.md:382) перед созданием новой.
 - Не вводить сущности, дублирующие смысл `Item`, `ItemRevision`, `ProductRevision`, `BOMItem`, `TechProcessRevision`, `Request` и т.д.
 - Соблюдать общие правила:
   - GUID `Id` для всех сущностей;

@@ -61,7 +61,7 @@
 
 ## 2. Доменные модули и границы
 
-Домены (Requests, Customers, Engineering, Technology, Production, Procurement, Warehouse, Integration.Component2020) описаны в Doc/00_Концепция_системы.md.
+Домены (Requests, Customers, Engineering, Technology, Production, Procurement, Warehouse, Integration.Component2020) описаны в doc/00_Концепция_системы.md.
 
 Ключевые принципы (см. также `.kilocode/rules/MyIS_Architecture_Core_Requirements.md`):
 
@@ -89,7 +89,7 @@
   - Version;
 - статусы типизированы (enum или VO), переходы управляются доменной логикой.
 
-Для модуля Requests (см. Doc/20_ТЗ_Этап1_Requests.md) базовая схема статусов заявки:
+Для модуля Requests (см. doc/20_ТЗ_Этап1_Requests.md) базовая схема статусов заявки:
 
 - Черновик;
 - На согласовании;

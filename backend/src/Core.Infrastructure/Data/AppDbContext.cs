@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using MyIS.Core.Domain.Organization;
 using MyIS.Core.Domain.Users;
 using MyIS.Core.Domain.Requests.Entities;
+using MyIS.Core.Domain.Mdm.Entities;
+using MyIS.Core.Infrastructure.Data.Entities.Integration;
  
 namespace MyIS.Core.Infrastructure.Data;
  
@@ -26,6 +28,30 @@ public class AppDbContext : DbContext
     public DbSet<RequestHistory> RequestHistory => Set<RequestHistory>();
     public DbSet<RequestComment> RequestComments => Set<RequestComment>();
     public DbSet<RequestAttachment> RequestAttachments => Set<RequestAttachment>();
+
+    public DbSet<Item> Items => Set<Item>();
+    public DbSet<ItemGroup> ItemGroups => Set<ItemGroup>();
+    public DbSet<ItemAttribute> ItemAttributes => Set<ItemAttribute>();
+    public DbSet<ItemAttributeValue> ItemAttributeValues => Set<ItemAttributeValue>();
+    public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
+    public DbSet<ItemSequence> ItemSequences => Set<ItemSequence>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<Counterparty> Counterparties => Set<Counterparty>();
+    public DbSet<CounterpartyRole> CounterpartyRoles => Set<CounterpartyRole>();
+    public DbSet<CounterpartyExternalLink> CounterpartyExternalLinks => Set<CounterpartyExternalLink>();
+    public DbSet<Manufacturer> Manufacturers => Set<Manufacturer>();
+    public DbSet<BodyType> BodyTypes => Set<BodyType>();
+    public DbSet<Currency> Currencies => Set<Currency>();
+    public DbSet<TechnicalParameter> TechnicalParameters => Set<TechnicalParameter>();
+    public DbSet<ParameterSet> ParameterSets => Set<ParameterSet>();
+    public DbSet<Symbol> Symbols => Set<Symbol>();
+    public DbSet<ExternalEntityLink> ExternalEntityLinks => Set<ExternalEntityLink>();
+
+    public DbSet<Component2020Connection> Component2020Connections => Set<Component2020Connection>();
+    public DbSet<Component2020SyncRun> Component2020SyncRuns => Set<Component2020SyncRun>();
+    public DbSet<Component2020SyncError> Component2020SyncErrors => Set<Component2020SyncError>();
+    public DbSet<Component2020SyncCursor> Component2020SyncCursors => Set<Component2020SyncCursor>();
+    public DbSet<Component2020SyncSchedule> Component2020SyncSchedules => Set<Component2020SyncSchedule>();
  
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

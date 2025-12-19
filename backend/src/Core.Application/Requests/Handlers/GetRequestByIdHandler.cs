@@ -6,6 +6,7 @@ using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Queries;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Mdm.ValueObjects;
 
 namespace MyIS.Core.Application.Requests.Handlers;
 
@@ -115,7 +116,7 @@ public class GetRequestByIdHandler
             {
                 Id = line.Id.Value,
                 LineNo = line.LineNo,
-                ItemId = line.ItemId,
+                ItemId = line.ItemId?.Value,
                 ExternalItemCode = line.ExternalItemCode,
                 Description = line.Description,
                 Quantity = line.Quantity,

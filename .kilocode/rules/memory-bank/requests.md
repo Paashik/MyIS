@@ -8,7 +8,7 @@
 - Заявка инициирует или требует выполнение работы и связывает несколько доменов (Customers, Engineering, Technology, Production, Warehouse, Procurement).
 - Модуль даёт управляемый жизненный цикл заявок (workflow), историю изменений, комментарии и связи с внешними системами (в т.ч. Компонент‑2020).
 - В БД используется схема `requests`; агрегат [`Request`](doc/Requests_Concept.md:204) владеет своими таблицами (например, [`requests.requests`](doc/Requests_Concept.md:304), [`requests.request_types`](doc/Requests_Concept.md:286), [`requests.request_statuses`](doc/Requests_Concept.md:296), [`requests.request_lines`](doc/Requests_Concept.md:325), [`requests.request_history`](doc/Requests_Concept.md:352), [`requests.request_comments`](doc/Requests_Concept.md:366)).
-- Requests выступает единым входным контуром для всех типов заявок; за деталями по бизнес‑процессам обращаться к [`01_Бизнес-процессы.md`](Doc/01_Бизнес-процессы.md:1).
+- Requests выступает единым входным контуром для всех типов заявок; за деталями по бизнес‑процессам обращаться к [`01_Бизнес-процессы.md`](doc/01_Бизнес-процессы.md:1).
 
 ## 2. Типы заявок и их особенности
 
@@ -153,7 +153,6 @@ Requests связывает заявки с объектами других до
 - Для количественных полей в коде использовать VO [`Quantity`](.kilocode/rules/memory-bank/data-model.md:47) (даже если на уровне БД это пара `decimal + UnitOfMeasureId`).
 - Использовать `RelatedEntityType` / `RelatedEntityId` для связи с другими доменами, а не добавлять прямые FK на «чужие» таблицы поверх концептуальной модели.
 - Для интеграции с Компонент‑2020 и др. внешними системами опираться на поля `ExternalReferenceId` / `ExternalRowReferenceId` и реализовывать доступ через Infrastructure‑слой.
-- При добавлении новых типов заявок или расширении структуры опираться на [`Requests_Concept.md`](doc/Requests_Concept.md:1) и общую модель данных [`MyIS_Conceptual_Data_Model_v0.3.md`](Doc/MyIS_Conceptual_Data_Model_v0.3.md:2), а не придумывать модель «с нуля».
+- При добавлении новых типов заявок или расширении структуры опираться на [`Requests_Concept.md`](doc/Requests_Concept.md:1) и общую модель данных [`MyIS_Conceptual_Data_Model_v0.3.md`](doc/MyIS_Conceptual_Data_Model_v0.3.md:2), а не придумывать модель «с нуля».
 
 Для деталей бизнес‑процессов, статусов и полей всегда следует обращаться к исходному документу [`Requests_Concept.md`](doc/Requests_Concept.md:1) и сопутствующим ТЗ по Этапу 1.
-

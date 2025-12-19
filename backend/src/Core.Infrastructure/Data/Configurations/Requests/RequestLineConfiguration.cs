@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Mdm.ValueObjects;
 
 namespace MyIS.Core.Infrastructure.Data.Configurations.Requests;
 
@@ -35,7 +37,10 @@ public sealed class RequestLineConfiguration : IEntityTypeConfiguration<RequestL
 
         builder.Property(l => l.ItemId)
             .HasColumnName("item_id")
-            .HasColumnType("uuid");
+            .HasColumnType("uuid")
+            .HasConversion(
+                id => id.HasValue ? id.Value.Value : (Guid?)null,
+                value => value.HasValue ? ItemId.From(value.Value) : null);
 
         builder.Property(l => l.ExternalItemCode)
             .HasColumnName("external_item_code")
