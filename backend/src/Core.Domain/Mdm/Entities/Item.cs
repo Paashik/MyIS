@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
+using MyIS.Core.Domain.Common;
 
 namespace MyIS.Core.Domain.Mdm.Entities;
 
-public class Item
+public class Item : IDeactivatable
 {
     public Guid Id { get; private set; }
 
     public string Code { get; private set; }
+
+    public string NomenclatureNo { get; private set; }
 
     public string Name { get; private set; }
 
@@ -17,12 +20,6 @@ public class Item
 
     public bool IsActive { get; private set; }
 
-    public string? ExternalSystem { get; private set; }
-
-    public string? ExternalId { get; private set; }
-
-    public DateTimeOffset? SyncedAt { get; private set; }
-
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -30,6 +27,8 @@ public class Item
     public bool IsEskd { get; private set; }
 
     public bool? IsEskdDocument { get; private set; }
+
+    public string? Designation { get; private set; }
 
     public string? ManufacturerPartNumber { get; private set; }
 
@@ -46,11 +45,16 @@ public class Item
         // For EF Core
     }
 
-    public Item(string code, string name, ItemKind itemKind, Guid unitOfMeasureId, Guid? itemGroupId = null)
+    public Item(string code, string nomenclatureNo, string name, ItemKind itemKind, Guid unitOfMeasureId, Guid? itemGroupId = null)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
             throw new ArgumentException("Code cannot be null or empty.", nameof(code));
+        }
+
+        if (string.IsNullOrWhiteSpace(nomenclatureNo))
+        {
+            throw new ArgumentException("NomenclatureNo cannot be null or empty.", nameof(nomenclatureNo));
         }
 
         if (string.IsNullOrWhiteSpace(name))
@@ -65,6 +69,7 @@ public class Item
 
         Id = Guid.NewGuid();
         Code = code.Trim();
+        NomenclatureNo = nomenclatureNo.Trim();
         Name = name.Trim();
         ItemKind = itemKind;
         UnitOfMeasureId = unitOfMeasureId;
@@ -75,8 +80,21 @@ public class Item
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    public void Update(string name, Guid unitOfMeasureId, Guid? itemGroupId, bool isEskd, bool? isEskdDocument, string? manufacturerPartNumber)
+    public void Update(
+        string nomenclatureNo,
+        string name,
+        Guid unitOfMeasureId,
+        Guid? itemGroupId,
+        bool isEskd,
+        bool? isEskdDocument,
+        string? designation,
+        string? manufacturerPartNumber)
     {
+        if (string.IsNullOrWhiteSpace(nomenclatureNo))
+        {
+            throw new ArgumentException("NomenclatureNo cannot be null or empty.", nameof(nomenclatureNo));
+        }
+
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("Name cannot be null or empty.", nameof(name));
@@ -87,30 +105,25 @@ public class Item
             throw new ArgumentException("UnitOfMeasureId cannot be empty.", nameof(unitOfMeasureId));
         }
 
+        NomenclatureNo = nomenclatureNo.Trim();
         Name = name.Trim();
         UnitOfMeasureId = unitOfMeasureId;
         ItemGroupId = itemGroupId;
         IsEskd = isEskd;
         IsEskdDocument = isEskdDocument;
+        Designation = string.IsNullOrWhiteSpace(designation) ? null : designation.Trim();
         ManufacturerPartNumber = string.IsNullOrWhiteSpace(manufacturerPartNumber) ? null : manufacturerPartNumber.Trim();
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    public void SetExternalReference(string externalSystem, string externalId, DateTimeOffset syncedAt)
+    public void SetItemKind(ItemKind itemKind)
     {
-        if (string.IsNullOrWhiteSpace(externalSystem))
+        if (ItemKind == itemKind)
         {
-            throw new ArgumentException("ExternalSystem cannot be null or empty.", nameof(externalSystem));
+            return;
         }
 
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId cannot be null or empty.", nameof(externalId));
-        }
-
-        ExternalSystem = externalSystem.Trim();
-        ExternalId = externalId.Trim();
-        SyncedAt = syncedAt;
+        ItemKind = itemKind;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

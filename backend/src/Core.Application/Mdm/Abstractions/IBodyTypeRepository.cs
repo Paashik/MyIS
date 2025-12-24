@@ -8,7 +8,6 @@ public interface IBodyTypeRepository
 {
     Task<BodyType?> FindByIdAsync(Guid id);
     Task<BodyType?> FindByCodeAsync(string code);
-    Task<BodyType?> FindByExternalIdAsync(string externalSystem, string externalId);
     Task<bool> ExistsByCodeAsync(string code);
     Task AddAsync(BodyType bodyType);
     Task UpdateAsync(BodyType bodyType);

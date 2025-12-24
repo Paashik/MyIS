@@ -8,13 +8,9 @@ public class ManufacturerConfiguration : IEntityTypeConfiguration<Manufacturer>
 {
     public void Configure(EntityTypeBuilder<Manufacturer> builder)
     {
-        builder.ToTable("manufacturers", "integration");
+        builder.ToTable("manufacturers", "mdm");
 
         builder.HasKey(m => m.Id);
-
-        builder.Property(m => m.Code)
-            .HasMaxLength(50)
-            ;
 
         builder.Property(m => m.Name)
             .HasMaxLength(100)
@@ -32,24 +28,12 @@ public class ManufacturerConfiguration : IEntityTypeConfiguration<Manufacturer>
         builder.Property(m => m.IsActive)
             .IsRequired();
 
-        builder.Property(m => m.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(m => m.ExternalId)
-            .HasMaxLength(50);
-
-        builder.Property(m => m.SyncedAt);
-
         builder.Property(m => m.CreatedAt)
             .IsRequired();
 
         builder.Property(m => m.UpdatedAt)
             .IsRequired();
 
-        builder.HasIndex(m => m.Code)
-            .IsUnique();
-
-        builder.HasIndex(m => new { m.ExternalSystem, m.ExternalId })
-            .IsUnique();
+        
     }
 }

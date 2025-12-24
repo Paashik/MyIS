@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Commands;
 using MyIS.Core.Application.Requests.Dto;
-using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
 
 namespace MyIS.Core.Application.Requests.Handlers;
@@ -12,16 +11,13 @@ namespace MyIS.Core.Application.Requests.Handlers;
 public class AddRequestCommentHandler
 {
     private readonly IRequestRepository _requestRepository;
-    private readonly IRequestCommentRepository _commentRepository;
     private readonly IRequestsAccessChecker _accessChecker;
 
     public AddRequestCommentHandler(
         IRequestRepository requestRepository,
-        IRequestCommentRepository commentRepository,
         IRequestsAccessChecker accessChecker)
     {
         _requestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
-        _commentRepository = commentRepository ?? throw new ArgumentNullException(nameof(commentRepository));
         _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
     }
 
@@ -63,14 +59,13 @@ public class AddRequestCommentHandler
             ? DateTimeOffset.UtcNow
             : command.CreatedAt;
 
-        var comment = RequestComment.Create(
-            requestId,
-            command.AuthorId,
-            command.Text,
-            createdAt);
+        var comment = request.AddComment(
+            authorId: command.AuthorId,
+            text: command.Text,
+            createdAt: createdAt);
 
-        // 4. Сохранение
-        await _commentRepository.AddAsync(comment, cancellationToken);
+        // 4. Сохранение агрегата через корень
+        await _requestRepository.UpdateAsync(request, cancellationToken);
 
         // 5. Маппинг в DTO
         var dto = new RequestCommentDto

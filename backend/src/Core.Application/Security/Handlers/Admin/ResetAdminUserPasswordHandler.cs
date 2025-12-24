@@ -30,8 +30,7 @@ public sealed class ResetAdminUserPasswordHandler
         var user = await _userRepository.GetByIdAsync(command.Id, cancellationToken);
         if (user is null) throw new InvalidOperationException($"User '{command.Id}' was not found.");
 
-        user.PasswordHash = _passwordHasher.HashPassword(password);
-        user.UpdatedAt = DateTimeOffset.UtcNow;
+        user.ResetPasswordHash(_passwordHasher.HashPassword(password), DateTimeOffset.UtcNow);
 
         await _userRepository.UpdateAsync(user, cancellationToken);
     }

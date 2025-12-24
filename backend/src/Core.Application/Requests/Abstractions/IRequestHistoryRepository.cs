@@ -11,6 +11,4 @@ public interface IRequestHistoryRepository
     Task<IReadOnlyList<RequestHistory>> GetByRequestIdAsync(
         RequestId requestId,
         CancellationToken cancellationToken);
-
-    Task AddAsync(RequestHistory historyItem, CancellationToken cancellationToken);
 }

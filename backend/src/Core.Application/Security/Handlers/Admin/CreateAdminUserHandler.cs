@@ -57,16 +57,13 @@ public sealed class CreateAdminUserHandler
 
         var now = DateTimeOffset.UtcNow;
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Login = login,
-            PasswordHash = _passwordHasher.HashPassword(password),
-            IsActive = command.IsActive,
-            EmployeeId = command.EmployeeId,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+        var user = User.Create(
+            id: Guid.NewGuid(),
+            login: login,
+            passwordHash: _passwordHasher.HashPassword(password),
+            isActive: command.IsActive,
+            employeeId: command.EmployeeId,
+            now: now);
 
         await _userRepository.AddAsync(user, cancellationToken);
 

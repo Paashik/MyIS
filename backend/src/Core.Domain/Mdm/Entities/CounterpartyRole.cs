@@ -1,8 +1,9 @@
 using System;
+using MyIS.Core.Domain.Common;
 
 namespace MyIS.Core.Domain.Mdm.Entities;
 
-public class CounterpartyRole
+public class CounterpartyRole : IDeactivatable
 {
     public Guid Id { get; private set; }
 

@@ -24,14 +24,6 @@ public class UnitOfMeasureConfiguration : IEntityTypeConfiguration<UnitOfMeasure
             .HasMaxLength(10)
             .IsRequired();
 
-        builder.Property(u => u.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(u => u.ExternalId)
-            .HasMaxLength(50);
-
-        builder.Property(u => u.SyncedAt);
-
         builder.Property(u => u.IsActive)
             .IsRequired();
 
@@ -47,7 +39,6 @@ public class UnitOfMeasureConfiguration : IEntityTypeConfiguration<UnitOfMeasure
         builder.HasIndex(u => u.Name)
             .IsUnique();
 
-        builder.HasIndex(u => new { u.ExternalSystem, u.ExternalId })
-            .IsUnique();
+        
     }
 }

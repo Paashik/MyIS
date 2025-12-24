@@ -67,6 +67,7 @@ export enum Component2020SyncScope {
   Units = 'Units',
   Counterparties = 'Counterparties',
   Suppliers = 'Suppliers',
+  ItemGroups = 'ItemGroups',
   Items = 'Items',
   Products = 'Products',
   Manufacturers = 'Manufacturers',

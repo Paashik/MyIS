@@ -10,6 +10,7 @@ import type {
   MdmDictionaryKey,
   MdmCounterpartyReferenceDto,
   MdmCurrencyReferenceDto,
+  MdmItemGroupReferenceDto,
   MdmItemReferenceDto,
   MdmManufacturerReferenceDto,
   MdmSimpleReferenceDto,
@@ -35,6 +36,7 @@ function isDictionaryKey(v: string): v is MdmDictionaryKey {
     v === "units" ||
     v === "counterparties" ||
     v === "suppliers" ||
+    v === "item-groups" ||
     v === "items" ||
     v === "manufacturers" ||
     v === "body-types" ||
@@ -52,6 +54,8 @@ function dictTitle(dict: MdmDictionaryKey): string {
     case "counterparties":
     case "suppliers":
       return t("references.mdm.counterparties.title");
+    case "item-groups":
+      return t("references.mdm.itemGroups.title");
     case "items":
       return t("references.mdm.items.title");
     case "manufacturers":
@@ -66,6 +70,8 @@ function dictTitle(dict: MdmDictionaryKey): string {
       return t("references.mdm.parameterSets.title");
     case "symbols":
       return t("references.mdm.symbols.title");
+    case "external-links":
+      return t("references.mdm.externalLinks.title");
   }
 }
 
@@ -76,6 +82,8 @@ function dictEditPermission(dict: MdmDictionaryKey): string {
     case "counterparties":
     case "suppliers":
       return "Admin.Mdm.EditSuppliers";
+    case "item-groups":
+      return "Admin.Mdm.EditItems";
     case "items":
       return "Admin.Mdm.EditItems";
     case "manufacturers":
@@ -90,6 +98,8 @@ function dictEditPermission(dict: MdmDictionaryKey): string {
       return "Admin.Mdm.EditParameterSets";
     case "symbols":
       return "Admin.Mdm.EditSymbols";
+    case "external-links":
+      return "Admin.Integration.View";
   }
 }
 
@@ -169,7 +179,6 @@ export const MdmDictionaryCardPage: React.FC = () => {
       return (
         <Descriptions bordered size="small" column={2}>
           <Descriptions.Item label={t("references.columns.name")}>{r.name ?? "-"}</Descriptions.Item>
-          <Descriptions.Item label={t("references.columns.code")}>{r.code ?? "-"}</Descriptions.Item>
           <Descriptions.Item label={t("references.mdm.manufacturers.columns.fullName")}>{r.fullName ?? "-"}</Descriptions.Item>
           <Descriptions.Item label={t("references.mdm.manufacturers.columns.site")}>
             {r.site && siteHref ? (
@@ -194,7 +203,6 @@ export const MdmDictionaryCardPage: React.FC = () => {
     return (
       <Descriptions bordered size="small" column={2}>
         <Descriptions.Item label={t("references.columns.name")}>{r.name ?? "-"}</Descriptions.Item>
-        <Descriptions.Item label={t("references.columns.code")}>{r.code ?? "-"}</Descriptions.Item>
         <Descriptions.Item label={t("references.mdm.suppliers.columns.fullName")}>{r.fullName ?? "-"}</Descriptions.Item>
         <Descriptions.Item label={t("references.mdm.suppliers.columns.inn")}>{r.inn ?? "-"}</Descriptions.Item>
         <Descriptions.Item label={t("references.mdm.suppliers.columns.kpp")}>{r.kpp ?? "-"}</Descriptions.Item>
@@ -310,6 +318,21 @@ export const MdmDictionaryCardPage: React.FC = () => {
           <Descriptions.Item label={t("references.columns.name")}>{r?.name ?? "-"}</Descriptions.Item>
           <Descriptions.Item label={t("references.mdm.units.columns.symbol")}>{r?.symbol ?? "-"}</Descriptions.Item>
           <Descriptions.Item label={t("references.columns.code")}>{r?.code ?? "-"}</Descriptions.Item>
+        </>
+      );
+    }
+
+    if (dict === "item-groups") {
+      const r = entity as MdmItemGroupReferenceDto | null;
+      return (
+        <>
+          <Descriptions.Item label={t("references.columns.name")}>{r?.name ?? "-"}</Descriptions.Item>
+          <Descriptions.Item label={t("references.mdm.itemGroups.columns.abbreviation")}>
+            {r?.abbreviation ?? "-"}
+          </Descriptions.Item>
+          <Descriptions.Item label={t("references.mdm.itemGroups.columns.parent")}>
+            {r?.parentName ?? "-"}
+          </Descriptions.Item>
         </>
       );
     }

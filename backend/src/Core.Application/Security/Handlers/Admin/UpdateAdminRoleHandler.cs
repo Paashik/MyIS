@@ -31,7 +31,7 @@ public sealed class UpdateAdminRoleHandler
         var name = (command.Name ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("Name is required.");
 
-        role.Name = name;
+        role.Rename(name);
         await _roleRepository.UpdateAsync(role, cancellationToken);
 
         return new RoleDto { Id = role.Id, Code = role.Code, Name = role.Name };

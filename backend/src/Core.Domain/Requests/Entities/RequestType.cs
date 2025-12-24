@@ -61,7 +61,7 @@ public class RequestType
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("Name is required.", nameof(name));
-}
+        }
 
         Name = name.Trim();
     }

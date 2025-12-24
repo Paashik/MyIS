@@ -23,6 +23,7 @@ public enum Component2020SyncScope
     Units,
     Counterparties,
     Suppliers = Counterparties,
+    ItemGroups,
     Items,
     Products,
     Manufacturers,

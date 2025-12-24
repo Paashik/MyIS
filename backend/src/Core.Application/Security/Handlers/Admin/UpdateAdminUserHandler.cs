@@ -53,10 +53,11 @@ public sealed class UpdateAdminUserHandler
             employeeFullName = employee.FullName;
         }
 
-        user.Login = login;
-        user.IsActive = command.IsActive;
-        user.EmployeeId = command.EmployeeId;
-        user.UpdatedAt = DateTimeOffset.UtcNow;
+        user.UpdateDetails(
+            login: login,
+            isActive: command.IsActive,
+            employeeId: command.EmployeeId,
+            now: DateTimeOffset.UtcNow);
 
         await _userRepository.UpdateAsync(user, cancellationToken);
 

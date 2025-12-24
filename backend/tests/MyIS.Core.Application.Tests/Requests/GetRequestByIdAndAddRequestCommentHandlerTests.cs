@@ -291,14 +291,12 @@ public class GetRequestByIdHandlerTests
 public class AddRequestCommentHandlerTests
 {
     private readonly Mock<IRequestRepository> _requestRepositoryMock = new();
-    private readonly Mock<IRequestCommentRepository> _commentRepositoryMock = new();
     private readonly Mock<IRequestsAccessChecker> _accessCheckerMock = new();
 
     private AddRequestCommentHandler CreateHandler()
     {
         return new AddRequestCommentHandler(
             _requestRepositoryMock.Object,
-            _commentRepositoryMock.Object,
             _accessCheckerMock.Object);
     }
 
@@ -363,11 +361,11 @@ public class AddRequestCommentHandlerTests
             .Setup(a => a.EnsureCanAddCommentAsync(authorId, It.IsAny<RequestId>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        RequestComment? savedComment = null;
+        Request? savedAggregate = null;
 
-        _commentRepositoryMock
-            .Setup(r => r.AddAsync(It.IsAny<RequestComment>(), It.IsAny<CancellationToken>()))
-            .Callback((RequestComment c, CancellationToken _) => savedComment = c)
+        _requestRepositoryMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Request>(), It.IsAny<CancellationToken>()))
+            .Callback((Request r, CancellationToken _) => savedAggregate = r)
             .Returns(Task.CompletedTask);
 
         var command = new AddRequestCommentCommand
@@ -382,12 +380,14 @@ public class AddRequestCommentHandlerTests
         var dto = await handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _commentRepositoryMock.Verify(
-            r => r.AddAsync(It.IsAny<RequestComment>(), It.IsAny<CancellationToken>()),
+        _requestRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<Request>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
-        savedComment.Should().NotBeNull();
-        savedComment!.RequestId.Value.Should().Be(requestIdGuid);
+        savedAggregate.Should().NotBeNull();
+        savedAggregate!.Comments.Should().HaveCount(1);
+        var savedComment = savedAggregate.Comments.Should().ContainSingle().Which;
+        savedComment.RequestId.Value.Should().Be(requestIdGuid);
         savedComment.AuthorId.Should().Be(authorId);
         savedComment.Text.Should().Be("My comment");
         savedComment.CreatedAt.Should().Be(createdAt);
@@ -424,8 +424,8 @@ public class AddRequestCommentHandlerTests
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage($"Request with id '{command.RequestId}' was not found.");
 
-        _commentRepositoryMock.Verify(
-            r => r.AddAsync(It.IsAny<RequestComment>(), It.IsAny<CancellationToken>()),
+        _requestRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<Request>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

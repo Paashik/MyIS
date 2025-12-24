@@ -35,22 +35,6 @@ public sealed class BodyTypeRepository : IBodyTypeRepository
             .FirstOrDefaultAsync(b => b.Code == normalized);
     }
 
-    public async Task<BodyType?> FindByExternalIdAsync(string externalSystem, string externalId)
-    {
-        if (string.IsNullOrWhiteSpace(externalSystem))
-        {
-            throw new ArgumentException("ExternalSystem is required.", nameof(externalSystem));
-        }
-
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId is required.", nameof(externalId));
-        }
-
-        return await _dbContext.BodyTypes
-            .FirstOrDefaultAsync(b => b.ExternalSystem == externalSystem && b.ExternalId == externalId);
-    }
-
     public async Task<bool> ExistsByCodeAsync(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

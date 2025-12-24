@@ -35,22 +35,6 @@ public sealed class ParameterSetRepository : IParameterSetRepository
             .FirstOrDefaultAsync(ps => ps.Code == normalized);
     }
 
-    public async Task<ParameterSet?> FindByExternalIdAsync(string externalSystem, string externalId)
-    {
-        if (string.IsNullOrWhiteSpace(externalSystem))
-        {
-            throw new ArgumentException("ExternalSystem is required.", nameof(externalSystem));
-        }
-
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId is required.", nameof(externalId));
-        }
-
-        return await _dbContext.ParameterSets
-            .FirstOrDefaultAsync(ps => ps.ExternalSystem == externalSystem && ps.ExternalId == externalId);
-    }
-
     public async Task<bool> ExistsByCodeAsync(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

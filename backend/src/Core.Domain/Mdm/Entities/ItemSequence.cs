@@ -39,4 +39,34 @@ public class ItemSequence
     {
         NextNumber++;
     }
+
+    public void SetPrefixAndNextNumber(string prefix, int nextNumber)
+    {
+        if (string.IsNullOrWhiteSpace(prefix))
+        {
+            throw new ArgumentException("Prefix cannot be null or empty.", nameof(prefix));
+        }
+
+        if (nextNumber < 0)
+        {
+            throw new ArgumentException("NextNumber cannot be negative.", nameof(nextNumber));
+        }
+
+        prefix = prefix.Trim().ToUpperInvariant();
+        Prefix = prefix;
+        NextNumber = nextNumber;
+    }
+
+    public void EnsureNextNumberAtLeast(int nextNumber)
+    {
+        if (nextNumber < 0)
+        {
+            throw new ArgumentException("NextNumber cannot be negative.", nameof(nextNumber));
+        }
+
+        if (nextNumber > NextNumber)
+        {
+            NextNumber = nextNumber;
+        }
+    }
 }

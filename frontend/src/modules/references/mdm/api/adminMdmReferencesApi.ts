@@ -4,13 +4,15 @@ export type MdmDictionaryKey =
   | "units"
   | "counterparties"
   | "suppliers" // deprecated alias (old route)
+  | "item-groups"
   | "items"
   | "manufacturers"
   | "body-types"
   | "currencies"
   | "technical-parameters"
   | "parameter-sets"
-  | "symbols";
+  | "symbols"
+  | "external-links";
 
 export interface PagedResponse<T> {
   total: number;
@@ -23,6 +25,16 @@ export interface MdmSimpleReferenceDto {
   name: string;
   isActive: boolean;
   updatedAt: string; // ISO
+}
+
+export interface MdmItemGroupReferenceDto {
+  id: string;
+  name: string;
+  isActive: boolean;
+  updatedAt: string; // ISO
+  abbreviation?: string | null;
+  parentId?: string | null;
+  parentName?: string | null;
 }
 
 export interface MdmUnitReferenceDto {
@@ -53,14 +65,13 @@ export interface MdmCounterpartyExternalLinkDto {
   externalSystem: string;
   externalEntity: string;
   externalId: string;
-  sourceType?: string | null;
+  sourceType?: number | null;
   syncedAt?: string | null;
   updatedAt: string; // ISO
 }
 
 export interface MdmCounterpartyReferenceDto {
   id: string;
-  code?: string | null;
   name: string;
   fullName?: string | null;
   inn?: string | null;
@@ -80,16 +91,24 @@ export interface MdmCounterpartyReferenceDto {
 }
 
 export interface MdmItemReferenceDto extends MdmSimpleReferenceDto {
+  nomenclatureNo: string;
+  designation?: string | null;
   itemKind: string;
   isEskd: boolean;
+  isEskdDocument?: boolean | null;
   manufacturerPartNumber?: string | null;
   externalSystem?: string | null;
   externalId?: string | null;
   syncedAt?: string | null;
+  createdAt: string; // ISO
   unitOfMeasureId: string;
   unitOfMeasureCode?: string | null;
   unitOfMeasureName?: string | null;
   unitOfMeasureSymbol?: string | null;
+  itemGroupId?: string | null;
+  itemGroupName?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
 }
 
 export interface MdmCurrencyReferenceDto {
@@ -107,7 +126,6 @@ export interface MdmCurrencyReferenceDto {
 
 export interface MdmManufacturerReferenceDto {
   id: string;
-  code?: string | null;
   name: string;
   fullName?: string | null;
   site?: string | null;
@@ -117,6 +135,18 @@ export interface MdmManufacturerReferenceDto {
   externalSystem?: string | null;
   externalId?: string | null;
   syncedAt?: string | null;
+}
+
+export interface MdmExternalEntityLinkDto {
+  id: string;
+  entityType: string;
+  entityId: string;
+  externalSystem: string;
+  externalEntity: string;
+  externalId: string;
+  sourceType?: number | null;
+  syncedAt?: string | null;
+  updatedAt: string; // ISO
 }
 
 class HttpError extends Error {
@@ -160,7 +190,16 @@ async function httpRequest<TResponse>(input: string, init?: RequestInit): Promis
 
 export async function getMdmDictionaryList<T>(
   dict: MdmDictionaryKey,
-  args?: { q?: string; isActive?: boolean; skip?: number; take?: number; roleType?: string | number }
+  args?: {
+    q?: string;
+    isActive?: boolean;
+    skip?: number;
+    take?: number;
+    roleType?: string | number;
+    entityType?: string;
+    externalSystem?: string;
+    externalEntity?: string;
+  }
 ): Promise<PagedResponse<T>> {
   const params = new URLSearchParams();
   if (args?.q) params.set("q", args.q);
@@ -168,6 +207,9 @@ export async function getMdmDictionaryList<T>(
   if (typeof args?.skip === "number") params.set("skip", String(args.skip));
   if (typeof args?.take === "number") params.set("take", String(args.take));
   if (typeof args?.roleType === "string" || typeof args?.roleType === "number") params.set("roleType", String(args.roleType));
+  if (args?.entityType) params.set("entityType", args.entityType);
+  if (args?.externalSystem) params.set("externalSystem", args.externalSystem);
+  if (args?.externalEntity) params.set("externalEntity", args.externalEntity);
 
   const qs = params.toString();
   return httpRequest<PagedResponse<T>>(

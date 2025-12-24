@@ -1,8 +1,9 @@
 using System;
+using MyIS.Core.Domain.Common;
 
 namespace MyIS.Core.Domain.Mdm.Entities;
 
-public class UnitOfMeasure
+public class UnitOfMeasure : IDeactivatable
 {
     public Guid Id { get; private set; }
 
@@ -11,12 +12,6 @@ public class UnitOfMeasure
     public string Name { get; private set; }
 
     public string Symbol { get; private set; }
-
-    public string? ExternalSystem { get; private set; }
-
-    public string? ExternalId { get; private set; }
-
-    public DateTimeOffset? SyncedAt { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -85,24 +80,6 @@ public class UnitOfMeasure
         Name = name.Trim();
         Symbol = (symbol ?? string.Empty).Trim();
         IsActive = isActive;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void SetExternalReference(string externalSystem, string externalId, DateTimeOffset syncedAt)
-    {
-        if (string.IsNullOrWhiteSpace(externalSystem))
-        {
-            throw new ArgumentException("ExternalSystem cannot be null or empty.", nameof(externalSystem));
-        }
-
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId cannot be null or empty.", nameof(externalId));
-        }
-
-        ExternalSystem = externalSystem.Trim();
-        ExternalId = externalId.Trim();
-        SyncedAt = syncedAt;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

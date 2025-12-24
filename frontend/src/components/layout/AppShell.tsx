@@ -177,12 +177,14 @@ const AppShell: React.FC = () => {
           { key: "/references/mdm/units", label: t("references.mdm.units.title") },
           { key: "/references/mdm/counterparties", label: t("references.mdm.counterparties.title") },
           { key: "/references/mdm/items", label: t("references.mdm.items.title") },
+          { key: "/references/mdm/item-groups", label: t("references.mdm.itemGroups.title") },
           { key: "/references/mdm/manufacturers", label: t("references.mdm.manufacturers.title") },
           { key: "/references/mdm/body-types", label: t("references.mdm.bodyTypes.title") },
           { key: "/references/mdm/currencies", label: t("references.mdm.currencies.title") },
           { key: "/references/mdm/technical-parameters", label: t("references.mdm.technicalParameters.title") },
           { key: "/references/mdm/parameter-sets", label: t("references.mdm.parameterSets.title") },
           { key: "/references/mdm/symbols", label: t("references.mdm.symbols.title") },
+          { key: "/references/mdm/external-links", label: t("references.mdm.externalLinks.title") },
         ],
       });
     }

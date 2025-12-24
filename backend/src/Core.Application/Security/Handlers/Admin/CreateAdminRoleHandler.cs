@@ -37,13 +37,11 @@ public sealed class CreateAdminRoleHandler
             throw new InvalidOperationException($"Role with code '{code}' already exists.");
         }
 
-        var role = new Role
-        {
-            Id = Guid.NewGuid(),
-            Code = code,
-            Name = name,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
+        var role = Role.Create(
+            id: Guid.NewGuid(),
+            code: code,
+            name: name,
+            createdAt: DateTimeOffset.UtcNow);
 
         await _roleRepository.AddAsync(role, cancellationToken);
 

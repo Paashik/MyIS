@@ -11,6 +11,4 @@ public interface IRequestCommentRepository
     Task<IReadOnlyList<RequestComment>> GetByRequestIdAsync(
         RequestId requestId,
         CancellationToken cancellationToken);
-
-    Task AddAsync(RequestComment comment, CancellationToken cancellationToken);
 }

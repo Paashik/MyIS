@@ -177,6 +177,36 @@ public class Request
         UpdatedAt = updatedAt;
     }
 
+    public RequestComment AddComment(
+        Guid authorId,
+        string text,
+        DateTimeOffset createdAt)
+    {
+        if (authorId == Guid.Empty)
+        {
+            throw new ArgumentException("AuthorId cannot be empty.", nameof(authorId));
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new ArgumentException("Text is required.", nameof(text));
+        }
+
+        var comment = RequestComment.Create(
+            requestId: Id,
+            authorId: authorId,
+            text: text,
+            createdAt: createdAt);
+
+        Comments.Add(comment);
+        if (createdAt > UpdatedAt)
+        {
+            UpdatedAt = createdAt;
+        }
+
+        return comment;
+    }
+
     /// <summary>
     /// Валидация тела заявки для выхода из Draft по действию Submit.
     /// Для SupplyRequest требуется заполнить либо Lines, либо Description.

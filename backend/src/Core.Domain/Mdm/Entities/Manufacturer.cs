@@ -1,12 +1,11 @@
 using System;
+using MyIS.Core.Domain.Common;
 
 namespace MyIS.Core.Domain.Mdm.Entities;
 
-public class Manufacturer
+public class Manufacturer : IDeactivatable
 {
     public Guid Id { get; private set; }
-
-    public string? Code { get; private set; }
 
     public string Name { get; private set; }
 
@@ -18,12 +17,6 @@ public class Manufacturer
 
     public bool IsActive { get; private set; }
 
-    public string? ExternalSystem { get; private set; }
-
-    public string? ExternalId { get; private set; }
-
-    public DateTimeOffset? SyncedAt { get; private set; }
-
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -33,7 +26,7 @@ public class Manufacturer
         // For EF Core
     }
 
-    public Manufacturer(string? code, string name, string? fullName, string? site, string? note, string? externalSystem, string? externalId)
+    public Manufacturer(string name, string? fullName, string? site, string? note)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -41,15 +34,11 @@ public class Manufacturer
         }
 
         Id = Guid.NewGuid();
-        Code = NormalizeOptional(code);
         Name = name.Trim();
         FullName = NormalizeOptional(fullName);
         Site = NormalizeOptional(site);
         Note = NormalizeOptional(note);
         IsActive = true;
-        ExternalSystem = NormalizeOptional(externalSystem);
-        ExternalId = NormalizeOptional(externalId);
-        SyncedAt = DateTimeOffset.UtcNow;
         CreatedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -66,12 +55,6 @@ public class Manufacturer
         Site = NormalizeOptional(site);
         Note = NormalizeOptional(note);
         IsActive = isActive;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void MarkSynced()
-    {
-        SyncedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

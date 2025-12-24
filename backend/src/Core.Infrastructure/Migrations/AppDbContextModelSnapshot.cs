@@ -41,14 +41,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
                     b.Property<string>("FootPrintPath")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
@@ -83,9 +75,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<int?>("Smt")
                         .HasColumnType("integer");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -94,11 +83,7 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique()
-                        .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
-
-                    b.ToTable("body_types", "integration");
+                    b.ToTable("body_types", "mdm");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.Counterparty", b =>
@@ -112,10 +97,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasColumnType("character varying(250)");
 
                     b.Property<string>("City")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("Code")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -171,57 +152,7 @@ namespace MyIS.Core.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasFilter("\"Code\" IS NOT NULL");
-
                     b.ToTable("counterparties", "mdm");
-                });
-
-            modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.CounterpartyExternalLink", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CounterpartyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ExternalEntity")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalId")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("SourceType")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CounterpartyId");
-
-                    b.HasIndex("ExternalSystem", "ExternalEntity", "ExternalId")
-                        .IsUnique();
-
-                    b.ToTable("counterparty_external_links", "mdm");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.CounterpartyRole", b =>
@@ -266,14 +197,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -290,9 +213,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -301,10 +221,7 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique();
-
-                    b.ToTable("currencies", "integration");
+                    b.ToTable("currencies", "mdm");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink", b =>
@@ -372,13 +289,9 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ExternalId")
+                    b.Property<string>("Designation")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -404,8 +317,10 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<string>("NomenclatureNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<Guid>("UnitOfMeasureId")
                         .HasColumnType("uuid");
@@ -420,11 +335,10 @@ namespace MyIS.Core.Infrastructure.Migrations
 
                     b.HasIndex("ItemGroupId");
 
-                    b.HasIndex("UnitOfMeasureId");
+                    b.HasIndex("NomenclatureNo")
+                        .IsUnique();
 
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique()
-                        .HasFilter("ExternalSystem IS NOT NULL AND ExternalId IS NOT NULL");
+                    b.HasIndex("UnitOfMeasureId");
 
                     b.ToTable("items", "mdm");
                 });
@@ -499,13 +413,15 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<string>("Abbreviation")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -522,9 +438,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
 
                     b.HasIndex("ParentId");
 
@@ -562,20 +475,8 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("FullName")
                         .HasMaxLength(200)
@@ -597,21 +498,12 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique();
-
-                    b.ToTable("manufacturers", "integration");
+                    b.ToTable("manufacturers", "mdm");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.ParameterSet", b =>
@@ -627,14 +519,6 @@ namespace MyIS.Core.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -662,9 +546,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<int?>("P5Id")
                         .HasColumnType("integer");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -673,97 +554,7 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique()
-                        .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
-
-                    b.ToTable("parameter_sets", "integration");
-                });
-
-            modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.Supplier", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(250)
-                        .HasColumnType("character varying(250)");
-
-                    b.Property<string>("City")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("Code")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("FullName")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("Inn")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Kpp")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("ProviderType")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Site")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasFilter("\"Code\" IS NOT NULL");
-
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique();
-
-                    b.ToTable("suppliers", "mdm");
+                    b.ToTable("parameter_sets", "mdm");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.Symbol", b =>
@@ -779,14 +570,6 @@ namespace MyIS.Core.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -812,9 +595,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -823,11 +603,7 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique()
-                        .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
-
-                    b.ToTable("symbols", "integration");
+                    b.ToTable("symbols", "mdm");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.TechnicalParameter", b =>
@@ -844,14 +620,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -864,9 +632,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int?>("UnitId")
                         .HasColumnType("integer");
 
@@ -878,11 +643,7 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.HasIndex("ExternalSystem", "ExternalId")
-                        .IsUnique()
-                        .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
-
-                    b.ToTable("technical_parameters", "integration");
+                    b.ToTable("technical_parameters", "mdm");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure", b =>
@@ -898,14 +659,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ExternalSystem")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -919,9 +672,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
-                    b.Property<DateTimeOffset?>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -931,9 +681,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.HasIndex("ExternalSystem", "ExternalId")
                         .IsUnique();
 
                     b.ToTable("unit_of_measures", "mdm");

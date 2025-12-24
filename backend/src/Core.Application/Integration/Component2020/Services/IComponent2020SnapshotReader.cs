@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,19 +7,21 @@ namespace MyIS.Core.Application.Integration.Component2020.Services;
 
 public interface IComponent2020SnapshotReader
 {
-    Task<IEnumerable<Component2020Item>> ReadItemsAsync(CancellationToken cancellationToken);
-    Task<IEnumerable<Component2020ItemGroup>> ReadItemGroupsAsync(CancellationToken cancellationToken);
-    Task<IEnumerable<Component2020Unit>> ReadUnitsAsync(CancellationToken cancellationToken);
-    Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken);
+    Task<IEnumerable<Component2020Item>> ReadItemsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
+    Task<IEnumerable<Component2020ItemGroup>> ReadItemGroupsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
+    Task<IEnumerable<Component2020Unit>> ReadUnitsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
+    Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken, Guid? connectionId = null);
 }
 
 public class Component2020Item
 {
-    public string Code { get; set; } = null!;
+    public int Id { get; set; }
+    public string? Code { get; set; }
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public int? GroupId { get; set; }
     public int? UnitId { get; set; }
+    public string? PartNumber { get; set; }
     // etc.
 }
 
@@ -27,6 +30,8 @@ public class Component2020ItemGroup
     public int Id { get; set; }
     public string Name { get; set; } = null!;
     public int? ParentId { get; set; }
+    public string? Description { get; set; }
+    public string? FullName { get; set; }
 }
 
 public class Component2020Unit

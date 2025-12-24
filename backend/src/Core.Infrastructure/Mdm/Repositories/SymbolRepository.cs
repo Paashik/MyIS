@@ -35,22 +35,6 @@ public sealed class SymbolRepository : ISymbolRepository
             .FirstOrDefaultAsync(s => s.Code == normalized);
     }
 
-    public async Task<Symbol?> FindByExternalIdAsync(string externalSystem, string externalId)
-    {
-        if (string.IsNullOrWhiteSpace(externalSystem))
-        {
-            throw new ArgumentException("ExternalSystem is required.", nameof(externalSystem));
-        }
-
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId is required.", nameof(externalId));
-        }
-
-        return await _dbContext.Symbols
-            .FirstOrDefaultAsync(s => s.ExternalSystem == externalSystem && s.ExternalId == externalId);
-    }
-
     public async Task<bool> ExistsByCodeAsync(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

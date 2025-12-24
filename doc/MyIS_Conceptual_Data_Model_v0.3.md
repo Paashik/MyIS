@@ -36,30 +36,32 @@
 Database: myis_db
 ```
 
-Каждый домен имеет **свою схему**:
+Каждый домен данных хранит свои таблицы в **отдельной схеме** (для каркаса/Core используются несколько технических схем):
 
 ```text
-core          – пользователи, роли, атрибуты, UoM
-mdm           – номенклатура и классификация
+core          – каркас: пользователи, роли, настройки, служебные таблицы (в т.ч. __EFMigrationsHistory)
+org           – организация/HR: сотрудники (Employee)
+mdm           – мастер-данные: номенклатура, ЕИ, поставщики/контрагенты, валюты, классификаторы
 engineering   – изделия, BOM, КД, ревизии
 technology    – ТП, маршруты, операции
 warehouse     – склады, партии, остатки, движения
-requests      – заявки, статусы, workflow
+requests      – заявки, статусы, workflow-конфигурация
 customers     – клиенты и их данные
 production    – производственные заказы, WIP
 procurement   – закупки, поставщики
 costing       – себестоимость, трудозатраты
-integration   – внешние системы, Компонент-2020 и др.
-public        – служебные таблицы EF Core (migrations)
+integration   – технические данные интеграций (подмодуль Core: Integration.Component2020)
 ```
 
 ### 2.2. Фиксированные домены
 
-Список доменов **фиксирован** и не меняется. Внутри доменов можно добавлять новые сущности, но:
+Целевой список доменов **фиксируется** и меняется только через правку концепции/архитектуры. Внутри доменов можно добавлять новые сущности, но:
 
 - домены не объединяются;
 - домены не дробятся на новые;
 - логика владения сущностями остаётся стабильной.
+
+На момент v0.3 в коде реализованы схемы: `core`, `org`, `mdm`, `requests`, `integration`. Остальные схемы в этом документе описаны как целевые (план).
 
 ### 2.3. Владелец данных
 
@@ -85,7 +87,7 @@ public        – служебные таблицы EF Core (migrations)
 
 Версионность применяется для сущностей, связанных с жизненным циклом изделия и процессов:
 
-- `ItemRevision`
+- `ItemRevision` (план; в текущей реализации MDM используется `Item` без ревизий)
 - `ProductRevision`
 - `BOMRevision`
 - `TechProcessRevision`
@@ -99,16 +101,16 @@ public        – служебные таблицы EF Core (migrations)
 
 ### 2.6. Измерения и количество
 
-Используется VO:
+Целевой вариант — VO для количества:
 
 ```csharp
 public readonly record struct Quantity(
     decimal Value,
-    string UnitCode // ссылка на mdm.UnitOfMeasure.Code (в текущей реализации)
+    Guid UnitOfMeasureId
 );
 ```
 
-В модели данных это реализуется полями `Value` + `UoMId` / `UoMCode`.
+В текущей реализации количество хранится как отдельные поля (например: `RequestLine.Quantity` + `RequestLine.UnitOfMeasureId`).
 
 ### 2.7. Статусы и workflow
 
@@ -121,14 +123,12 @@ public readonly record struct Quantity(
 
 ### 2.8. Атрибуты (расширяемость)
 
-Для расширения сущностей используется механизм атрибутов:
+Для расширения карточек номенклатуры используется механизм атрибутов в MDM:
 
-- `core.AttributeDefinition`
-- `core.AttributeGroup`
-- `core.AttributeValue`
-- `core.ObjectAttributeValue`
+- `mdm.ItemAttribute`
+- `mdm.ItemAttributeValue`
 
-Позволяет добавлять новые свойства без миграции схемы для каждого домена.
+Позволяет добавлять новые свойства без изменения структуры `mdm.items`. При необходимости может быть обобщён до универсального механизма для других доменов.
 
 ---
 
@@ -136,16 +136,17 @@ public readonly record struct Quantity(
 
 ### 3.1. core
 
-Схема: `core`
+Схемы: `core`, `org`
 
-Сущности (концептуально):
+Сущности:
 
-- `User`, `Role`, `Permission`, `UserRole`
-- `Currency`
-- `Document` (файлы)
-- `AttributeDefinition`, `AttributeGroup`, `AttributeValue`, `ObjectAttributeValue`
+- `User`, `Role`, `UserRole` (безопасность/доступ)
+- `Employee` (HR‑контур, схема `org`, связь Employee ↔ User)
+- (план) `Permission` / permission‑модель (сейчас используется policy‑based доступ)
+- (план) `Document` (файлы)
+- (план) универсальные атрибуты `AttributeDefinition`, `AttributeGroup`, `AttributeValue`, `ObjectAttributeValue`
 
-Назначение: общесистемное ядро — пользователи, роли, измерения, атрибуты, файлы.
+Назначение: общесистемный каркас — безопасность/доступ, сотрудники, технические настройки и общие сервисы.
 
 ---
 
@@ -153,19 +154,18 @@ public readonly record struct Quantity(
 
 Схема: `mdm`
 
-Сущности:
+Сущности (реализация в репозитории + целевые):
 
 - `Item` — номенклатура (компоненты, изделия, материалы, услуги)
-- `ItemRevision` — ревизия номенклатуры/изделия (для PDM)
 - `ItemGroup` — дерево групп номенклатуры
-- `UnitOfMeasure` — единицы измерения (в текущей реализации находятся в `mdm`, а не в `core`)
-- `Manufacturer`
-- `Counterparty` — контрагенты (единая запись на организацию)
-- `CounterpartyRole` — роли контрагента (`Supplier`/`Customer`)
-- `CounterpartyExternalLink` — внешние ключи (например, `Component2020:Providers:ID`)
-- (опционально) базовый `Supplier` / `Customer` – могут быть вынесены в `procurement`/`customers`
+- `UnitOfMeasure`, `Currency`
+- `Counterparty`, `CounterpartyRole`, `CounterpartyExternalLink` — контрагенты и роли (`Supplier`/`Customer`)
+- `Manufacturer`, `BodyType`
+- `TechnicalParameter`, `ParameterSet`, `Symbol`
+- `ItemAttribute`, `ItemAttributeValue` — атрибуты номенклатуры
+- (план) `ItemRevision` — ревизии номенклатуры/изделия (для PDM/Engineering)
 
-Назначение: единый источник правды по номенклатуре и классификации.
+Назначение: единый источник правды по мастер‑данным (номенклатура, справочники, контрагенты и т.п.).
 
 ---
 
@@ -229,10 +229,11 @@ public readonly record struct Quantity(
 - `Request`
 - `RequestType`
 - `RequestStatus`
-- `RequestWorkflow`
+- `RequestTransition` — конфигурация переходов workflow
 - `RequestComment`
 - `RequestAttachment`
 - `RequestHistory`
+- `RequestLine`
 
 Назначение: единый каркас заявок и процессов (Этап 1 и далее).
 
@@ -300,7 +301,7 @@ public readonly record struct Quantity(
 
 ### 3.11. integration
 
-Схема: `integration`
+Схема: `integration` (техническая схема каркаса `Core`, подмодуль `Integration.Component2020`)
 
 Сущности (реализация в репозитории):
 
@@ -310,11 +311,13 @@ public readonly record struct Quantity(
 - `Component2020SyncRun` / `Component2020SyncError` — журнал прогонов синхронизации и ошибок
 - `Component2020SyncSchedule` — расписание прогонов (текущая реализация упрощённая)
 
-Назначение: интеграция с Компонент-2020 и другими внешними системами. Детализированная структура доступов Компонент‑2020, которой следует придерживаться при проектировании этого домена, описана в [Component2020_Access_schema_mermaid.md](../.kilocode/rules/Component2020_Access_schema_mermaid.md).
+Назначение: технические данные интеграций и синхронизаций. Важно: мастер‑данные (справочники) хранятся в `mdm`; в `integration` — только технические таблицы интеграций/синхронизации. Детализированная структура доступов Компонент‑2020, которой следует придерживаться при проектировании этого домена, описана в [Component2020_Access_schema_mermaid.md](../.kilocode/rules/Component2020_Access_schema_mermaid.md).
 
 ---
 
 ## 4. Глобальная ER-диаграмма доменов (Mermaid)
+
+> Диаграмма отражает целевую модель; в текущей реализации (v0.3) в коде присутствуют только часть доменов/сущностей (см. раздел 2.2 и `doc/02_Чек-лист_реализации.md`).
 
 ```mermaid
 erDiagram
@@ -392,17 +395,16 @@ erDiagram
 
 #### 5.1.1. `core.User`
 
-| Поле       | Тип            | Обяз. | Описание |
-|-----------|----------------|-------|----------|
-| Id        | Guid           | ✔     | Идентификатор пользователя |
-| UserName  | string         | ✔     | Логин |
-| FullName  | string         | ✔     | Полное имя |
-| Email     | string         | ✔     | E-mail |
-| IsActive  | bool           | ✔     | Признак активности |
-| CreatedAt | DateTime       | ✔     | Дата создания |
-| CreatedBy | Guid           | ✔     | Кто создал |
-| UpdatedAt | DateTime?      |       | Дата изменения |
-| UpdatedBy | Guid?          |       | Кто изменил |
+| Поле         | Тип            | Обяз. | Описание |
+|-------------|----------------|-------|----------|
+| Id          | Guid           | ✔     | Идентификатор пользователя |
+| Login       | string         | ✔     | Логин |
+| PasswordHash| string         | ✔     | Хеш пароля |
+| FullName    | string?        |       | Полное имя |
+| EmployeeId  | Guid?          |       | Ссылка на `org.Employee` (если есть) |
+| IsActive    | bool           | ✔     | Признак активности |
+| CreatedAt   | DateTimeOffset | ✔     | Дата создания |
+| UpdatedAt   | DateTimeOffset | ✔     | Дата изменения |
 
 #### 5.1.2. `core.Role`
 
@@ -411,7 +413,29 @@ erDiagram
 | Id       | Guid   | ✔     | Идентификатор роли |
 | Code     | string | ✔     | Уникальный код (ADMIN, ENGINEER, …) |
 | Name     | string | ✔     | Название |
-| IsSystem | bool   | ✔     | Системная роль (нельзя удалять) |
+| CreatedAt| DateTimeOffset | ✔ | Дата создания |
+
+#### 5.1.3. `core.UserRole`
+
+| Поле      | Тип            | Обяз. | Описание |
+|----------|----------------|-------|----------|
+| UserId   | Guid           | ✔     | Ссылка на `core.User` |
+| RoleId   | Guid           | ✔     | Ссылка на `core.Role` |
+| AssignedAt | DateTimeOffset | ✔   | Когда назначена роль |
+| CreatedAt  | DateTimeOffset | ✔   | Дата создания записи |
+
+#### 5.1.4. `org.Employee`
+
+| Поле      | Тип            | Обяз. | Описание |
+|----------|----------------|-------|----------|
+| Id       | Guid           | ✔     | Идентификатор сотрудника |
+| FullName | string         | ✔     | ФИО |
+| Email    | string?        |       | E-mail |
+| Phone    | string?        |       | Телефон |
+| Notes    | string?        |       | Примечание |
+| IsActive | bool           | ✔     | Признак активности |
+| CreatedAt| DateTimeOffset | ✔     | Дата создания |
+| UpdatedAt| DateTimeOffset | ✔     | Дата изменения |
 
 ---
 
@@ -427,7 +451,30 @@ erDiagram
 | Code      | string |       | Код (опционально) |
 | Name      | string | ✔     | Название |
 | Symbol    | string | ✔     | Обозначение |
+| ExternalSystem | string? |  | Внешняя система (например, Component2020) |
+| ExternalId | string? |  | Внешний ID |
+| SyncedAt  | DateTimeOffset? |  | Время последней синхронизации |
 | IsActive  | bool   | ✔     | Активность |
+| CreatedAt | DateTimeOffset | ✔ | Дата создания |
+| UpdatedAt | DateTimeOffset | ✔ | Дата изменения |
+
+#### 5.2.0a. `mdm.Currency`
+
+> В текущей реализации валюты находятся в схеме `mdm` (см. `backend/src/Core.Infrastructure/Data/Configurations/Mdm/CurrencyConfiguration.cs`).
+
+| Поле       | Тип    | Обяз. | Описание |
+|-----------|--------|-------|----------|
+| Id        | Guid   | ✔     | Идентификатор |
+| Code      | string? |      | Код (опционально) |
+| Name      | string | ✔     | Название |
+| Symbol    | string? |      | Обозначение |
+| Rate      | decimal? |     | Курс (если ведётся) |
+| ExternalSystem | string? |  | Внешняя система (например, Component2020) |
+| ExternalId | string? |  | Внешний ID |
+| SyncedAt  | DateTimeOffset? |  | Время последней синхронизации |
+| IsActive  | bool   | ✔     | Активность |
+| CreatedAt | DateTimeOffset | ✔ | Дата создания |
+| UpdatedAt | DateTimeOffset | ✔ | Дата изменения |
 
 #### 5.2.1. `mdm.Item`
 
@@ -443,9 +490,11 @@ erDiagram
 | IsEskd    | bool     | ✔     | Признак ЕСКД |
 | IsEskdDocument | bool? |     | Признак ЕСКД-документа (если применимо) |
 | ManufacturerPartNumber | string? | | MPN/артикул/PartNumber (если применимо) |
-| ExternalSystem | string? |     | Legacy-внешняя система (обратная совместимость) |
-| ExternalId | string? |        | Legacy-внешний ID (обратная совместимость) |
+| ExternalSystem | string? |     | Внешняя система (например, Component2020) |
+| ExternalId | string? |        | Внешний ID |
 | SyncedAt  | DateTimeOffset? |  | Время последней синхронизации |
+| CreatedAt | DateTimeOffset | ✔ | Дата создания |
+| UpdatedAt | DateTimeOffset | ✔ | Дата изменения |
 
 #### 5.2.1a. `mdm.ItemGroup`
 
@@ -454,20 +503,36 @@ erDiagram
 | Поле      | Тип     | Обяз. | Описание |
 |----------|---------|-------|----------|
 | Id       | Guid    | ✔     | Идентификатор |
-| Code     | string  | ✔     | Уникальный код группы |
 | Name     | string  | ✔     | Название |
+| Abbreviation | string? |   | Аббревиатура (для корневых групп/категорий) |
 | ParentId | Guid?   |       | Родительская группа |
 | IsActive | bool    | ✔     | Активность |
+| CreatedAt | DateTimeOffset | ✔ | Дата создания |
+| UpdatedAt | DateTimeOffset | ✔ | Дата изменения |
 
-#### 5.2.1b. `mdm.Item` — расширения по доменам (план)
+#### 5.2.1b. `mdm.ItemAttribute`
 
-Карточка `Item` в UI строится как “шапка + вкладки по контекстам” (ECAD/MCAD/Закупка/Склад/…).
-Чтобы не раздувать `mdm.items` десятками колонок, данные вкладок хранятся либо:
+| Поле      | Тип            | Обяз. | Описание |
+|----------|----------------|-------|----------|
+| Id       | Guid           | ✔     | Идентификатор |
+| Code     | string         | ✔     | Уникальный код атрибута |
+| Name     | string         | ✔     | Название |
+| Type     | string         | ✔     | Тип (например: string/number/boolean) |
+| IsActive | bool           | ✔     | Активность |
+| CreatedAt | DateTimeOffset | ✔    | Дата создания |
+| UpdatedAt | DateTimeOffset | ✔    | Дата изменения |
 
-- в 1:1 таблицах‑расширениях (`mdm.item_ecad`, `mdm.item_mcad`, `mdm.item_procurement`, `mdm.item_storage`, …),
-- либо в универсальном механизме атрибутов/параметров (наборы параметров + значения), применимость — через `ItemGroup`/категорию.
+#### 5.2.1c. `mdm.ItemAttributeValue`
 
-#### 5.2.1b. `mdm.Item` — расширения по доменам (план)
+| Поле       | Тип            | Обяз. | Описание |
+|-----------|----------------|-------|----------|
+| ItemId     | Guid           | ✔     | Ссылка на `mdm.Item` |
+| AttributeId| Guid           | ✔     | Ссылка на `mdm.ItemAttribute` |
+| Value      | string         | ✔     | Значение (в виде строки) |
+| CreatedAt  | DateTimeOffset | ✔     | Дата создания |
+| UpdatedAt  | DateTimeOffset | ✔     | Дата изменения |
+
+#### 5.2.1d. `mdm.Item` — расширения по доменам (план)
 
 Карточка `Item` в UI строится как “шапка + вкладки по контекстам” (ECAD/MCAD/Закупка/Склад/…).
 Чтобы не раздувать `mdm.items` десятками колонок, данные вкладок хранятся либо:
@@ -476,6 +541,8 @@ erDiagram
 - либо в универсальном механизме атрибутов/параметров (наборы параметров + значения), применимость — через `ItemGroup`/категорию.
 
 #### 5.2.2. `mdm.ItemRevision`
+
+> Планируемая сущность (в текущем коде отсутствует).
 
 | Поле           | Тип      | Обяз. | Описание |
 |---------------|----------|-------|----------|
@@ -650,34 +717,71 @@ erDiagram
 
 #### 5.6.1. `requests.Request`
 
-| Поле         | Тип      | Обяз. | Описание |
-|--------------|----------|-------|----------|
-| Id           | Guid     | ✔     | Идентификатор заявки |
-| RequestTypeId| Guid     | ✔     | Тип заявки |
-| StatusId     | Guid     | ✔     | Текущий статус |
-| Title        | string   | ✔     | Краткое описание |
-| Description  | string   |       | Подробное описание |
-| CreatedBy    | Guid     | ✔     | Автор |
-| CreatedAt    | DateTime | ✔     | Дата создания |
-| DueDate      | DateTime?|       | Желаемый срок |
-| RelatedEntityType | string |    | Тип связанной сущности (опционально) |
-| RelatedEntityId   | Guid? |     | Id связанной сущности |
+| Поле         | Тип            | Обяз. | Описание |
+|--------------|----------------|-------|----------|
+| Id           | Guid           | ✔     | Идентификатор заявки |
+| RequestTypeId| Guid           | ✔     | Ссылка на `requests.RequestType` |
+| RequestStatusId | Guid        | ✔     | Ссылка на `requests.RequestStatus` |
+| Title        | string         | ✔     | Заголовок |
+| Description  | string?        |       | Описание |
+| InitiatorId  | Guid           | ✔     | Инициатор (ссылка на `core.User`) |
+| RelatedEntityType | string?    |       | Тип связанной сущности |
+| RelatedEntityId   | Guid?      |       | Id связанной сущности |
+| ExternalReferenceId | string?  |       | Внешняя ссылка/ID (если есть) |
+| CreatedAt    | DateTimeOffset | ✔     | Дата создания |
+| UpdatedAt    | DateTimeOffset | ✔     | Дата изменения |
+| DueDate      | DateTimeOffset?|       | Желаемый срок |
 
 #### 5.6.2. `requests.RequestType`
 
-| Поле | Тип    | Обяз. | Описание |
-|------|--------|-------|----------|
-| Id   | Guid   | ✔     | Идентификатор |
-| Code | string | ✔     | Код (ECR, ECO, PURCH, PROD, BUG, …) |
-| Name | string | ✔     | Название |
+| Поле        | Тип    | Обяз. | Описание |
+|------------|--------|-------|----------|
+| Id         | Guid   | ✔     | Идентификатор |
+| Code       | string | ✔     | Код (ECR, ECO, PURCH, …) |
+| Name       | string | ✔     | Название |
+| Description| string? |      | Описание |
+| Direction  | enum   | ✔     | Направление (в коде: `RequestDirection`) |
+| IsActive   | bool   | ✔     | Активность |
 
 #### 5.6.3. `requests.RequestStatus`
 
-| Поле | Тип    | Обяз. | Описание |
-|------|--------|-------|----------|
-| Id   | Guid   | ✔     | Идентификатор |
-| Code | string | ✔     | Код (NEW, IN_PROGRESS, APPROVED, REJECTED, CLOSED) |
-| Name | string | ✔     | Название |
+| Поле        | Тип    | Обяз. | Описание |
+|------------|--------|-------|----------|
+| Id         | Guid   | ✔     | Идентификатор |
+| Code       | string | ✔     | Код (NEW, IN_PROGRESS, …) |
+| Name       | string | ✔     | Название |
+| IsFinal    | bool   | ✔     | Финальный статус |
+| Description| string? |      | Описание |
+| IsActive   | bool   | ✔     | Активность |
+
+#### 5.6.4. `requests.RequestTransition`
+
+| Поле        | Тип    | Обяз. | Описание |
+|------------|--------|-------|----------|
+| Id         | Guid   | ✔     | Идентификатор |
+| RequestTypeId | Guid | ✔   | Ссылка на `requests.RequestType` |
+| FromStatusCode | string | ✔ | Код статуса-источника |
+| ToStatusCode   | string | ✔ | Код статуса-назначения |
+| ActionCode | string | ✔     | Код действия (Submit/Approve/…) |
+| RequiredPermission | string? | | Требуемое право/permission (если используется) |
+| IsEnabled  | bool   | ✔     | Включено |
+
+#### 5.6.5. `requests.RequestLine`
+
+| Поле        | Тип            | Обяз. | Описание |
+|------------|----------------|-------|----------|
+| Id         | Guid           | ✔     | Идентификатор |
+| RequestId  | Guid           | ✔     | Ссылка на `requests.Request` |
+| LineNo     | int            | ✔     | Номер строки |
+| ItemId     | Guid?          |       | Ссылка на `mdm.Item` (если известна) |
+| ExternalItemCode | string?   |       | Внешний код номенклатуры (если ItemId не задан) |
+| Description| string?        |       | Описание позиции |
+| Quantity   | decimal        | ✔     | Количество |
+| UnitOfMeasureId | Guid?      |       | ЕИ (если применимо) |
+| NeedByDate | DateTimeOffset?|       | Требуемая дата |
+| SupplierName | string?       |       | Поставщик (текст) |
+| SupplierContact | string?    |       | Контакт (текст) |
+| ExternalRowReferenceId | string? |    | Внешняя ссылка/ID строки |
 
 ---
 
@@ -698,11 +802,11 @@ erDiagram
 
 3. В настройках **Kilo Code** (или другого ИИ-агента) использовать следующий фрагмент в системном/проектном промпте:
 
-   > Ты работаешь в проекте MyIS (многослойная система для приборостроения).  
-   > Основой для всех моделей данных является документ `doc/MyIS_Conceptual_Data_Model_v0.3.md`.  
-   > - Всегда проверяй, к какому домену относится новая сущность (core, mdm, engineering, technology, warehouse, requests, customers, production, procurement, costing, integration).  
-   > - Не изобретай свои сущности, если уже есть подходящие (Item, ItemRevision, ProductRevision, BOMItem, TechProcessRevision, Request…).  
-   > - Соблюдай единые принципы: GUID Id, ревизии через *Revision, количество через Quantity (Value + UnitOfMeasure).  
+   > Ты работаешь в проекте MyIS (многослойная система для приборостроения).
+   > Основой для всех моделей данных является документ `doc/MyIS_Conceptual_Data_Model_v0.3.md`.
+   > - Всегда проверяй, к какой схеме относится новая сущность (`core`, `org`, `mdm`, `requests`, `integration`; остальные домены — по мере появления).
+   > - Не изобретай свои сущности, если уже есть подходящие (например: `Item`, `UnitOfMeasure`, `Request`, `RequestLine`; `ItemRevision` — план).
+   > - Соблюдай единые принципы: GUID Id, ревизии через *Revision (где применимо), количество через `Quantity`/поля + `UnitOfMeasureId`.
    > - Любые новые таблицы, классы сущностей и DTO должны быть совместимы с этой моделью.
 
 4. При обсуждении новых модулей/ТЗ опираться на этот документ как на «истину по данным», а правила кодирования — как «истину по стилю и слоям».

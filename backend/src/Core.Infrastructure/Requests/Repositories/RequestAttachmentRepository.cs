@@ -30,12 +30,4 @@ public sealed class RequestAttachmentRepository : IRequestAttachmentRepository
             .ThenBy(a => a.Id)
             .ToListAsync(cancellationToken);
     }
-
-    public async Task AddAsync(RequestAttachment attachment, CancellationToken cancellationToken)
-    {
-        if (attachment is null) throw new ArgumentNullException(nameof(attachment));
-
-        await _dbContext.RequestAttachments.AddAsync(attachment, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-    }
 }

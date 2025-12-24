@@ -11,6 +11,4 @@ public interface IRequestAttachmentRepository
     Task<IReadOnlyList<RequestAttachment>> GetByRequestIdAsync(
         RequestId requestId,
         CancellationToken cancellationToken);
-
-    Task AddAsync(RequestAttachment attachment, CancellationToken cancellationToken);
 }

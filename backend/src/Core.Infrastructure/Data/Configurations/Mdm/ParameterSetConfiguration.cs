@@ -8,7 +8,7 @@ public class ParameterSetConfiguration : IEntityTypeConfiguration<ParameterSet>
 {
     public void Configure(EntityTypeBuilder<ParameterSet> builder)
     {
-        builder.ToTable("parameter_sets", "integration");
+        builder.ToTable("parameter_sets", "mdm");
 
         builder.HasKey(ps => ps.Id);
 
@@ -35,14 +35,6 @@ public class ParameterSetConfiguration : IEntityTypeConfiguration<ParameterSet>
         builder.Property(ps => ps.IsActive)
             .IsRequired();
 
-        builder.Property(ps => ps.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(ps => ps.ExternalId)
-            .HasMaxLength(50);
-
-        builder.Property(ps => ps.SyncedAt);
-
         builder.Property(ps => ps.CreatedAt)
             .IsRequired();
 
@@ -52,8 +44,6 @@ public class ParameterSetConfiguration : IEntityTypeConfiguration<ParameterSet>
         builder.HasIndex(ps => ps.Code)
             .IsUnique();
 
-        builder.HasIndex(ps => new { ps.ExternalSystem, ps.ExternalId })
-            .IsUnique()
-            .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
+        
     }
 }

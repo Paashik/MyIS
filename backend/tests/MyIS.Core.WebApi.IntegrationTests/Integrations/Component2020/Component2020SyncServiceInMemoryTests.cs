@@ -20,16 +20,16 @@ public sealed class Component2020SyncServiceInMemoryTests
 {
     private sealed class FakeSnapshotReader : IComponent2020SnapshotReader
     {
-        public Task<IEnumerable<Component2020Item>> ReadItemsAsync(CancellationToken cancellationToken) =>
+        public Task<IEnumerable<Component2020Item>> ReadItemsAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
             Task.FromResult(Enumerable.Empty<Component2020Item>());
 
-        public Task<IEnumerable<Component2020ItemGroup>> ReadItemGroupsAsync(CancellationToken cancellationToken) =>
+        public Task<IEnumerable<Component2020ItemGroup>> ReadItemGroupsAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
             Task.FromResult(Enumerable.Empty<Component2020ItemGroup>());
 
-        public Task<IEnumerable<Component2020Unit>> ReadUnitsAsync(CancellationToken cancellationToken) =>
+        public Task<IEnumerable<Component2020Unit>> ReadUnitsAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
             Task.FromResult(Enumerable.Empty<Component2020Unit>());
 
-        public Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken) =>
+        public Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
             Task.FromResult(Enumerable.Empty<Component2020Attribute>());
     }
 
@@ -127,7 +127,8 @@ public sealed class Component2020SyncServiceInMemoryTests
         roles.Should().HaveCount(2);
         roles.All(r => r.RoleType == MyIS.Core.Domain.Mdm.Entities.CounterpartyRoleTypes.Supplier).Should().BeTrue();
 
-        var links = await db.CounterpartyExternalLinks
+        var links = await db.ExternalEntityLinks
+            .Where(l => l.EntityType == nameof(MyIS.Core.Domain.Mdm.Entities.Counterparty))
             .OrderBy(l => l.ExternalId)
             .ToListAsync();
         links.Should().HaveCount(2);
@@ -146,10 +147,22 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var connectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        var existingCounterparty = new MyIS.Core.Domain.Mdm.Entities.Counterparty(null, "Old", null, null, null, null, null, null, null, null, null);
+        var existingCounterparty = new MyIS.Core.Domain.Mdm.Entities.Counterparty(
+            name: "Old",
+            fullName: null,
+            inn: null,
+            kpp: null,
+            email: null,
+            phone: null,
+            city: null,
+            address: null,
+            site: null,
+            siteLogin: null,
+            sitePassword: null,
+            note: null);
         db.Counterparties.Add(existingCounterparty);
         db.CounterpartyRoles.Add(new MyIS.Core.Domain.Mdm.Entities.CounterpartyRole(existingCounterparty.Id, MyIS.Core.Domain.Mdm.Entities.CounterpartyRoleTypes.Supplier));
-        db.CounterpartyExternalLinks.Add(new MyIS.Core.Domain.Mdm.Entities.CounterpartyExternalLink(existingCounterparty.Id, "Component2020", "Providers", "1", 1, DateTimeOffset.UtcNow));
+        db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.Counterparty), existingCounterparty.Id, "Component2020", "Providers", "1", 1, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(Array.Empty<Component2020Unit>(), new[]
@@ -258,8 +271,10 @@ public sealed class Component2020SyncServiceInMemoryTests
         unit.Code.Should().Be("796");
         unit.Name.Should().Be("Штуки");
         unit.Symbol.Should().Be("Шт.");
-        unit.ExternalSystem.Should().Be("Component2020");
-        unit.ExternalId.Should().Be("1");
+        var link = await db.ExternalEntityLinks.SingleAsync(l => l.EntityType == nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure) && l.EntityId == unit.Id);
+        link.ExternalSystem.Should().Be("Component2020");
+        link.ExternalEntity.Should().Be("Unit");
+        link.ExternalId.Should().Be("1");
 
         var cursor = await db.Component2020SyncCursors.SingleAsync(c => c.ConnectionId == connectionId && c.SourceEntity == "Units");
         cursor.LastProcessedKey.Should().Be("1");
@@ -305,8 +320,10 @@ public sealed class Component2020SyncServiceInMemoryTests
         unit.Code.Should().Be("796");
         unit.Name.Should().Be("Штуки");
         unit.Symbol.Should().Be("Шт.");
-        unit.ExternalSystem.Should().Be("Component2020");
-        unit.ExternalId.Should().Be("1");
+        var link = await db.ExternalEntityLinks.SingleAsync(l => l.EntityType == nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure) && l.EntityId == unit.Id);
+        link.ExternalSystem.Should().Be("Component2020");
+        link.ExternalEntity.Should().Be("Unit");
+        link.ExternalId.Should().Be("1");
     }
 
     [Fact]
@@ -358,14 +375,14 @@ public sealed class Component2020SyncServiceInMemoryTests
         var connectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
         var keep = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("796", "Штуки", "шт.");
-        keep.SetExternalReference("Component2020", "1", DateTimeOffset.UtcNow);
         db.UnitOfMeasures.Add(keep);
 
         var toDelete = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("999", "Лишняя", "лш");
-        toDelete.SetExternalReference("Component2020", "2", DateTimeOffset.UtcNow);
         db.UnitOfMeasures.Add(toDelete);
 
         db.UnitOfMeasures.Add(new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure(null, "Локальная", "лок"));
+        db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), keep.Id, "Component2020", "Unit", "1", null, DateTimeOffset.UtcNow));
+        db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), toDelete.Id, "Component2020", "Unit", "2", null, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(new[]
@@ -406,15 +423,15 @@ public sealed class Component2020SyncServiceInMemoryTests
         var connectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
         var keep = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("796", "Штуки", "шт.");
-        keep.SetExternalReference("Component2020", "1", DateTimeOffset.UtcNow);
         db.UnitOfMeasures.Add(keep);
 
         var referenced = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("999", "Нельзя удалить", "н/у");
-        referenced.SetExternalReference("Component2020", "2", DateTimeOffset.UtcNow);
         db.UnitOfMeasures.Add(referenced);
+        db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), keep.Id, "Component2020", "Unit", "1", null, DateTimeOffset.UtcNow));
+        db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), referenced.Id, "Component2020", "Unit", "2", null, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
 
-        db.Items.Add(new MyIS.Core.Domain.Mdm.Entities.Item("X1", "Деталь", MyIS.Core.Domain.Mdm.Entities.ItemKind.Component, referenced.Id));
+        db.Items.Add(new MyIS.Core.Domain.Mdm.Entities.Item("X1", "X1", "Деталь", MyIS.Core.Domain.Mdm.Entities.ItemKind.Component, referenced.Id));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(new[]

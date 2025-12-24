@@ -62,5 +62,12 @@ public class ExternalEntityLink
         SyncedAt = now;
         UpdatedAt = now;
     }
+
+    public void UpdateEntityId(Guid newEntityId, DateTimeOffset now)
+    {
+        EntityId = newEntityId;
+        SyncedAt = now;
+        UpdatedAt = now;
+    }
 }
 

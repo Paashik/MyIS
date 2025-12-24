@@ -35,22 +35,6 @@ public sealed class CurrencyRepository : ICurrencyRepository
             .FirstOrDefaultAsync(c => c.Code == normalized);
     }
 
-    public async Task<Currency?> FindByExternalIdAsync(string externalSystem, string externalId)
-    {
-        if (string.IsNullOrWhiteSpace(externalSystem))
-        {
-            throw new ArgumentException("ExternalSystem is required.", nameof(externalSystem));
-        }
-
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId is required.", nameof(externalId));
-        }
-
-        return await _dbContext.Currencies
-            .FirstOrDefaultAsync(c => c.ExternalSystem == externalSystem && c.ExternalId == externalId);
-    }
-
     public async Task<bool> ExistsByCodeAsync(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

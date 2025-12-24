@@ -98,8 +98,16 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         using var connection = new OleDbConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var whereClause = string.IsNullOrEmpty(lastProcessedKey) ? "" : $"WHERE Code > '{lastProcessedKey}'";
-        var command = new OleDbCommand($"SELECT Code, Name, Description, GroupID, UnitID FROM Component {whereClause} ORDER BY Code", connection);
+        var hasLast = int.TryParse(lastProcessedKey, out var lastId);
+        var whereClause = hasLast ? " WHERE ID > ?" : string.Empty;
+
+        var command = new OleDbCommand(
+            $"SELECT ID, Code, Name, Description, GroupID, UnitID, PartNumber FROM Component{whereClause} ORDER BY ID",
+            connection);
+        if (hasLast)
+        {
+            command.Parameters.AddWithValue("@p1", lastId);
+        }
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var items = new List<Component2020Item>();
@@ -107,11 +115,13 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         {
             items.Add(new Component2020Item
             {
-                Code = reader.GetString(0),
-                Name = reader.GetString(1),
-                Description = reader.IsDBNull(2) ? null : reader.GetString(2),
-                GroupId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
-                UnitId = reader.IsDBNull(4) ? null : reader.GetInt32(4)
+                Id = reader.GetInt32(0),
+                Code = reader.IsDBNull(1) ? null : reader.GetString(1),
+                Name = reader.GetString(2),
+                Description = reader.IsDBNull(3) ? null : reader.GetString(3),
+                GroupId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                UnitId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                PartNumber = reader.IsDBNull(6) ? null : reader.GetString(6)
             });
         }
 

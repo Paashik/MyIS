@@ -6,8 +6,6 @@ public class Counterparty
 {
     public Guid Id { get; private set; }
 
-    public string? Code { get; private set; }
-
     public string Name { get; private set; }
 
     public string? FullName { get; private set; }
@@ -44,7 +42,6 @@ public class Counterparty
     }
 
     public Counterparty(
-        string? code,
         string name,
         string? fullName,
         string? inn,
@@ -64,7 +61,6 @@ public class Counterparty
         }
 
         Id = Guid.NewGuid();
-        Code = NormalizeOptional(code);
         Name = name.Trim();
         FullName = NormalizeOptional(fullName);
         Inn = NormalizeOptional(inn);

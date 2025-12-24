@@ -1,8 +1,9 @@
 using System;
+using MyIS.Core.Domain.Common;
 
 namespace MyIS.Core.Domain.Mdm.Entities;
 
-public class BodyType
+public class BodyType : IDeactivatable
 {
     public Guid Id { get; private set; }
 
@@ -28,12 +29,6 @@ public class BodyType
 
     public bool IsActive { get; private set; }
 
-    public string? ExternalSystem { get; private set; }
-
-    public string? ExternalId { get; private set; }
-
-    public DateTimeOffset? SyncedAt { get; private set; }
-
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -43,7 +38,7 @@ public class BodyType
         // For EF Core
     }
 
-    public BodyType(string code, string name, string? description, int? pins, int? smt, string? photo, string? footPrintPath, string? footprintRef, string? footprintRef2, string? footPrintRef3, string? externalSystem, string? externalId)
+    public BodyType(string code, string name, string? description, int? pins, int? smt, string? photo, string? footPrintPath, string? footprintRef, string? footprintRef2, string? footPrintRef3)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -67,9 +62,6 @@ public class BodyType
         FootprintRef2 = footprintRef2?.Trim();
         FootPrintRef3 = footPrintRef3?.Trim();
         IsActive = true;
-        ExternalSystem = externalSystem?.Trim();
-        ExternalId = externalId?.Trim();
-        SyncedAt = DateTimeOffset.UtcNow;
         CreatedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -91,12 +83,6 @@ public class BodyType
         FootprintRef2 = footprintRef2?.Trim();
         FootPrintRef3 = footPrintRef3?.Trim();
         IsActive = isActive;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void MarkSynced()
-    {
-        SyncedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

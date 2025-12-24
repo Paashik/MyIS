@@ -1,8 +1,9 @@
 using System;
+using MyIS.Core.Domain.Common;
 
 namespace MyIS.Core.Domain.Mdm.Entities;
 
-public class Symbol
+public class Symbol : IDeactivatable
 {
     public Guid Id { get; private set; }
 
@@ -20,12 +21,6 @@ public class Symbol
 
     public bool IsActive { get; private set; }
 
-    public string? ExternalSystem { get; private set; }
-
-    public string? ExternalId { get; private set; }
-
-    public DateTimeOffset? SyncedAt { get; private set; }
-
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -35,7 +30,7 @@ public class Symbol
         // For EF Core
     }
 
-    public Symbol(string code, string name, string? symbolValue, string? photo, string? libraryPath, string? libraryRef, string? externalSystem, string? externalId)
+    public Symbol(string code, string name, string? symbolValue, string? photo, string? libraryPath, string? libraryRef)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -55,9 +50,6 @@ public class Symbol
         LibraryPath = libraryPath?.Trim();
         LibraryRef = libraryRef?.Trim();
         IsActive = true;
-        ExternalSystem = externalSystem?.Trim();
-        ExternalId = externalId?.Trim();
-        SyncedAt = DateTimeOffset.UtcNow;
         CreatedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -75,12 +67,6 @@ public class Symbol
         LibraryPath = libraryPath?.Trim();
         LibraryRef = libraryRef?.Trim();
         IsActive = isActive;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void MarkSynced()
-    {
-        SyncedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

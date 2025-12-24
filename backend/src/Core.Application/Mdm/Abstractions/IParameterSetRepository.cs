@@ -8,7 +8,6 @@ public interface IParameterSetRepository
 {
     Task<ParameterSet?> FindByIdAsync(Guid id);
     Task<ParameterSet?> FindByCodeAsync(string code);
-    Task<ParameterSet?> FindByExternalIdAsync(string externalSystem, string externalId);
     Task<bool> ExistsByCodeAsync(string code);
     Task AddAsync(ParameterSet parameterSet);
     Task UpdateAsync(ParameterSet parameterSet);

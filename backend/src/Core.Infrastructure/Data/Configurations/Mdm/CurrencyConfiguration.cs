@@ -8,7 +8,7 @@ public class CurrencyConfiguration : IEntityTypeConfiguration<Currency>
 {
     public void Configure(EntityTypeBuilder<Currency> builder)
     {
-        builder.ToTable("currencies", "integration");
+        builder.ToTable("currencies", "mdm");
 
         builder.HasKey(c => c.Id);
 
@@ -29,14 +29,6 @@ public class CurrencyConfiguration : IEntityTypeConfiguration<Currency>
         builder.Property(c => c.IsActive)
             .IsRequired();
 
-        builder.Property(c => c.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(c => c.ExternalId)
-            .HasMaxLength(50);
-
-        builder.Property(c => c.SyncedAt);
-
         builder.Property(c => c.CreatedAt)
             .IsRequired();
 
@@ -46,7 +38,6 @@ public class CurrencyConfiguration : IEntityTypeConfiguration<Currency>
         builder.HasIndex(c => c.Code)
             .IsUnique();
 
-        builder.HasIndex(c => new { c.ExternalSystem, c.ExternalId })
-            .IsUnique();
+        
     }
 }

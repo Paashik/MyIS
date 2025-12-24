@@ -24,6 +24,9 @@ const ReferencesPage: React.FC = () => {
             <Button type="primary" onClick={() => navigate("/references/mdm/items")}>
               {t("references.mdm.items.title")}
             </Button>
+            <Button onClick={() => navigate("/references/mdm/item-groups")}>
+              {t("references.mdm.itemGroups.title")}
+            </Button>
             <Button onClick={() => navigate("/references/mdm/manufacturers")}>
               {t("references.mdm.manufacturers.title")}
             </Button>
@@ -41,6 +44,9 @@ const ReferencesPage: React.FC = () => {
             </Button>
             <Button onClick={() => navigate("/references/mdm/symbols")}>
               {t("references.mdm.symbols.title")}
+            </Button>
+            <Button onClick={() => navigate("/references/mdm/external-links")}>
+              {t("references.mdm.externalLinks.title")}
             </Button>
           </Space>
         </Card>

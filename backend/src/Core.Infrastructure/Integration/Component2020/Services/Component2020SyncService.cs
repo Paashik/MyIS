@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,9 @@ using Microsoft.Extensions.Logging;
 using MyIS.Core.Application.Integration.Component2020.Abstractions;
 using MyIS.Core.Application.Integration.Component2020.Commands;
 using MyIS.Core.Application.Integration.Component2020.Services;
+using MyIS.Core.Domain.Common;
 using MyIS.Core.Domain.Mdm.Entities;
+using MyIS.Core.Domain.Mdm.Services;
 using MyIS.Core.Domain.Mdm.ValueObjects;
 using MyIS.Core.Infrastructure.Data;
 using MyIS.Core.Infrastructure.Data.Entities.Integration;
@@ -37,6 +40,257 @@ public class Component2020SyncService : IComponent2020SyncService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    private sealed class DryRunSequenceState
+    {
+        public required string Prefix { get; init; }
+        public int NextNumber { get; set; }
+    }
+
+    private static readonly IReadOnlyDictionary<int, string> DefaultRootGroupAbbreviationById =
+        new Dictionary<int, string>
+        {
+            // Root Groups (Access.Groups.Parent = 0)
+            [221] = "CMP", // Покупные комплектующие
+            [224] = "MAT", // Сырье и материалы
+            [225] = "PRD", // Готовая продукция
+            [226] = "SRV", // Работы и услуги
+            [184] = "SFG"  // Полуфабрикаты
+        };
+
+    private static readonly HashSet<int> RootGroupsWithoutAbbreviation = new()
+    {
+        183, // УДАЛЕННОЕ
+        196  // NO BOM
+    };
+
+    private static string ResolveNomenclaturePrefix(
+        ItemKind itemKind,
+        int? groupId,
+        Dictionary<int, int> rootGroupIdByExternalId,
+        Dictionary<int, string?> rootAbbreviationByExternalId)
+    {
+        if (!groupId.HasValue)
+        {
+            return ItemNomenclature.GetDefaultPrefix(itemKind);
+        }
+
+        if (!rootGroupIdByExternalId.TryGetValue(groupId.Value, out var rootGroupId))
+        {
+            return ItemNomenclature.GetDefaultPrefix(itemKind);
+        }
+
+        if (rootAbbreviationByExternalId.TryGetValue(rootGroupId, out var abbreviation)
+            && !string.IsNullOrWhiteSpace(abbreviation))
+        {
+            return abbreviation.Trim().ToUpperInvariant();
+        }
+
+        return ItemNomenclature.GetDefaultPrefix(itemKind);
+    }
+
+    private static bool IsValidNomenclatureNo(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var v = value.Trim();
+        if (v.Length != 10 || v[3] != '-')
+        {
+            return false;
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            var c = v[i];
+            if (!(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9'))
+            {
+                return false;
+            }
+        }
+
+        for (var i = 4; i < 10; i++)
+        {
+            if (v[i] < '0' || v[i] > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task<int> GetMaxUsedNomenclatureNumberAsync(string prefix, CancellationToken cancellationToken)
+    {
+        var values = await _dbContext.Items
+            .AsNoTracking()
+            .Where(i => i.NomenclatureNo.StartsWith($"{prefix}-"))
+            .Select(i => i.NomenclatureNo)
+            .ToListAsync(cancellationToken);
+
+        var max = 0;
+        foreach (var nomenclatureNo in values)
+        {
+            if (ItemNomenclature.TryExtractNumericSuffix(nomenclatureNo, prefix, out var current) && current > max)
+            {
+                max = current;
+            }
+        }
+
+        return max;
+    }
+
+    private async Task<ItemSequence?> FindItemSequenceAsync(ItemKind itemKind, bool forUpdate, CancellationToken cancellationToken)
+    {
+        var providerName = _dbContext.Database.ProviderName;
+        var canLock = forUpdate
+                      && providerName == "Npgsql.EntityFrameworkCore.PostgreSQL"
+                      && _dbContext.Database.CurrentTransaction != null;
+
+        if (canLock)
+        {
+            return await _dbContext.ItemSequences
+                .FromSqlInterpolated($"SELECT * FROM mdm.item_sequences WHERE \"ItemKind\" = {(int)itemKind} FOR UPDATE")
+                .SingleOrDefaultAsync(cancellationToken);
+        }
+
+        return await _dbContext.ItemSequences.SingleOrDefaultAsync(s => s.ItemKind == itemKind, cancellationToken);
+    }
+
+    private async Task<ItemSequence> GetOrCreateSequenceAsync(
+        ItemKind itemKind,
+        string prefix,
+        Dictionary<ItemKind, ItemSequence> cache,
+        CancellationToken cancellationToken)
+    {
+        if (cache.TryGetValue(itemKind, out var cached))
+        {
+            if (!string.Equals(cached.Prefix, prefix, StringComparison.Ordinal))
+            {
+                var cachedMaxUsed = await GetMaxUsedNomenclatureNumberAsync(prefix, cancellationToken);
+                cached.SetPrefixAndNextNumber(prefix, cachedMaxUsed + 1);
+            }
+
+            return cached;
+        }
+
+        var existing = await FindItemSequenceAsync(itemKind, forUpdate: true, cancellationToken);
+        if (existing != null)
+        {
+            if (!string.Equals(existing.Prefix, prefix, StringComparison.Ordinal))
+            {
+                var existingMaxUsed = await GetMaxUsedNomenclatureNumberAsync(prefix, cancellationToken);
+                existing.SetPrefixAndNextNumber(prefix, existingMaxUsed + 1);
+            }
+
+            cache[itemKind] = existing;
+            return existing;
+        }
+
+        var maxUsed = await GetMaxUsedNomenclatureNumberAsync(prefix, cancellationToken);
+        var created = new ItemSequence(itemKind, prefix, maxUsed + 1);
+        _dbContext.ItemSequences.Add(created);
+        cache[itemKind] = created;
+        return created;
+    }
+
+    private async Task<string> GenerateNextNomenclatureNoAsync(
+        ItemKind itemKind,
+        string prefix,
+        bool dryRun,
+        Dictionary<ItemKind, ItemSequence> sequences,
+        Dictionary<ItemKind, DryRunSequenceState> dryRunSequences,
+        CancellationToken cancellationToken)
+    {
+        if (dryRun)
+        {
+            if (!dryRunSequences.TryGetValue(itemKind, out var state) || !string.Equals(state.Prefix, prefix, StringComparison.Ordinal))
+            {
+                var existing = await FindItemSequenceAsync(itemKind, forUpdate: false, cancellationToken);
+                if (existing != null && string.Equals(existing.Prefix, prefix, StringComparison.Ordinal))
+                {
+                    state = new DryRunSequenceState { Prefix = prefix, NextNumber = existing.NextNumber };
+                }
+                else
+                {
+                    var max = await GetMaxUsedNomenclatureNumberAsync(prefix, cancellationToken);
+                    state = new DryRunSequenceState { Prefix = prefix, NextNumber = max + 1 };
+                }
+
+                dryRunSequences[itemKind] = state;
+            }
+
+            var number = state.NextNumber;
+            state.NextNumber++;
+            return ItemNomenclature.FormatNomenclatureNo(prefix, number);
+        }
+
+        var sequence = await GetOrCreateSequenceAsync(itemKind, prefix, sequences, cancellationToken);
+        var next = sequence.NextNumber;
+        sequence.IncrementNextNumber();
+        return ItemNomenclature.FormatNomenclatureNo(prefix, next);
+    }
+
+    private sealed record ItemGroupMappings(
+        Dictionary<int, Guid> ItemGroupIdByExternalId,
+        Dictionary<int, int> RootGroupIdByExternalId,
+        Dictionary<int, string?> RootAbbreviationByExternalId);
+
+    private static int ResolveRootGroupId(int id, Dictionary<int, int?> parentById)
+    {
+        var visited = new HashSet<int>();
+        var current = id;
+        const int maxDepth = 100; // Prevent infinite loops
+        var depth = 0;
+
+        while (depth < maxDepth)
+        {
+            if (!visited.Add(current))
+            {
+                // Circular reference detected, return current as root
+                return current;
+            }
+
+            if (!parentById.TryGetValue(current, out var parentId) || parentId == null || parentId.Value <= 0)
+            {
+                return current;
+            }
+
+            current = parentId.Value;
+            depth++;
+        }
+
+        // Max depth reached, return current as root
+        return current;
+    }
+
+    private static ItemKind MapRootGroupToItemKind(int rootGroupId) =>
+        rootGroupId switch
+        {
+            221 => ItemKind.Component, // Покупные комплектующие
+            224 => ItemKind.Material,  // Сырье и материалы
+            225 => ItemKind.Product,   // Готовая продукция
+            226 => ItemKind.Service,   // Работы и услуги
+            184 => ItemKind.Assembly,  // Полуфабрикаты
+            _ => ItemKind.Component
+        };
+
+    private static ItemKind ResolveItemKindByGroupRoot(int? groupId, Dictionary<int, int> rootGroupIdByExternalId, ItemKind fallback)
+    {
+        if (!groupId.HasValue)
+        {
+            return fallback;
+        }
+
+        if (rootGroupIdByExternalId.TryGetValue(groupId.Value, out var rootGroupId))
+        {
+            return MapRootGroupToItemKind(rootGroupId);
+        }
+
+        return fallback;
+    }
+
     public async Task<RunComponent2020SyncResponse> RunSyncAsync(RunComponent2020SyncCommand command, CancellationToken cancellationToken)
     {
         var runMode = $"{(command.DryRun ? "DryRun" : "Commit")}:{command.SyncMode}";
@@ -58,6 +312,11 @@ public class Component2020SyncService : IComponent2020SyncService
             if (command.Scope == Component2020SyncScope.Counterparties || command.Scope == Component2020SyncScope.All)
             {
                 var (processed, errs) = await SyncCounterpartiesFromProvidersAsync(command.ConnectionId, command.DryRun, command.SyncMode, run.Id, counters, errors, cancellationToken);
+            }
+
+            if (command.Scope == Component2020SyncScope.ItemGroups || command.Scope == Component2020SyncScope.All)
+            {
+                var (processed, errs) = await SyncItemGroupsAsync(command.ConnectionId, command.DryRun, command.SyncMode, run.Id, counters, errors, cancellationToken);
             }
 
             if (command.Scope == Component2020SyncScope.Items || command.Scope == Component2020SyncScope.All)
@@ -206,27 +465,12 @@ public class Component2020SyncService : IComponent2020SyncService
                     existingUnitsById.TryGetValue(existingLink.EntityId, out existing);
                 }
 
-                // Backward-compatibility: try legacy fields (ExternalSystem/ExternalId) to link older data.
-                if (existing == null)
-                {
-                    existing = await _dbContext.UnitOfMeasures
-                        .FirstOrDefaultAsync(u => u.ExternalSystem == externalSystem && u.ExternalId == externalId, cancellationToken);
-                }
-
-                // Backward-compatibility: link legacy records (without external keys) by unique Name.
-                if (existing == null && !string.IsNullOrWhiteSpace(name))
-                {
-                    existing = await _dbContext.UnitOfMeasures
-                        .FirstOrDefaultAsync(u => u.Name == name, cancellationToken);
-                }
-
                 if (existing == null)
                 {
                     if (!dryRun)
                     {
                         var created = new UnitOfMeasure(code, name, symbol);
                         var now = DateTimeOffset.UtcNow;
-                        created.SetExternalReference(externalSystem, externalId, now);
                         _dbContext.UnitOfMeasures.Add(created);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -238,7 +482,6 @@ public class Component2020SyncService : IComponent2020SyncService
                     {
                         existing.Update(code, name, symbol, true);
                         var now = DateTimeOffset.UtcNow;
-                        existing.SetExternalReference(externalSystem, externalId, now);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
                     }
                     processed++;
@@ -275,8 +518,8 @@ public class Component2020SyncService : IComponent2020SyncService
             }
             else
             {
-            var deleted = await DeleteMissingUnitsAsync(incomingExternalIds, runId, errors, cancellationToken);
-            counters["UnitDeleted"] = deleted;
+                var deleted = await DeleteMissingUnitsAsync(incomingExternalIds, runId, errors, cancellationToken);
+                counters["UnitDeleted"] = deleted;
             }
         }
 
@@ -287,23 +530,15 @@ public class Component2020SyncService : IComponent2020SyncService
     private static (string? code, string name, string symbol) MapUnit(Component2020Unit unit)
     {
         var symbol = (unit.Symbol ?? string.Empty).Trim();
-        var numericCode = (unit.Code ?? string.Empty).Trim();
         var name = (unit.Name ?? string.Empty).Trim();
-
-        string? code = null;
-        if (!string.IsNullOrWhiteSpace(numericCode))
-        {
-            code = numericCode.Length > 10 ? numericCode[..10] : numericCode;
-        }
+        var code = NormalizeOptional(unit.Code);
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            name = !string.IsNullOrWhiteSpace(symbol) ? symbol : (code ?? unit.Id.ToString());
+            name = !string.IsNullOrWhiteSpace(symbol) ? symbol : unit.Id.ToString();
         }
 
-        // Preserve the Access "Code" (often numeric / OKЕI) in the Name for now.
 
-        // If we ended up using numeric code (no Symbol) — show Symbol in the name.
 
         return (code, name, symbol);
     }
@@ -314,6 +549,7 @@ public class Component2020SyncService : IComponent2020SyncService
         const string sourceEntity = "Providers";
         const string externalSystem = "Component2020";
         const string externalEntity = "Providers";
+        const string linkEntityType = nameof(Counterparty);
 
         var isFull = syncMode != Component2020SyncMode.Delta;
         var isOverwrite = syncMode == Component2020SyncMode.Overwrite;
@@ -333,7 +569,7 @@ public class Component2020SyncService : IComponent2020SyncService
         string? newLastKey = lastKey;
         var incomingExternalIds = isOverwrite ? new HashSet<string>(StringComparer.Ordinal) : null;
 
-        Dictionary<string, CounterpartyExternalLink> existingLinksByExternalId;
+        Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
         Dictionary<Guid, Counterparty> existingCounterpartiesById;
         HashSet<(Guid CounterpartyId, int RoleType)> existingRoleKeys;
 
@@ -341,16 +577,17 @@ public class Component2020SyncService : IComponent2020SyncService
         {
             var providerExternalIds = providers.Select(p => p.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
 
-            var existingLinks = await _dbContext.CounterpartyExternalLinks
+            var existingLinks = await _dbContext.ExternalEntityLinks
                 .Where(l =>
-                    l.ExternalSystem == externalSystem
+                    l.EntityType == linkEntityType
+                    && l.ExternalSystem == externalSystem
                     && l.ExternalEntity == externalEntity
                     && providerExternalIds.Contains(l.ExternalId))
                 .ToListAsync(cancellationToken);
 
             existingLinksByExternalId = existingLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
 
-            var linkedCounterpartyIds = existingLinks.Select(l => l.CounterpartyId).Distinct().ToList();
+            var linkedCounterpartyIds = existingLinks.Select(l => l.EntityId).Distinct().ToList();
             var existingCounterparties = await _dbContext.Counterparties
                 .Where(c => linkedCounterpartyIds.Contains(c.Id))
                 .ToListAsync(cancellationToken);
@@ -366,7 +603,7 @@ public class Component2020SyncService : IComponent2020SyncService
         }
         else
         {
-            existingLinksByExternalId = new Dictionary<string, CounterpartyExternalLink>(StringComparer.Ordinal);
+            existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
             existingCounterpartiesById = new Dictionary<Guid, Counterparty>();
             existingRoleKeys = new HashSet<(Guid CounterpartyId, int RoleType)>();
         }
@@ -409,13 +646,12 @@ public class Component2020SyncService : IComponent2020SyncService
 
                     if (existingLink != null)
                     {
-                        existingCounterpartiesById.TryGetValue(existingLink.CounterpartyId, out counterparty);
+                        existingCounterpartiesById.TryGetValue(existingLink.EntityId, out counterparty);
                     }
 
                     if (counterparty == null)
                     {
                         counterparty = new Counterparty(
-                            code: null,
                             name: name,
                             fullName: fullName,
                             inn: inn,
@@ -464,29 +700,15 @@ public class Component2020SyncService : IComponent2020SyncService
                         }
                     }
 
-                    if (existingLink == null)
-                    {
-                        var link = new CounterpartyExternalLink(
-                            counterparty.Id,
-                            externalSystem,
-                            externalEntity,
-                            externalId,
-                            providerType,
-                            now);
-
-                        _dbContext.CounterpartyExternalLinks.Add(link);
-                        existingLinksByExternalId[externalId] = link;
-                    }
-                    else
-                    {
-                        if (existingLink.CounterpartyId != counterparty.Id)
-                        {
-                            throw new InvalidOperationException(
-                                $"External link {externalSystem}:{externalEntity}:{externalId} is already linked to another counterparty.");
-                        }
-
-                        existingLink.Touch(now, providerType);
-                    }
+                    EnsureExternalEntityLink(
+                        existingLinksByExternalId,
+                        linkEntityType,
+                        counterparty.Id,
+                        externalSystem,
+                        externalEntity,
+                        externalId,
+                        providerType,
+                        now);
                 }
 
                 processed++;
@@ -510,7 +732,8 @@ public class Component2020SyncService : IComponent2020SyncService
 
         if (!dryRun && isOverwrite && incomingExternalIds != null)
         {
-            var deleted = await DeleteMissingCounterpartyExternalLinksAsync(
+            var deleted = await DeleteMissingExternalLinksAsync(
+                linkEntityType,
                 externalSystem,
                 externalEntity,
                 incomingExternalIds,
@@ -565,18 +788,425 @@ public class Component2020SyncService : IComponent2020SyncService
         linksByExternalId[externalId] = created;
     }
 
-    private async Task<int> DeleteMissingCounterpartyExternalLinksAsync(
+    private async Task<ItemGroupMappings> EnsureItemGroupsAsync(Guid connectionId, bool dryRun, CancellationToken cancellationToken)
+    {
+        const string externalSystem = "Component2020";
+        const string externalEntity = "Groups";
+        const string linkEntityType = nameof(ItemGroup);
+
+        _logger.LogInformation("Starting Groups import from Component2020 (connectionId={ConnectionId}, dryRun={DryRun})", connectionId, dryRun);
+
+        var groups = (await _snapshotReader.ReadItemGroupsAsync(cancellationToken, connectionId)).ToList();
+        _logger.LogInformation("Read {Count} groups from Component2020", groups.Count);
+
+        if (groups.Count == 0)
+        {
+            _logger.LogWarning("No groups found in Component2020 - returning empty mappings");
+            return new ItemGroupMappings(new Dictionary<int, Guid>(), new Dictionary<int, int>(), new Dictionary<int, string?>());
+        }
+
+        // Check for duplicates
+        var duplicateIds = groups.GroupBy(g => g.Id).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        if (duplicateIds.Any())
+        {
+            _logger.LogWarning("Found duplicate group IDs in Component2020 data: {DuplicateIds}", string.Join(", ", duplicateIds));
+            // Remove duplicates, keeping the first occurrence
+            groups = groups.GroupBy(g => g.Id).Select(g => g.First()).ToList();
+            _logger.LogInformation("Removed duplicates, now have {Count} unique groups", groups.Count);
+        }
+
+        var externalIds = groups.Select(x => x.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
+        _logger.LogDebug("Processing external IDs: {ExternalIds}", string.Join(", ", externalIds));
+
+        Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
+        Dictionary<Guid, ItemGroup> existingGroupsById;
+
+        if (!dryRun)
+        {
+            _logger.LogInformation("Loading existing external links for {Count} groups", externalIds.Count);
+            var existingLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == linkEntityType
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == externalEntity
+                    && externalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            _logger.LogInformation("Found {Count} existing external links", existingLinks.Count);
+
+            // Handle potential duplicates by taking the most recent link
+            existingLinksByExternalId = existingLinks
+                .GroupBy(l => l.ExternalId, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(l => l.SyncedAt).First(), StringComparer.Ordinal);
+
+            var ids = existingLinks.Select(l => l.EntityId).Distinct().ToList();
+            _logger.LogInformation("Loading existing ItemGroups for {Count} IDs", ids.Count);
+            var existingEntities = await _dbContext.ItemGroups
+                .Where(x => ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            _logger.LogInformation("Found {Count} existing ItemGroups", existingEntities.Count);
+            existingGroupsById = existingEntities.ToDictionary(x => x.Id);
+        }
+        else
+        {
+            _logger.LogInformation("Running in dry mode - skipping database lookups");
+            existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+            existingGroupsById = new Dictionary<Guid, ItemGroup>();
+        }
+
+        var groupsByExternalId = new Dictionary<string, ItemGroup>(StringComparer.Ordinal);
+        var createdCount = 0;
+        var updatedCount = 0;
+
+        foreach (var group in groups)
+        {
+            try
+            {
+                var externalId = group.Id.ToString();
+                _logger.LogDebug("Processing group {GroupId} - {GroupName}", group.Id, group.Name);
+
+                ItemGroup? existing = null;
+
+                if (!dryRun && existingLinksByExternalId.TryGetValue(externalId, out var existingLink))
+                {
+                    _logger.LogDebug("Found existing link for group {GroupId}", group.Id);
+                    existingGroupsById.TryGetValue(existingLink.EntityId, out existing);
+                }
+
+                if (existing == null)
+                {
+                    if (dryRun)
+                    {
+                        _logger.LogDebug("Dry run - would create group {GroupId}", group.Id);
+                        continue;
+                    }
+
+                    _logger.LogInformation("Creating new ItemGroup: {GroupName} (externalId={ExternalId})", group.Name, externalId);
+                    var created = new ItemGroup(group.Name, null, group.Description);
+                    _dbContext.ItemGroups.Add(created);
+
+                    var now = DateTimeOffset.UtcNow;
+                    // If there's an existing link but no corresponding entity, update the link to point to the new entity
+                    if (existingLinksByExternalId.TryGetValue(externalId, out var orphanLink))
+                    {
+                        orphanLink.UpdateEntityId(created.Id, now);
+                        _logger.LogDebug("Updated existing orphan link for group {GroupId} to point to new entity", group.Id);
+                    }
+                    else
+                    {
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
+                    }
+                    groupsByExternalId[externalId] = created;
+                    createdCount++;
+                    _logger.LogDebug("Successfully created group {GroupId}", group.Id);
+                }
+                else
+                {
+                    _logger.LogInformation("Updating existing ItemGroup: {GroupName} (externalId={ExternalId})", group.Name, externalId);
+                    if (!dryRun)
+                    {
+                        existing.Update(group.Name, existing.ParentId, group.Description);
+                        var now = DateTimeOffset.UtcNow;
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
+                    }
+                    groupsByExternalId[externalId] = existing;
+                    updatedCount++;
+                    _logger.LogDebug("Successfully updated group {GroupId}", group.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing group {GroupId}: {Message}", group.Id, ex.Message);
+                throw; // Re-throw to be caught by caller
+            }
+        }
+
+        _logger.LogInformation("Groups processing completed: created={Created}, updated={Updated}", createdCount, updatedCount);
+
+        if (!dryRun && groupsByExternalId.Count > 0)
+        {
+            _logger.LogInformation("Saving initial groups to database ({Count} groups to save)", groupsByExternalId.Count);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Successfully saved initial groups to database");
+
+            _logger.LogInformation("Processing parent relationships for {Count} groups", groups.Count);
+            var changed = false;
+            var parentProcessedCount = 0;
+            foreach (var group in groups)
+            {
+                try
+                {
+                    var externalId = group.Id.ToString();
+                    if (!groupsByExternalId.TryGetValue(externalId, out var entity))
+                    {
+                        _logger.LogDebug("Group {GroupId} not found in processed groups - skipping parent processing", group.Id);
+                        continue;
+                    }
+
+                    Guid? desiredParentId = null;
+                    if (group.ParentId != null && group.ParentId.Value > 0 && group.ParentId.Value != group.Id)
+                    {
+                        var parentExternalId = group.ParentId.Value.ToString();
+                        _logger.LogDebug("Group {GroupId} has parent {ParentId}", group.Id, group.ParentId.Value);
+
+                        if (!groupsByExternalId.TryGetValue(parentExternalId, out var parent))
+                        {
+                            _logger.LogWarning("Parent group {ParentId} not found in current batch for group {GroupId} - parent relationship will be set later or in subsequent sync", group.ParentId.Value, group.Id);
+                            // Don't set desiredParentId - leave it null for now
+                            // The parent might exist in a previous sync or future sync
+                        }
+                        else
+                        {
+                            _logger.LogDebug("Found parent group {ParentId} for group {GroupId}", parent.Id, group.Id);
+                            desiredParentId = parent.Id;
+                        }
+                    }
+
+                    if (entity.ParentId != desiredParentId)
+                    {
+                        _logger.LogInformation("Updating parent for group {GroupId}: {OldParentId} -> {NewParentId}",
+                            group.Id, entity.ParentId, desiredParentId);
+                        entity.Update(entity.Name, desiredParentId);
+                        changed = true;
+                    }
+                    parentProcessedCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing parent relationship for group {GroupId}", group.Id);
+                    throw;
+                }
+            }
+
+            _logger.LogInformation("Processed parent relationships for {ProcessedCount} out of {TotalCount} groups", parentProcessedCount, groups.Count);
+
+            if (changed)
+            {
+                _logger.LogInformation("Saving parent relationship changes to database");
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            _logger.LogInformation("Processing abbreviations for root groups");
+            var abbreviationChanged = false;
+            foreach (var group in groups)
+            {
+                try
+                {
+                    if (group.ParentId != null)
+                    {
+                        continue;
+                    }
+
+                    var externalId = group.Id.ToString();
+                    if (!groupsByExternalId.TryGetValue(externalId, out var entity))
+                    {
+                        _logger.LogDebug("Root group {GroupId} not found in processed groups - skipping abbreviation processing", group.Id);
+                        continue;
+                    }
+
+                    if (RootGroupsWithoutAbbreviation.Contains(group.Id))
+                    {
+                        if (!string.IsNullOrWhiteSpace(entity.Abbreviation))
+                        {
+                            _logger.LogInformation("Removing abbreviation from group {GroupId} (in exclusion list)", group.Id);
+                            entity.SetAbbreviation(null);
+                            abbreviationChanged = true;
+                        }
+
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(entity.Abbreviation)
+                        && DefaultRootGroupAbbreviationById.TryGetValue(group.Id, out var defaultAbbreviation))
+                    {
+                        try
+                        {
+                            _logger.LogInformation("Setting default abbreviation '{Abbreviation}' for group {GroupId}", defaultAbbreviation, group.Id);
+                            entity.SetAbbreviation(defaultAbbreviation);
+                            abbreviationChanged = true;
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            _logger.LogWarning(ex, "Invalid default abbreviation '{Abbreviation}' for group {GroupId} - skipping", defaultAbbreviation, group.Id);
+                            // Continue processing other groups
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing abbreviation for group {GroupId}", group.Id);
+                    // Don't throw - continue with other groups to avoid failing the entire import
+                }
+            }
+
+            if (abbreviationChanged)
+            {
+                _logger.LogInformation("Saving abbreviation changes to database");
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        _logger.LogInformation("Creating final mappings for {Count} processed groups", groupsByExternalId.Count);
+        
+        var itemGroupIdByExternalId = new Dictionary<int, Guid>();
+        foreach (var (externalId, entity) in groupsByExternalId)
+        {
+            if (int.TryParse(externalId, out var id))
+            {
+                itemGroupIdByExternalId[id] = entity.Id;
+            }
+        }
+        _logger.LogDebug("Created itemGroupIdByExternalId mapping with {Count} entries", itemGroupIdByExternalId.Count);
+
+        var parentById = groups.ToDictionary(x => x.Id, x => x.ParentId);
+        _logger.LogDebug("Created parentById mapping with {Count} entries", parentById.Count);
+        
+        var rootGroupIdByExternalId = new Dictionary<int, int>();
+        foreach (var group in groups)
+        {
+            var rootId = ResolveRootGroupId(group.Id, parentById);
+            rootGroupIdByExternalId[group.Id] = rootId;
+            _logger.LogDebug("Group {GroupId} -> Root {RootId}", group.Id, rootId);
+        }
+
+        var rootAbbreviationByExternalId = new Dictionary<int, string?>();
+        foreach (var rootId in rootGroupIdByExternalId.Values.Distinct())
+        {
+            try
+            {
+                string? abbreviation = null;
+                var externalId = rootId.ToString();
+                if (groupsByExternalId.TryGetValue(externalId, out var rootEntity))
+                {
+                    abbreviation = rootEntity.Abbreviation;
+                    _logger.LogDebug("Root group {RootId} has abbreviation from entity: {Abbreviation}", rootId, abbreviation);
+                }
+
+                if (string.IsNullOrWhiteSpace(abbreviation) && DefaultRootGroupAbbreviationById.TryGetValue(rootId, out var defaultAbbreviation))
+                {
+                    abbreviation = defaultAbbreviation;
+                    _logger.LogDebug("Root group {RootId} using default abbreviation: {Abbreviation}", rootId, abbreviation);
+                }
+
+                if (RootGroupsWithoutAbbreviation.Contains(rootId))
+                {
+                    abbreviation = null;
+                    _logger.LogDebug("Root group {RootId} in exclusion list - no abbreviation", rootId);
+                }
+
+                rootAbbreviationByExternalId[rootId] = abbreviation;
+                _logger.LogInformation("Final abbreviation for root group {RootId}: {Abbreviation}", rootId, abbreviation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error determining abbreviation for root group {RootId} - using null", rootId);
+                rootAbbreviationByExternalId[rootId] = null;
+                // Don't throw - continue processing other root groups
+            }
+        }
+
+        _logger.LogInformation("Groups import completed successfully. Final mappings: itemGroups={ItemGroupCount}, rootGroups={RootGroupCount}, abbreviations={AbbreviationCount}",
+            itemGroupIdByExternalId.Count, rootGroupIdByExternalId.Count, rootAbbreviationByExternalId.Count);
+
+        return new ItemGroupMappings(itemGroupIdByExternalId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
+    }
+
+    private async Task<(int processed, List<Component2020SyncError> errors)> SyncItemGroupsAsync(
+        Guid connectionId,
+        bool dryRun,
+        Component2020SyncMode syncMode,
+        Guid runId,
+        Dictionary<string, int> counters,
+        List<Component2020SyncError> errors,
+        CancellationToken cancellationToken)
+    {
+        const string entityType = "ItemGroup";
+        const string externalSystem = "Component2020";
+        const string externalEntity = "Groups";
+        const string linkEntityType = nameof(ItemGroup);
+
+        _logger.LogInformation("Starting ItemGroups sync (connectionId={ConnectionId}, dryRun={DryRun}, syncMode={SyncMode})",
+            connectionId, dryRun, syncMode);
+
+        var groups = (await _snapshotReader.ReadItemGroupsAsync(cancellationToken, connectionId)).ToList();
+        _logger.LogInformation("Read {Count} groups from Component2020 for sync", groups.Count);
+        
+        var processed = groups.Count;
+
+        var incomingExternalIds = syncMode == Component2020SyncMode.Overwrite
+            ? new HashSet<string>(groups.Select(g => g.Id.ToString()), StringComparer.Ordinal)
+            : null;
+
+        await using var transaction = !dryRun ? await _dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+
+        try
+        {
+            _logger.LogInformation("Calling EnsureItemGroupsAsync to process groups");
+            await EnsureItemGroupsAsync(connectionId, dryRun, cancellationToken);
+            _logger.LogInformation("EnsureItemGroupsAsync completed successfully");
+
+            if (!dryRun && syncMode == Component2020SyncMode.Overwrite && incomingExternalIds != null)
+            {
+                _logger.LogInformation("Performing overwrite cleanup for missing groups");
+                var deleted = await DeleteMissingByExternalLinkAsync(
+                    _dbContext.ItemGroups,
+                    linkEntityType,
+                    externalSystem,
+                    externalEntity,
+                    incomingExternalIds,
+                    runId,
+                    entityType,
+                    errors,
+                    cancellationToken);
+
+                _logger.LogInformation("Overwrite cleanup completed: deleted {Count} groups", deleted);
+                counters[$"{entityType}Deleted"] = deleted;
+            }
+
+            if (transaction != null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                _logger.LogInformation("Transaction committed successfully");
+            }
+
+            counters[entityType] = processed;
+            _logger.LogInformation("ItemGroups sync completed: processed={Processed}, errors={Errors}", processed, errors.Count);
+            return (processed, errors);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during ItemGroups sync");
+            if (transaction != null)
+            {
+                try
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    _logger.LogInformation("Transaction rolled back due to error");
+                }
+                catch (Exception rollbackEx)
+                {
+                    _logger.LogError(rollbackEx, "Error rolling back transaction");
+                }
+            }
+            throw;
+        }
+    }
+
+    private async Task<int> DeleteMissingExternalLinksAsync(
+        string entityType,
         string externalSystem,
         string externalEntity,
         HashSet<string> incomingExternalIds,
         Guid runId,
-        string entityType,
+        string errorEntityType,
         List<Component2020SyncError> errors,
         CancellationToken cancellationToken)
     {
-        var toDeleteKeys = await _dbContext.CounterpartyExternalLinks
+        var toDeleteKeys = await _dbContext.ExternalEntityLinks
             .Where(l =>
-                l.ExternalSystem == externalSystem
+                l.EntityType == entityType
+                && l.ExternalSystem == externalSystem
                 && l.ExternalEntity == externalEntity
                 && !incomingExternalIds.Contains(l.ExternalId))
             .Select(l => new { l.Id, l.ExternalId })
@@ -588,8 +1218,8 @@ public class Component2020SyncService : IComponent2020SyncService
         }
 
         var ids = toDeleteKeys.Select(x => x.Id).ToList();
-        var toDelete = await _dbContext.CounterpartyExternalLinks.Where(l => ids.Contains(l.Id)).ToListAsync(cancellationToken);
-        _dbContext.CounterpartyExternalLinks.RemoveRange(toDelete);
+        var toDelete = await _dbContext.ExternalEntityLinks.Where(l => ids.Contains(l.Id)).ToListAsync(cancellationToken);
+        _dbContext.ExternalEntityLinks.RemoveRange(toDelete);
 
         try
         {
@@ -598,7 +1228,7 @@ public class Component2020SyncService : IComponent2020SyncService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Bulk delete failed for CounterpartyExternalLink overwrite cleanup, falling back to per-row deletes");
+            _logger.LogWarning(ex, "Bulk delete failed for ExternalEntityLink overwrite cleanup, falling back to per-row deletes");
             _dbContext.ChangeTracker.Clear();
 
             var deleted = 0;
@@ -606,22 +1236,22 @@ public class Component2020SyncService : IComponent2020SyncService
             {
                 try
                 {
-                    var current = await _dbContext.CounterpartyExternalLinks.FirstOrDefaultAsync(l => l.Id == key.Id, cancellationToken);
+                    var current = await _dbContext.ExternalEntityLinks.FirstOrDefaultAsync(l => l.Id == key.Id, cancellationToken);
                     if (current == null)
                     {
                         continue;
                     }
 
-                    _dbContext.CounterpartyExternalLinks.Remove(current);
+                    _dbContext.ExternalEntityLinks.Remove(current);
                     await _dbContext.SaveChangesAsync(cancellationToken);
                     deleted++;
                 }
                 catch (Exception rowEx)
                 {
-                    _logger.LogWarning(rowEx, "Failed to delete CounterpartyExternalLink {ExternalId} during overwrite cleanup", key.ExternalId);
+                    _logger.LogWarning(rowEx, "Failed to delete ExternalEntityLink {ExternalId} during overwrite cleanup", key.ExternalId);
                     errors.Add(new Component2020SyncError(
                         runId,
-                        entityType,
+                        errorEntityType,
                         externalEntity,
                         key.ExternalId,
                         "Cannot delete external link during overwrite cleanup.",
@@ -647,8 +1277,76 @@ public class Component2020SyncService : IComponent2020SyncService
         var lastKey = isFull ? null : await _cursorRepository.GetLastProcessedKeyAsync(connectionId, sourceEntity, cancellationToken);
         var items = (await _deltaReader.ReadItemsDeltaAsync(connectionId, lastKey, cancellationToken)).ToList();
 
+        await using var transaction = !dryRun ? await _dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+
+        var groupMappings = await EnsureItemGroupsAsync(connectionId, dryRun, cancellationToken);
+        var itemGroupIdByExternalId = groupMappings.ItemGroupIdByExternalId;
+        var rootGroupIdByExternalId = groupMappings.RootGroupIdByExternalId;
+        var rootAbbreviationByExternalId = groupMappings.RootAbbreviationByExternalId;
+        var defaultUoM = await FindDefaultUnitOfMeasureAsync(cancellationToken);
+
+        var unitExternalIds = items
+            .Where(x => x.UnitId.HasValue)
+            .Select(x => x.UnitId!.Value.ToString())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var unitOfMeasureIdByExternalId = unitExternalIds.Count > 0
+            ? (await _dbContext.ExternalEntityLinks
+                    .AsNoTracking()
+                    .Where(l =>
+                        l.EntityType == nameof(UnitOfMeasure)
+                        && l.ExternalSystem == externalSystem
+                        && l.ExternalEntity == "Unit"
+                        && unitExternalIds.Contains(l.ExternalId))
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(l => l.ExternalId, l => l.EntityId, StringComparer.Ordinal)
+            : new Dictionary<string, Guid>(StringComparer.Ordinal);
+
+        var sequences = new Dictionary<ItemKind, ItemSequence>();
+        var dryRunSequences = new Dictionary<ItemKind, DryRunSequenceState>();
+
+        var prefixByKind = new Dictionary<ItemKind, string>();
+        var maxIncomingCodeByKind = new Dictionary<ItemKind, int>();
+        foreach (var item in items)
+        {
+            var kind = ResolveItemKindByGroupRoot(item.GroupId, rootGroupIdByExternalId, ItemKind.Component);
+            var prefix = ResolveNomenclaturePrefix(kind, item.GroupId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
+            var itemCode = NormalizeOptional(item.Code);
+
+            if (!prefixByKind.TryGetValue(kind, out var existingPrefix))
+            {
+                prefixByKind[kind] = prefix;
+            }
+            else if (!string.Equals(existingPrefix, prefix, StringComparison.Ordinal))
+            {
+                _logger.LogWarning(
+                    "Multiple nomenclature prefixes detected for ItemKind={ItemKind} during Component2020 sync (keeping '{Prefix}', ignoring '{OtherPrefix}')",
+                    kind,
+                    existingPrefix,
+                    prefix);
+            }
+
+            if (ItemNomenclature.TryParseComponentCode(itemCode, out var codeNumber))
+            {
+                maxIncomingCodeByKind[kind] = Math.Max(maxIncomingCodeByKind.GetValueOrDefault(kind), codeNumber);
+            }
+        }
+
+        if (!dryRun)
+        {
+            foreach (var (kind, prefix) in prefixByKind)
+            {
+                var sequence = await GetOrCreateSequenceAsync(kind, prefix, sequences, cancellationToken);
+                if (maxIncomingCodeByKind.TryGetValue(kind, out var maxCodeNumber))
+                {
+                    sequence.EnsureNextNumberAtLeast(maxCodeNumber + 1);
+                }
+            }
+        }
+
         int processed = 0;
-        string? newLastKey = lastKey;
+        var newLastId = int.TryParse(lastKey, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedLastId) ? parsedLastId : 0;
 
         var incomingExternalIds = isOverwrite ? new HashSet<string>(StringComparer.Ordinal) : null;
 
@@ -657,7 +1355,7 @@ public class Component2020SyncService : IComponent2020SyncService
 
         if (!dryRun && items.Count > 0)
         {
-            var externalIds = items.Select(i => i.Code).Distinct(StringComparer.Ordinal).ToList();
+            var externalIds = items.Select(i => i.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
 
             var existingLinks = await _dbContext.ExternalEntityLinks
                 .Where(l =>
@@ -686,8 +1384,23 @@ public class Component2020SyncService : IComponent2020SyncService
         {
             try
             {
-                var externalId = item.Code;
+                var externalId = item.Id.ToString();
                 incomingExternalIds?.Add(externalId);
+
+                var unitOfMeasureId = defaultUoM.Id;
+                if (item.UnitId.HasValue && unitOfMeasureIdByExternalId.TryGetValue(item.UnitId.Value.ToString(), out var mappedUoMId))
+                {
+                    unitOfMeasureId = mappedUoMId;
+                }
+
+                var itemKind = ResolveItemKindByGroupRoot(item.GroupId, rootGroupIdByExternalId, ItemKind.Component);
+                var itemCode = NormalizeOptional(item.Code);
+
+                Guid? itemGroupId = null;
+                if (item.GroupId.HasValue && itemGroupIdByExternalId.TryGetValue(item.GroupId.Value, out var mappedGroupId))
+                {
+                    itemGroupId = mappedGroupId;
+                }
 
                 Item? existing = null;
 
@@ -696,22 +1409,26 @@ public class Component2020SyncService : IComponent2020SyncService
                     existingItemsById.TryGetValue(existingLink.EntityId, out existing);
                 }
 
-                // Backward-compatibility: try legacy fields (ExternalSystem/ExternalId) to link older data.
-                if (existing == null)
+                var prefix = ResolveNomenclaturePrefix(itemKind, item.GroupId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
+
+                string nomenclatureNo;
+                if (ItemNomenclature.TryParseComponentCode(itemCode, out var codeNumber))
                 {
-                    existing = await _dbContext.Items
-                        .FirstOrDefaultAsync(i => i.ExternalSystem == externalSystem && i.ExternalId == externalId, cancellationToken);
+                    nomenclatureNo = ItemNomenclature.FormatNomenclatureNo(prefix, codeNumber);
+                }
+                else
+                {
+                    nomenclatureNo = await GenerateNextNomenclatureNoAsync(itemKind, prefix, dryRun, sequences, dryRunSequences, cancellationToken);
                 }
 
                 if (existing == null)
                 {
                     if (!dryRun)
                     {
-                        // Need UnitOfMeasureId, assume default or find
-                        var defaultUoM = await FindDefaultUnitOfMeasureAsync(cancellationToken);
-                        var newItem = new Item(item.Code, item.Name, ItemKind.Component, defaultUoM.Id);
+                        var code = itemCode ?? nomenclatureNo;
+                        var newItem = new Item(code, nomenclatureNo, item.Name, itemKind, unitOfMeasureId, itemGroupId);
+                        newItem.Update(nomenclatureNo, item.Name, unitOfMeasureId, itemGroupId, newItem.IsEskd, newItem.IsEskdDocument, newItem.Designation, item.PartNumber);
                         var now = DateTimeOffset.UtcNow;
-                        newItem.SetExternalReference(externalSystem, externalId, now);
                         _dbContext.Items.Add(newItem);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, newItem.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -722,26 +1439,29 @@ public class Component2020SyncService : IComponent2020SyncService
                     // Update if needed
                     if (!dryRun)
                     {
-                        existing.Update(item.Name, existing.UnitOfMeasureId, existing.ItemGroupId, existing.IsEskd, existing.IsEskdDocument, existing.ManufacturerPartNumber);
+                        existing.SetItemKind(itemKind);
+
+                        var targetNomenclatureNo = IsValidNomenclatureNo(existing.NomenclatureNo) ? existing.NomenclatureNo : nomenclatureNo;
+                        existing.Update(targetNomenclatureNo, item.Name, unitOfMeasureId, itemGroupId, existing.IsEskd, existing.IsEskdDocument, existing.Designation, item.PartNumber);
                         var now = DateTimeOffset.UtcNow;
-                        existing.SetExternalReference(externalSystem, externalId, now);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
                     }
                     processed++;
                 }
 
-                newLastKey = item.Code;
+                newLastId = Math.Max(newLastId, item.Id);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error syncing item {ItemCode}", item.Code);
-                var error = new Component2020SyncError(runId, entityType, null, item.Code, ex.Message, ex.StackTrace);
+                _logger.LogError(ex, "Error syncing item {ItemId}", item.Id);
+                var error = new Component2020SyncError(runId, entityType, null, item.Id.ToString(CultureInfo.InvariantCulture), ex.Message, ex.StackTrace);
                 errors.Add(error);
             }
         }
 
         if (!dryRun && processed > 0)
         {
+            var newLastKey = newLastId.ToString(CultureInfo.InvariantCulture);
             await _dbContext.SaveChangesAsync(cancellationToken);
             await _cursorRepository.UpsertCursorAsync(connectionId, sourceEntity, newLastKey, cancellationToken);
         }
@@ -761,6 +1481,11 @@ public class Component2020SyncService : IComponent2020SyncService
             counters["ItemDeleted"] = deleted;
         }
 
+        if (transaction != null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         counters[entityType] = processed;
         return (processed, errors);
     }
@@ -770,7 +1495,6 @@ public class Component2020SyncService : IComponent2020SyncService
         const string entityType = "Product";
         const string sourceEntity = "Products";
         const string externalSystem = "Component2020Product";
-        const string legacyExternalSystem = "Component2020";
         const string externalEntity = "Product";
         const string linkEntityType = nameof(Item);
 
@@ -780,8 +1504,19 @@ public class Component2020SyncService : IComponent2020SyncService
         var lastKey = isFull ? null : await _cursorRepository.GetLastProcessedKeyAsync(connectionId, sourceEntity, cancellationToken);
         var products = (await _deltaReader.ReadProductsDeltaAsync(connectionId, lastKey, cancellationToken)).ToList();
 
+        await using var transaction = !dryRun ? await _dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+
+        var groupMappings = await EnsureItemGroupsAsync(connectionId, dryRun, cancellationToken);
+        var itemGroupIdByExternalId = groupMappings.ItemGroupIdByExternalId;
+        var rootGroupIdByExternalId = groupMappings.RootGroupIdByExternalId;
+        var rootAbbreviationByExternalId = groupMappings.RootAbbreviationByExternalId;
+        var defaultUoM = await FindDefaultUnitOfMeasureAsync(cancellationToken);
+
+        var sequences = new Dictionary<ItemKind, ItemSequence>();
+        var dryRunSequences = new Dictionary<ItemKind, DryRunSequenceState>();
+
         int processed = 0;
-        string? newLastKey = lastKey;
+        var newLastId = int.TryParse(lastKey, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedLastId) ? parsedLastId : 0;
         var incomingExternalIds = isOverwrite ? new HashSet<string>(StringComparer.Ordinal) : null;
 
         Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
@@ -821,7 +1556,17 @@ public class Component2020SyncService : IComponent2020SyncService
                 var externalId = product.Id.ToString();
                 incomingExternalIds?.Add(externalId);
 
-                // Use a dedicated ExternalSystem for products; upgrade legacy records that used "Component2020".
+                var name = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description;
+                var designation = product.Name;
+
+                Guid? itemGroupId = null;
+                if (product.GroupId.HasValue && itemGroupIdByExternalId.TryGetValue(product.GroupId.Value, out var mappedGroupId))
+                {
+                    itemGroupId = mappedGroupId;
+                }
+
+                var itemKind = ResolveItemKindByGroupRoot(product.GroupId, rootGroupIdByExternalId, ItemKind.Product);
+
                 Item? existing = null;
 
                 if (existingLinksByExternalId.TryGetValue(externalId, out var existingLink))
@@ -829,26 +1574,19 @@ public class Component2020SyncService : IComponent2020SyncService
                     existingItemsById.TryGetValue(existingLink.EntityId, out existing);
                 }
 
-                if (existing == null)
-                {
-                    existing = await _dbContext.Items
-                        .FirstOrDefaultAsync(i => i.ExternalSystem == externalSystem && i.ExternalId == externalId, cancellationToken);
-                }
+                var prefix = ResolveNomenclaturePrefix(itemKind, product.GroupId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
 
-                if (existing == null)
-                {
-                    existing = await _dbContext.Items
-                        .FirstOrDefaultAsync(i => i.ExternalSystem == legacyExternalSystem && i.ExternalId == externalId, cancellationToken);
-                }
+                var nomenclatureNo = existing != null && IsValidNomenclatureNo(existing.NomenclatureNo)
+                    ? existing.NomenclatureNo
+                    : await GenerateNextNomenclatureNoAsync(itemKind, prefix, dryRun, sequences, dryRunSequences, cancellationToken);
 
                 if (existing == null)
                 {
                     if (!dryRun)
                     {
-                        var defaultUoM = await FindDefaultUnitOfMeasureAsync(cancellationToken);
-                        var newItem = new Item(product.PartNumber ?? product.Id.ToString(), product.Name, ItemKind.Product, defaultUoM.Id);
+                        var newItem = new Item(nomenclatureNo, nomenclatureNo, name, itemKind, defaultUoM.Id, itemGroupId);
+                        newItem.Update(nomenclatureNo, name, defaultUoM.Id, itemGroupId, newItem.IsEskd, newItem.IsEskdDocument, designation, newItem.ManufacturerPartNumber);
                         var now = DateTimeOffset.UtcNow;
-                        newItem.SetExternalReference(externalSystem, externalId, now);
                         _dbContext.Items.Add(newItem);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, newItem.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -858,15 +1596,17 @@ public class Component2020SyncService : IComponent2020SyncService
                 {
                     if (!dryRun)
                     {
-                        existing.Update(product.Name, existing.UnitOfMeasureId, existing.ItemGroupId, existing.IsEskd, existing.IsEskdDocument, existing.ManufacturerPartNumber);
+                        existing.SetItemKind(itemKind);
+
+                        var targetNomenclatureNo = IsValidNomenclatureNo(existing.NomenclatureNo) ? existing.NomenclatureNo : nomenclatureNo;
+                        existing.Update(targetNomenclatureNo, name, defaultUoM.Id, itemGroupId, existing.IsEskd, existing.IsEskdDocument, designation, existing.ManufacturerPartNumber);
                         var now = DateTimeOffset.UtcNow;
-                        existing.SetExternalReference(externalSystem, externalId, now);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
                     }
                     processed++;
                 }
 
-                newLastKey = Math.Max(int.Parse(newLastKey ?? "0"), product.Id).ToString();
+                newLastId = Math.Max(newLastId, product.Id);
             }
             catch (Exception ex)
             {
@@ -878,6 +1618,7 @@ public class Component2020SyncService : IComponent2020SyncService
 
         if (!dryRun && processed > 0)
         {
+            var newLastKey = newLastId.ToString(CultureInfo.InvariantCulture);
             await _dbContext.SaveChangesAsync(cancellationToken);
             await _cursorRepository.UpsertCursorAsync(connectionId, sourceEntity, newLastKey, cancellationToken);
         }
@@ -895,6 +1636,11 @@ public class Component2020SyncService : IComponent2020SyncService
                 errors,
                 cancellationToken);
             counters["ProductDeleted"] = deleted;
+        }
+
+        if (transaction != null)
+        {
+            await transaction.CommitAsync(cancellationToken);
         }
 
         counters[entityType] = processed;
@@ -987,17 +1733,10 @@ public class Component2020SyncService : IComponent2020SyncService
 
                 if (existing == null)
                 {
-                    existing = await _dbContext.Manufacturers
-                        .FirstOrDefaultAsync(m => m.ExternalSystem == externalSystem && m.ExternalId == externalId, cancellationToken);
-                }
-
-                if (existing == null)
-                {
                     if (!dryRun)
                     {
-                        // Access Manufact does not have a code field; keep Code = null (user-managed).
                         var now = DateTimeOffset.UtcNow;
-                        var created = new Manufacturer(null, manufacturer.Name, manufacturer.FullName, manufacturer.Site, manufacturer.Note, externalSystem, externalId);
+                        var created = new Manufacturer(manufacturer.Name, manufacturer.FullName, manufacturer.Site, manufacturer.Note);
                         _dbContext.Manufacturers.Add(created);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -1009,7 +1748,6 @@ public class Component2020SyncService : IComponent2020SyncService
                     if (!dryRun)
                     {
                         existing.Update(manufacturer.Name, manufacturer.FullName, manufacturer.Site, manufacturer.Note, true);
-                        existing.MarkSynced();
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
                     }
                     processed++;
@@ -1114,16 +1852,10 @@ public class Component2020SyncService : IComponent2020SyncService
 
                 if (existing == null)
                 {
-                    existing = await _dbContext.BodyTypes
-                        .FirstOrDefaultAsync(bt => bt.ExternalSystem == externalSystem && bt.ExternalId == externalId, cancellationToken);
-                }
-
-                if (existing == null)
-                {
                     if (!dryRun)
                     {
                         var now = DateTimeOffset.UtcNow;
-                        var created = new BodyType(bodyType.Name, bodyType.Name, bodyType.Description, bodyType.Pins, bodyType.Smt, bodyType.Photo, bodyType.FootPrintPath, bodyType.FootprintRef, bodyType.FootprintRef2, bodyType.FootPrintRef3, externalSystem, externalId);
+                        var created = new BodyType(bodyType.Name, bodyType.Name, bodyType.Description, bodyType.Pins, bodyType.Smt, bodyType.Photo, bodyType.FootPrintPath, bodyType.FootprintRef, bodyType.FootprintRef2, bodyType.FootPrintRef3);
                         _dbContext.BodyTypes.Add(created);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -1135,7 +1867,6 @@ public class Component2020SyncService : IComponent2020SyncService
                     if (!dryRun)
                     {
                         existing.Update(bodyType.Name, bodyType.Description, bodyType.Pins, bodyType.Smt, bodyType.Photo, bodyType.FootPrintPath, bodyType.FootprintRef, bodyType.FootprintRef2, bodyType.FootPrintRef3, true);
-                        existing.MarkSynced();
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
                     }
                     processed++;
@@ -1244,16 +1975,10 @@ public class Component2020SyncService : IComponent2020SyncService
 
                 if (existing == null)
                 {
-                    existing = await _dbContext.Currencies
-                        .FirstOrDefaultAsync(c => c.ExternalSystem == externalSystem && c.ExternalId == externalId, cancellationToken);
-                }
-
-                if (existing == null)
-                {
                     if (!dryRun)
                     {
                         var now = DateTimeOffset.UtcNow;
-                        var created = new Currency(code, currency.Name, symbol, currency.Rate, externalSystem, externalId);
+                        var created = new Currency(code, currency.Name, symbol, currency.Rate);
                         _dbContext.Currencies.Add(created);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -1265,7 +1990,6 @@ public class Component2020SyncService : IComponent2020SyncService
                     if (!dryRun)
                     {
                         existing.Update(currency.Name, symbol, currency.Rate, true);
-                        existing.MarkSynced();
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
                     }
                     processed++;
@@ -1370,16 +2094,10 @@ public class Component2020SyncService : IComponent2020SyncService
 
                 if (existing == null)
                 {
-                    existing = await _dbContext.TechnicalParameters
-                        .FirstOrDefaultAsync(tp => tp.ExternalSystem == externalSystem && tp.ExternalId == externalId, cancellationToken);
-                }
-
-                if (existing == null)
-                {
                     if (!dryRun)
                     {
                         var now = DateTimeOffset.UtcNow;
-                        var created = new TechnicalParameter(technicalParameter.Name, technicalParameter.Name, technicalParameter.Symbol, technicalParameter.UnitId, externalSystem, externalId);
+                        var created = new TechnicalParameter(technicalParameter.Name, technicalParameter.Name, technicalParameter.Symbol, technicalParameter.UnitId);
                         _dbContext.TechnicalParameters.Add(created);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -1391,7 +2109,6 @@ public class Component2020SyncService : IComponent2020SyncService
                     if (!dryRun)
                     {
                         existing.Update(technicalParameter.Name, technicalParameter.Symbol, technicalParameter.UnitId, true);
-                        existing.MarkSynced();
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
                     }
                     processed++;
@@ -1496,16 +2213,10 @@ public class Component2020SyncService : IComponent2020SyncService
 
                 if (existing == null)
                 {
-                    existing = await _dbContext.ParameterSets
-                        .FirstOrDefaultAsync(ps => ps.ExternalSystem == externalSystem && ps.ExternalId == externalId, cancellationToken);
-                }
-
-                if (existing == null)
-                {
                     if (!dryRun)
                     {
                         var now = DateTimeOffset.UtcNow;
-                        var created = new ParameterSet(parameterSet.Name, parameterSet.Name, parameterSet.P0Id, parameterSet.P1Id, parameterSet.P2Id, parameterSet.P3Id, parameterSet.P4Id, parameterSet.P5Id, externalSystem, externalId);
+                        var created = new ParameterSet(parameterSet.Name, parameterSet.Name, parameterSet.P0Id, parameterSet.P1Id, parameterSet.P2Id, parameterSet.P3Id, parameterSet.P4Id, parameterSet.P5Id);
                         _dbContext.ParameterSets.Add(created);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -1517,7 +2228,6 @@ public class Component2020SyncService : IComponent2020SyncService
                     if (!dryRun)
                     {
                         existing.Update(parameterSet.Name, parameterSet.P0Id, parameterSet.P1Id, parameterSet.P2Id, parameterSet.P3Id, parameterSet.P4Id, parameterSet.P5Id, true);
-                        existing.MarkSynced();
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
                     }
                     processed++;
@@ -1620,19 +2330,12 @@ public class Component2020SyncService : IComponent2020SyncService
                     existingSymbolsById.TryGetValue(existingLink.EntityId, out existing);
                 }
 
-                // Backward-compatibility: try legacy fields (ExternalSystem/ExternalId) to link older data.
-                if (existing == null)
-                {
-                    existing = await _dbContext.Symbols
-                        .FirstOrDefaultAsync(s => s.ExternalSystem == externalSystem && s.ExternalId == externalId, cancellationToken);
-                }
-
                 if (existing == null)
                 {
                     if (!dryRun)
                     {
                         var now = DateTimeOffset.UtcNow;
-                        var created = new Symbol(symbol.Name, symbol.Name, symbol.SymbolValue, symbol.Photo, symbol.LibraryPath, symbol.LibraryRef, externalSystem, externalId);
+                        var created = new Symbol(symbol.Name, symbol.Name, symbol.SymbolValue, symbol.Photo, symbol.LibraryPath, symbol.LibraryRef);
                         _dbContext.Symbols.Add(created);
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
                     }
@@ -1644,7 +2347,6 @@ public class Component2020SyncService : IComponent2020SyncService
                     if (!dryRun)
                     {
                         existing.Update(symbol.Name, symbol.SymbolValue, symbol.Photo, symbol.LibraryPath, symbol.LibraryRef, true);
-                        existing.MarkSynced();
                         EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
                     }
                     processed++;
@@ -1689,65 +2391,118 @@ public class Component2020SyncService : IComponent2020SyncService
     {
         const string entityType = "UnitOfMeasure";
         const string linkEntityType = nameof(UnitOfMeasure);
+        const string externalSystem = "Component2020";
+        const string externalEntity = "Unit";
 
-        var candidates = await _dbContext.UnitOfMeasures
-            .Where(u =>
-                u.ExternalSystem == "Component2020"
-                && u.ExternalId != null
-                && !incomingExternalIds.Contains(u.ExternalId))
+        var missingLinks = await _dbContext.ExternalEntityLinks
+            .Where(l =>
+                l.EntityType == linkEntityType
+                && l.ExternalSystem == externalSystem
+                && l.ExternalEntity == externalEntity
+                && !incomingExternalIds.Contains(l.ExternalId))
+            .Select(l => new { l.Id, l.EntityId, l.ExternalId })
             .ToListAsync(cancellationToken);
 
-        if (candidates.Count == 0)
+        if (missingLinks.Count == 0)
         {
             return 0;
         }
 
-        var candidateIds = candidates.Select(u => u.Id).ToHashSet();
+        var externalIdByEntityId = new Dictionary<Guid, string>();
+        foreach (var link in missingLinks)
+        {
+            if (!externalIdByEntityId.ContainsKey(link.EntityId))
+            {
+                externalIdByEntityId[link.EntityId] = link.ExternalId;
+            }
+        }
+
+        var affectedEntityIds = missingLinks.Select(x => x.EntityId).Distinct().ToList();
+
+        var allLinksForAffectedEntities = await _dbContext.ExternalEntityLinks
+            .Where(l => l.EntityType == linkEntityType && affectedEntityIds.Contains(l.EntityId))
+            .Select(l => new { l.Id, l.EntityId })
+            .ToListAsync(cancellationToken);
+
+        var missingLinkIds = missingLinks.Select(x => x.Id).ToHashSet();
+
+        var entityIdsToDelete = allLinksForAffectedEntities
+            .GroupBy(x => x.EntityId)
+            .Where(g => g.All(x => missingLinkIds.Contains(x.Id)))
+            .Select(g => g.Key)
+            .ToHashSet();
 
         var referencedByItems = await _dbContext.Items
-            .Where(i => candidateIds.Contains(i.UnitOfMeasureId))
+            .Where(i => affectedEntityIds.Contains(i.UnitOfMeasureId))
             .Select(i => i.UnitOfMeasureId)
             .Distinct()
             .ToListAsync(cancellationToken);
 
         var referencedByLines = await _dbContext.RequestLines
-            .Where(l => l.UnitOfMeasureId != null && candidateIds.Contains(l.UnitOfMeasureId.Value))
+            .Where(l => l.UnitOfMeasureId != null && affectedEntityIds.Contains(l.UnitOfMeasureId.Value))
             .Select(l => l.UnitOfMeasureId!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
 
         var referenced = referencedByItems.Concat(referencedByLines).ToHashSet();
 
-        var blocked = candidates.Where(u => referenced.Contains(u.Id)).ToList();
-        foreach (var unit in blocked)
+        if (referenced.Count > 0)
         {
-            errors.Add(new Component2020SyncError(
-                runId,
-                entityType,
-                null,
-                unit.ExternalId ?? unit.Id.ToString(),
-                "Cannot delete unit because it is referenced by existing documents/items.",
-                null));
+            foreach (var unitId in referenced)
+            {
+                externalIdByEntityId.TryGetValue(unitId, out var externalId);
+                errors.Add(new Component2020SyncError(
+                    runId,
+                    entityType,
+                    null,
+                    externalId ?? unitId.ToString(),
+                    "Cannot delete unit because it is referenced by existing documents/items.",
+                    null));
+            }
+
+            foreach (var unitId in referenced)
+            {
+                entityIdsToDelete.Remove(unitId);
+            }
         }
 
-        var toDelete = candidates.Where(u => !referenced.Contains(u.Id)).ToList();
-        if (toDelete.Count == 0)
+        var linkIdsToDeleteOnly = missingLinks
+            .Where(x => !entityIdsToDelete.Contains(x.EntityId))
+            .Where(x => !referenced.Contains(x.EntityId))
+            .Select(x => x.Id)
+            .ToList();
+
+        if (linkIdsToDeleteOnly.Count > 0)
+        {
+            var links = await _dbContext.ExternalEntityLinks
+                .Where(l => linkIdsToDeleteOnly.Contains(l.Id))
+                .ToListAsync(cancellationToken);
+
+            _dbContext.ExternalEntityLinks.RemoveRange(links);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (entityIdsToDelete.Count == 0)
         {
             return 0;
         }
 
-        var toDeleteIds = toDelete.Select(u => u.Id).ToList();
-        var linksToDelete = await _dbContext.ExternalEntityLinks
+        var toDeleteIds = entityIdsToDelete.ToList();
+        var linksToDeleteWithEntities = await _dbContext.ExternalEntityLinks
             .Where(l => l.EntityType == linkEntityType && toDeleteIds.Contains(l.EntityId))
             .ToListAsync(cancellationToken);
 
-        _dbContext.ExternalEntityLinks.RemoveRange(linksToDelete);
-        _dbContext.UnitOfMeasures.RemoveRange(toDelete);
+        var unitsToDelete = await _dbContext.UnitOfMeasures
+            .Where(u => toDeleteIds.Contains(u.Id))
+            .ToListAsync(cancellationToken);
+
+        _dbContext.ExternalEntityLinks.RemoveRange(linksToDeleteWithEntities);
+        _dbContext.UnitOfMeasures.RemoveRange(unitsToDelete);
 
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
-            return toDelete.Count;
+            return unitsToDelete.Count;
         }
         catch (Exception ex)
         {
@@ -1755,18 +2510,18 @@ public class Component2020SyncService : IComponent2020SyncService
             _dbContext.ChangeTracker.Clear();
 
             var deleted = 0;
-            foreach (var unit in toDelete)
+            foreach (var unitId in toDeleteIds)
             {
                 try
                 {
-                    var current = await _dbContext.UnitOfMeasures.FirstOrDefaultAsync(u => u.Id == unit.Id, cancellationToken);
+                    var current = await _dbContext.UnitOfMeasures.FirstOrDefaultAsync(u => u.Id == unitId, cancellationToken);
                     if (current == null)
                     {
                         continue;
                     }
 
                     var currentLinks = await _dbContext.ExternalEntityLinks
-                        .Where(l => l.EntityType == linkEntityType && l.EntityId == current.Id)
+                        .Where(l => l.EntityType == linkEntityType && l.EntityId == unitId)
                         .ToListAsync(cancellationToken);
                     _dbContext.ExternalEntityLinks.RemoveRange(currentLinks);
                     _dbContext.UnitOfMeasures.Remove(current);
@@ -1775,12 +2530,13 @@ public class Component2020SyncService : IComponent2020SyncService
                 }
                 catch (Exception rowEx)
                 {
-                    _logger.LogWarning(rowEx, "Failed to delete UnitOfMeasure {UnitId} during overwrite cleanup", unit.Id);
+                    _logger.LogWarning(rowEx, "Failed to delete UnitOfMeasure {UnitId} during overwrite cleanup", unitId);
+                    externalIdByEntityId.TryGetValue(unitId, out var externalId);
                     errors.Add(new Component2020SyncError(
                         runId,
                         entityType,
                         null,
-                        unit.ExternalId ?? unit.Id.ToString(),
+                        externalId ?? unitId.ToString(),
                         "Cannot delete unit during overwrite cleanup.",
                         rowEx.ToString()));
                 }
@@ -1802,14 +2558,6 @@ public class Component2020SyncService : IComponent2020SyncService
         CancellationToken cancellationToken)
         where TEntity : class
     {
-        var legacyMissingKeys = await set
-            .Where(e =>
-                EF.Property<string?>(e, "ExternalSystem") == externalSystem
-                && EF.Property<string?>(e, "ExternalId") != null
-                && !incomingExternalIds.Contains(EF.Property<string?>(e, "ExternalId")!))
-            .Select(e => new { Id = EF.Property<Guid>(e, "Id"), ExternalId = EF.Property<string?>(e, "ExternalId")! })
-            .ToListAsync(cancellationToken);
-
         var missingLinks = await _dbContext.ExternalEntityLinks
             .Where(l =>
                 l.EntityType == linkEntityType
@@ -1819,17 +2567,12 @@ public class Component2020SyncService : IComponent2020SyncService
             .Select(l => new { l.Id, l.EntityId, l.ExternalId })
             .ToListAsync(cancellationToken);
 
-        if (missingLinks.Count == 0 && legacyMissingKeys.Count == 0)
+        if (missingLinks.Count == 0)
         {
             return 0;
         }
 
         var externalIdByEntityId = new Dictionary<Guid, string>();
-        foreach (var key in legacyMissingKeys)
-        {
-            externalIdByEntityId[key.Id] = key.ExternalId;
-        }
-
         foreach (var link in missingLinks)
         {
             if (!externalIdByEntityId.ContainsKey(link.EntityId))
@@ -1838,7 +2581,7 @@ public class Component2020SyncService : IComponent2020SyncService
             }
         }
 
-        var affectedEntityIds = missingLinks.Select(x => x.EntityId).Concat(legacyMissingKeys.Select(x => x.Id)).Distinct().ToList();
+        var affectedEntityIds = missingLinks.Select(x => x.EntityId).Distinct().ToList();
         var missingLinkIds = missingLinks.Select(x => x.Id).ToHashSet();
 
         var allLinksForAffectedEntities = await _dbContext.ExternalEntityLinks
@@ -1852,12 +2595,7 @@ public class Component2020SyncService : IComponent2020SyncService
             .Select(g => g.Key)
             .ToHashSet();
 
-        // Ensure backward-compatibility: also remove entities that were imported before external links existed.
-        var entityIdsToDelete = legacyMissingKeys.Select(x => x.Id).ToHashSet();
-        foreach (var id in entityIdsToDeleteByLinks)
-        {
-            entityIdsToDelete.Add(id);
-        }
+        var entityIdsToDelete = entityIdsToDeleteByLinks;
 
         var linkIdsToDeleteOnly = missingLinks
             .Where(x => !entityIdsToDelete.Contains(x.EntityId))
@@ -1935,10 +2673,9 @@ public class Component2020SyncService : IComponent2020SyncService
                         var current = await set.FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == entityId, cancellationToken);
                         if (current != null)
                         {
-                            var deactivate = current.GetType().GetMethod("Deactivate", Type.EmptyTypes);
-                            if (deactivate != null)
+                            if (current is IDeactivatable deactivatable)
                             {
-                                deactivate.Invoke(current, null);
+                                deactivatable.Deactivate();
                                 set.Update(current);
                                 await _dbContext.SaveChangesAsync(cancellationToken);
                                 message = "Record is referenced; deactivated instead of deleting during overwrite cleanup.";
@@ -1958,101 +2695,6 @@ public class Component2020SyncService : IComponent2020SyncService
                         entityType,
                         null,
                         externalId,
-                        message,
-                        rowEx.ToString()));
-                }
-            }
-
-            return deleted;
-        }
-    }
-
-    private async Task<int> DeleteMissingByExternalKeyAsync<TEntity>(
-        DbSet<TEntity> set,
-        string externalSystem,
-        HashSet<string> incomingExternalIds,
-        Guid runId,
-        string entityType,
-        List<Component2020SyncError> errors,
-        CancellationToken cancellationToken)
-        where TEntity : class
-    {
-        var missingKeys = await set
-            .Where(e =>
-                EF.Property<string?>(e, "ExternalSystem") == externalSystem
-                && EF.Property<string?>(e, "ExternalId") != null
-                && !incomingExternalIds.Contains(EF.Property<string?>(e, "ExternalId")!))
-            .Select(e => new
-            {
-                Id = EF.Property<Guid>(e, "Id"),
-                ExternalId = EF.Property<string?>(e, "ExternalId")
-            })
-            .ToListAsync(cancellationToken);
-
-        if (missingKeys.Count == 0)
-        {
-            return 0;
-        }
-
-        var ids = missingKeys.Select(x => x.Id).ToList();
-        var toDelete = await set.Where(e => ids.Contains(EF.Property<Guid>(e, "Id"))).ToListAsync(cancellationToken);
-        set.RemoveRange(toDelete);
-
-        try
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            return toDelete.Count;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Bulk delete failed for {EntityType} overwrite cleanup, falling back to per-row deletes", entityType);
-            _dbContext.ChangeTracker.Clear();
-
-            var deleted = 0;
-            foreach (var key in missingKeys)
-            {
-                try
-                {
-                    var current = await set.FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == key.Id, cancellationToken);
-                    if (current == null)
-                    {
-                        continue;
-                    }
-
-                    set.Remove(current);
-                    await _dbContext.SaveChangesAsync(cancellationToken);
-                    deleted++;
-                }
-                catch (Exception rowEx)
-                {
-                    _logger.LogWarning(rowEx, "Failed to delete {EntityType} {ExternalId} during overwrite cleanup", entityType, key.ExternalId ?? key.Id.ToString());
-
-                    var message = "Cannot delete record during overwrite cleanup.";
-                    try
-                    {
-                        var current = await set.FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == key.Id, cancellationToken);
-                        if (current != null)
-                        {
-                            var deactivate = current.GetType().GetMethod("Deactivate", Type.EmptyTypes);
-                            if (deactivate != null)
-                            {
-                                deactivate.Invoke(current, null);
-                                set.Update(current);
-                                await _dbContext.SaveChangesAsync(cancellationToken);
-                                message = "Record is referenced; deactivated instead of deleting during overwrite cleanup.";
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // ignored
-                    }
-
-                    errors.Add(new Component2020SyncError(
-                        runId,
-                        entityType,
-                        null,
-                        key.ExternalId ?? key.Id.ToString(),
                         message,
                         rowEx.ToString()));
                 }

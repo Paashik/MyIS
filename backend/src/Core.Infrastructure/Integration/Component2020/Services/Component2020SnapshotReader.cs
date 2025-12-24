@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MyIS.Core.Application.Integration.Component2020.Dto;
 using MyIS.Core.Application.Integration.Component2020.Services;
 
@@ -11,21 +12,23 @@ namespace MyIS.Core.Infrastructure.Integration.Component2020.Services;
 public class Component2020SnapshotReader : IComponent2020SnapshotReader
 {
     private readonly IComponent2020ConnectionProvider _connectionProvider;
+    private readonly ILogger<Component2020SnapshotReader> _logger;
 
-    public Component2020SnapshotReader(IComponent2020ConnectionProvider connectionProvider)
+    public Component2020SnapshotReader(IComponent2020ConnectionProvider connectionProvider, ILogger<Component2020SnapshotReader> logger)
     {
         _connectionProvider = connectionProvider ?? throw new ArgumentNullException(nameof(connectionProvider));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<IEnumerable<Component2020Item>> ReadItemsAsync(CancellationToken cancellationToken)
+    public async Task<IEnumerable<Component2020Item>> ReadItemsAsync(CancellationToken cancellationToken, Guid? connectionId = null)
     {
-        var connectionDto = await _connectionProvider.GetConnectionAsync(cancellationToken: cancellationToken);
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken: cancellationToken);
         var connectionString = BuildConnectionString(connectionDto);
 
         using var connection = new OleDbConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var command = new OleDbCommand("SELECT ID, GroupID, Name, Description, UnitID FROM Component", connection);
+        var command = new OleDbCommand("SELECT ID, Code, Name, Description, GroupID, UnitID, PartNumber FROM Component", connection);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var items = new List<Component2020Item>();
@@ -33,45 +36,92 @@ public class Component2020SnapshotReader : IComponent2020SnapshotReader
         {
             items.Add(new Component2020Item
             {
-                Code = reader.GetInt32(0).ToString(), // assuming ID is code
+                Id = reader.GetInt32(0),
+                Code = reader.IsDBNull(1) ? null : reader.GetString(1),
                 Name = reader.GetString(2),
                 Description = reader.IsDBNull(3) ? null : reader.GetString(3),
-                GroupId = reader.IsDBNull(1) ? null : reader.GetInt32(1),
-                UnitId = reader.IsDBNull(4) ? null : reader.GetInt32(4)
+                GroupId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                UnitId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                PartNumber = reader.IsDBNull(6) ? null : reader.GetString(6)
             });
         }
 
         return items;
     }
 
-    public async Task<IEnumerable<Component2020ItemGroup>> ReadItemGroupsAsync(CancellationToken cancellationToken)
+    public async Task<IEnumerable<Component2020ItemGroup>> ReadItemGroupsAsync(CancellationToken cancellationToken, Guid? connectionId = null)
     {
-        var connectionDto = await _connectionProvider.GetConnectionAsync(cancellationToken: cancellationToken);
+        _logger.LogInformation("Starting to read ItemGroups from Component2020 (connectionId={ConnectionId})", connectionId);
+
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken: cancellationToken);
         var connectionString = BuildConnectionString(connectionDto);
 
+        _logger.LogDebug("Opening connection to Component2020 database");
         using var connection = new OleDbConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
+        _logger.LogDebug("Connection opened successfully");
 
-        var command = new OleDbCommand("SELECT ID, Name, Parent FROM Groups", connection);
+        var command = new OleDbCommand("SELECT ID, Name, Parent, Description, FullName FROM Groups", connection);
+        _logger.LogDebug("Executing query: {Query}", command.CommandText);
+
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var groups = new List<Component2020ItemGroup>();
+        var rowCount = 0;
+
         while (await reader.ReadAsync(cancellationToken))
         {
-            groups.Add(new Component2020ItemGroup
+            try
             {
-                Id = reader.GetInt32(0),
-                Name = reader.GetString(1),
-                ParentId = reader.IsDBNull(2) ? null : reader.GetInt32(2)
-            });
+                var id = reader.GetInt32(0);
+                var name = reader.IsDBNull(1) ? $"Group_{id}" : reader.GetString(1).Trim();
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    name = $"Group_{id}";
+                }
+
+                int? parentId = reader.IsDBNull(2) ? null : reader.GetInt32(2);
+
+                // Component2020 hierarchy conventions:
+                // - Parent = 0 / NULL means root category (ItemType)
+                // - Some historical datasets use Parent = ID for root
+                if (!parentId.HasValue || parentId.Value <= 0 || parentId.Value == id)
+                {
+                    parentId = null;
+                }
+
+                // Read Description and FullName fields
+                string? description = reader.IsDBNull(3) ? null : reader.GetString(3).Trim();
+                string? fullName = reader.IsDBNull(4) ? null : reader.GetString(4).Trim();
+
+                var group = new Component2020ItemGroup
+                {
+                    Id = id,
+                    Name = name,
+                    ParentId = parentId,
+                    Description = string.IsNullOrWhiteSpace(description) ? null : description,
+                    FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName
+                };
+
+                groups.Add(group);
+                rowCount++;
+
+                _logger.LogDebug("Read group {Id}: Name='{Name}', ParentId={ParentId}", id, name, parentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading group at row {RowCount}", rowCount);
+                throw;
+            }
         }
 
+        _logger.LogInformation("Successfully read {Count} groups from Component2020", groups.Count);
         return groups;
     }
 
-    public async Task<IEnumerable<Component2020Unit>> ReadUnitsAsync(CancellationToken cancellationToken)
+    public async Task<IEnumerable<Component2020Unit>> ReadUnitsAsync(CancellationToken cancellationToken, Guid? connectionId = null)
     {
-        var connectionDto = await _connectionProvider.GetConnectionAsync(cancellationToken: cancellationToken);
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken: cancellationToken);
         var connectionString = BuildConnectionString(connectionDto);
 
         using var connection = new OleDbConnection(connectionString);
@@ -95,9 +145,9 @@ public class Component2020SnapshotReader : IComponent2020SnapshotReader
         return units;
     }
 
-    public async Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken)
+    public async Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken, Guid? connectionId = null)
     {
-        var connectionDto = await _connectionProvider.GetConnectionAsync(cancellationToken: cancellationToken);
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken: cancellationToken);
         var connectionString = BuildConnectionString(connectionDto);
 
         using var connection = new OleDbConnection(connectionString);

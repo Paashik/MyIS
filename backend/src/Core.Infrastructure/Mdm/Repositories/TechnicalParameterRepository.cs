@@ -35,22 +35,6 @@ public sealed class TechnicalParameterRepository : ITechnicalParameterRepository
             .FirstOrDefaultAsync(tp => tp.Code == normalized);
     }
 
-    public async Task<TechnicalParameter?> FindByExternalIdAsync(string externalSystem, string externalId)
-    {
-        if (string.IsNullOrWhiteSpace(externalSystem))
-        {
-            throw new ArgumentException("ExternalSystem is required.", nameof(externalSystem));
-        }
-
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId is required.", nameof(externalId));
-        }
-
-        return await _dbContext.TechnicalParameters
-            .FirstOrDefaultAsync(tp => tp.ExternalSystem == externalSystem && tp.ExternalId == externalId);
-    }
-
     public async Task<bool> ExistsByCodeAsync(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

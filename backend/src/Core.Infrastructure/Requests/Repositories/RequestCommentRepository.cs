@@ -30,12 +30,4 @@ public sealed class RequestCommentRepository : IRequestCommentRepository
             .ThenBy(c => c.Id)
             .ToListAsync(cancellationToken);
     }
-
-    public async Task AddAsync(RequestComment comment, CancellationToken cancellationToken)
-    {
-        if (comment is null) throw new ArgumentNullException(nameof(comment));
-
-        await _dbContext.RequestComments.AddAsync(comment, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-    }
 }

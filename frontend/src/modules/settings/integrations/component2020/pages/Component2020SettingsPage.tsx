@@ -570,6 +570,7 @@ export const Component2020SettingsPage: React.FC = () => {
               options={[
                 { value: "Units", label: t("settings.integrations.component2020.sync.scope.option.Units") },
                 { value: "Counterparties", label: t("settings.integrations.component2020.sync.scope.option.Counterparties") },
+                { value: "ItemGroups", label: t("settings.integrations.component2020.sync.scope.option.ItemGroups") },
                 { value: "Items", label: t("settings.integrations.component2020.sync.scope.option.Items") },
                 { value: "Products", label: t("settings.integrations.component2020.sync.scope.option.Products") },
                 { value: "Manufacturers", label: t("settings.integrations.component2020.sync.scope.option.Manufacturers") },
@@ -613,6 +614,9 @@ export const Component2020SettingsPage: React.FC = () => {
           </Button>
           <Button onClick={() => navigate("/references/mdm/items")}>
             {t("references.mdm.items.title")}
+          </Button>
+          <Button onClick={() => navigate("/references/mdm/item-groups")}>
+            {t("references.mdm.itemGroups.title")}
           </Button>
           <Button onClick={() => navigate("/references/mdm/manufacturers")}>
             {t("references.mdm.manufacturers.title")}

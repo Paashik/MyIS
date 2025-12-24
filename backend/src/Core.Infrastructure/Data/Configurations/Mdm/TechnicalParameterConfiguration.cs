@@ -8,7 +8,7 @@ public class TechnicalParameterConfiguration : IEntityTypeConfiguration<Technica
 {
     public void Configure(EntityTypeBuilder<TechnicalParameter> builder)
     {
-        builder.ToTable("technical_parameters", "integration");
+        builder.ToTable("technical_parameters", "mdm");
 
         builder.HasKey(tp => tp.Id);
 
@@ -28,14 +28,6 @@ public class TechnicalParameterConfiguration : IEntityTypeConfiguration<Technica
         builder.Property(tp => tp.IsActive)
             .IsRequired();
 
-        builder.Property(tp => tp.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(tp => tp.ExternalId)
-            .HasMaxLength(50);
-
-        builder.Property(tp => tp.SyncedAt);
-
         builder.Property(tp => tp.CreatedAt)
             .IsRequired();
 
@@ -45,8 +37,6 @@ public class TechnicalParameterConfiguration : IEntityTypeConfiguration<Technica
         builder.HasIndex(tp => tp.Code)
             .IsUnique();
 
-        builder.HasIndex(tp => new { tp.ExternalSystem, tp.ExternalId })
-            .IsUnique()
-            .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
+        
     }
 }

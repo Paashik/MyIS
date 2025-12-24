@@ -35,10 +35,8 @@ public class AppDbContext : DbContext
     public DbSet<ItemAttributeValue> ItemAttributeValues => Set<ItemAttributeValue>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemSequence> ItemSequences => Set<ItemSequence>();
-    public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Counterparty> Counterparties => Set<Counterparty>();
     public DbSet<CounterpartyRole> CounterpartyRoles => Set<CounterpartyRole>();
-    public DbSet<CounterpartyExternalLink> CounterpartyExternalLinks => Set<CounterpartyExternalLink>();
     public DbSet<Manufacturer> Manufacturers => Set<Manufacturer>();
     public DbSet<BodyType> BodyTypes => Set<BodyType>();
     public DbSet<Currency> Currencies => Set<Currency>();

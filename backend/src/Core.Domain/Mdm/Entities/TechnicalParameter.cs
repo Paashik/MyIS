@@ -1,8 +1,9 @@
 using System;
+using MyIS.Core.Domain.Common;
 
 namespace MyIS.Core.Domain.Mdm.Entities;
 
-public class TechnicalParameter
+public class TechnicalParameter : IDeactivatable
 {
     public Guid Id { get; private set; }
 
@@ -16,12 +17,6 @@ public class TechnicalParameter
 
     public bool IsActive { get; private set; }
 
-    public string? ExternalSystem { get; private set; }
-
-    public string? ExternalId { get; private set; }
-
-    public DateTimeOffset? SyncedAt { get; private set; }
-
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -31,7 +26,7 @@ public class TechnicalParameter
         // For EF Core
     }
 
-    public TechnicalParameter(string code, string name, string? symbol, int? unitId, string? externalSystem, string? externalId)
+    public TechnicalParameter(string code, string name, string? symbol, int? unitId)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -49,9 +44,6 @@ public class TechnicalParameter
         Symbol = symbol?.Trim();
         UnitId = unitId;
         IsActive = true;
-        ExternalSystem = externalSystem?.Trim();
-        ExternalId = externalId?.Trim();
-        SyncedAt = DateTimeOffset.UtcNow;
         CreatedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -67,12 +59,6 @@ public class TechnicalParameter
         Symbol = symbol?.Trim();
         UnitId = unitId;
         IsActive = isActive;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void MarkSynced()
-    {
-        SyncedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

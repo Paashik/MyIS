@@ -50,6 +50,7 @@ import { Component2020RunCardPage } from "./modules/settings/integrations/compon
 // References (MDM dictionaries - read-only)
 import { MdmDictionaryJournalPage } from "./modules/references/mdm/pages/MdmDictionaryJournalPage";
 import { MdmDictionaryCardPage } from "./modules/references/mdm/pages/MdmDictionaryCardPage";
+import { MdmItemCardPage } from "./modules/references/mdm/pages/MdmItemCardPage";
 
 // Settings module (System)
 import { GlobalPathsSettingsPage } from "./modules/settings/system/pages/GlobalPathsSettingsPage";
@@ -135,6 +136,7 @@ const App: React.FC = () => {
               element={<RequestStatusCardPage />}
             />
             <Route path="references/mdm/:dict" element={<MdmDictionaryJournalPage />} />
+            <Route path="references/mdm/items/:id" element={<MdmItemCardPage />} />
             <Route path="references/mdm/:dict/:id" element={<MdmDictionaryCardPage />} />
 
             {/* Administration */}

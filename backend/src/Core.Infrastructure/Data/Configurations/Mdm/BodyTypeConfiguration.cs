@@ -8,7 +8,7 @@ public class BodyTypeConfiguration : IEntityTypeConfiguration<BodyType>
 {
     public void Configure(EntityTypeBuilder<BodyType> builder)
     {
-        builder.ToTable("body_types", "integration");
+        builder.ToTable("body_types", "mdm");
 
         builder.HasKey(b => b.Id);
 
@@ -45,14 +45,6 @@ public class BodyTypeConfiguration : IEntityTypeConfiguration<BodyType>
         builder.Property(b => b.IsActive)
             .IsRequired();
 
-        builder.Property(b => b.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(b => b.ExternalId)
-            .HasMaxLength(50);
-
-        builder.Property(b => b.SyncedAt);
-
         builder.Property(b => b.CreatedAt)
             .IsRequired();
 
@@ -62,8 +54,6 @@ public class BodyTypeConfiguration : IEntityTypeConfiguration<BodyType>
         builder.HasIndex(b => b.Code)
             .IsUnique();
 
-        builder.HasIndex(b => new { b.ExternalSystem, b.ExternalId })
-            .IsUnique()
-            .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
+        
     }
 }

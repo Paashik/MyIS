@@ -12,9 +12,6 @@ public sealed class CounterpartyConfiguration : IEntityTypeConfiguration<Counter
 
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.Code)
-            .HasMaxLength(50);
-
         builder.Property(x => x.Name)
             .HasMaxLength(200)
             .IsRequired();
@@ -61,8 +58,5 @@ public sealed class CounterpartyConfiguration : IEntityTypeConfiguration<Counter
         builder.Property(x => x.UpdatedAt)
             .IsRequired();
 
-        builder.HasIndex(x => x.Code)
-            .IsUnique()
-            .HasFilter("\"Code\" IS NOT NULL");
     }
 }

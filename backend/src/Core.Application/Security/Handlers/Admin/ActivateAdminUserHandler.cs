@@ -26,8 +26,7 @@ public sealed class ActivateAdminUserHandler
 
         if (!user.IsActive)
         {
-            user.IsActive = true;
-            user.UpdatedAt = DateTimeOffset.UtcNow;
+            user.Activate(DateTimeOffset.UtcNow);
             await _userRepository.UpdateAsync(user, cancellationToken);
         }
     }

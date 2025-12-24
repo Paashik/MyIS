@@ -8,7 +8,7 @@ public class SymbolConfiguration : IEntityTypeConfiguration<Symbol>
 {
     public void Configure(EntityTypeBuilder<Symbol> builder)
     {
-        builder.ToTable("symbols", "integration");
+        builder.ToTable("symbols", "mdm");
 
         builder.HasKey(s => s.Id);
 
@@ -35,14 +35,6 @@ public class SymbolConfiguration : IEntityTypeConfiguration<Symbol>
         builder.Property(s => s.IsActive)
             .IsRequired();
 
-        builder.Property(s => s.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(s => s.ExternalId)
-            .HasMaxLength(50);
-
-        builder.Property(s => s.SyncedAt);
-
         builder.Property(s => s.CreatedAt)
             .IsRequired();
 
@@ -52,8 +44,6 @@ public class SymbolConfiguration : IEntityTypeConfiguration<Symbol>
         builder.HasIndex(s => s.Code)
             .IsUnique();
 
-        builder.HasIndex(s => new { s.ExternalSystem, s.ExternalId })
-            .IsUnique()
-            .HasFilter("[ExternalSystem] IS NOT NULL AND [ExternalId] IS NOT NULL");
+        
     }
 }

@@ -30,12 +30,4 @@ public sealed class RequestHistoryRepository : IRequestHistoryRepository
             .ThenBy(h => h.Id)
             .ToListAsync(cancellationToken);
     }
-
-    public async Task AddAsync(RequestHistory historyItem, CancellationToken cancellationToken)
-    {
-        if (historyItem is null) throw new ArgumentNullException(nameof(historyItem));
-
-        await _dbContext.RequestHistory.AddAsync(historyItem, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-    }
 }

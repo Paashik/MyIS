@@ -16,6 +16,10 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.Property(i => i.NomenclatureNo)
+            .HasMaxLength(50)
+            .IsRequired();
+
         builder.Property(i => i.Name)
             .HasMaxLength(200)
             .IsRequired();
@@ -29,14 +33,6 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.Property(i => i.IsActive)
             .IsRequired();
 
-        builder.Property(i => i.ExternalSystem)
-            .HasMaxLength(50);
-
-        builder.Property(i => i.ExternalId)
-            .HasMaxLength(100);
-
-        builder.Property(i => i.SyncedAt);
-
         builder.Property(i => i.CreatedAt)
             .IsRequired();
 
@@ -47,6 +43,9 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
             .IsRequired();
 
         builder.Property(i => i.IsEskdDocument);
+
+        builder.Property(i => i.Designation)
+            .HasMaxLength(100);
 
         builder.Property(i => i.ManufacturerPartNumber)
             .HasMaxLength(100);
@@ -71,8 +70,9 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.HasIndex(i => i.Code)
             .IsUnique();
 
-        builder.HasIndex(i => new { i.ExternalSystem, i.ExternalId })
-            .IsUnique()
-            .HasFilter("ExternalSystem IS NOT NULL AND ExternalId IS NOT NULL");
+        builder.HasIndex(i => i.NomenclatureNo)
+            .IsUnique();
+
+        
     }
 }

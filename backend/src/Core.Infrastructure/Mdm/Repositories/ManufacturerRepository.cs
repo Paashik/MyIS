@@ -22,48 +22,6 @@ public sealed class ManufacturerRepository : IManufacturerRepository
             .FirstOrDefaultAsync(m => m.Id == id);
     }
 
-    public async Task<Manufacturer?> FindByCodeAsync(string code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            throw new ArgumentException("Code is required.", nameof(code));
-        }
-
-        var normalized = code.Trim();
-
-        return await _dbContext.Manufacturers
-            .FirstOrDefaultAsync(m => m.Code == normalized);
-    }
-
-    public async Task<Manufacturer?> FindByExternalIdAsync(string externalSystem, string externalId)
-    {
-        if (string.IsNullOrWhiteSpace(externalSystem))
-        {
-            throw new ArgumentException("ExternalSystem is required.", nameof(externalSystem));
-        }
-
-        if (string.IsNullOrWhiteSpace(externalId))
-        {
-            throw new ArgumentException("ExternalId is required.", nameof(externalId));
-        }
-
-        return await _dbContext.Manufacturers
-            .FirstOrDefaultAsync(m => m.ExternalSystem == externalSystem && m.ExternalId == externalId);
-    }
-
-    public async Task<bool> ExistsByCodeAsync(string code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            return false;
-        }
-
-        var normalized = code.Trim();
-
-        return await _dbContext.Manufacturers
-            .AnyAsync(m => m.Code == normalized);
-    }
-
     public async Task AddAsync(Manufacturer manufacturer)
     {
         if (manufacturer is null) throw new ArgumentNullException(nameof(manufacturer));

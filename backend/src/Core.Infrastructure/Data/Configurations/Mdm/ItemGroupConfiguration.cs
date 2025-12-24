@@ -12,13 +12,12 @@ public class ItemGroupConfiguration : IEntityTypeConfiguration<ItemGroup>
 
         builder.HasKey(g => g.Id);
 
-        builder.Property(g => g.Code)
-            .HasMaxLength(50)
-            .IsRequired();
-
         builder.Property(g => g.Name)
             .HasMaxLength(200)
             .IsRequired();
+
+        builder.Property(g => g.Abbreviation)
+            .HasMaxLength(10);
 
         builder.Property(g => g.ParentId);
 
@@ -35,8 +34,5 @@ public class ItemGroupConfiguration : IEntityTypeConfiguration<ItemGroup>
             .WithMany()
             .HasForeignKey(g => g.ParentId)
             .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasIndex(g => g.Code)
-            .IsUnique();
     }
 }
