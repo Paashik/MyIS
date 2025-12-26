@@ -40,17 +40,14 @@ public sealed class UpdateAdminUserHandler
         }
 
         string? employeeFullName = null;
+        string? employeeShortName = null;
         if (command.EmployeeId is { } employeeId)
         {
             var employee = await _employeeRepository.GetByIdAsync(employeeId, cancellationToken);
             if (employee is null) throw new InvalidOperationException($"Employee '{employeeId}' was not found.");
 
-            if (await _userRepository.IsEmployeeLinkedToOtherUserAsync(employeeId, exceptUserId: user.Id, cancellationToken))
-            {
-                throw new InvalidOperationException("Selected employee is already linked to another user.");
-            }
-
             employeeFullName = employee.FullName;
+            employeeShortName = employee.ShortName;
         }
 
         user.UpdateDetails(
@@ -72,7 +69,7 @@ public sealed class UpdateAdminUserHandler
             Login = user.Login,
             IsActive = user.IsActive,
             EmployeeId = user.EmployeeId,
-            EmployeeFullName = employeeFullName,
+            EmployeeFullName = employeeShortName ?? employeeFullName,
             RoleCodes = roleCodes
         };
     }

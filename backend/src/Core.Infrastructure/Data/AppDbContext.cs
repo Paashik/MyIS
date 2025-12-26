@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using MyIS.Core.Domain.Customers.Entities;
 using MyIS.Core.Domain.Organization;
 using MyIS.Core.Domain.Users;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Mdm.Entities;
+using MyIS.Core.Domain.Statuses.Entities;
 using MyIS.Core.Infrastructure.Data.Entities.Integration;
  
 namespace MyIS.Core.Infrastructure.Data;
@@ -19,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
     public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
  
     public DbSet<Request> Requests => Set<Request>();
     public DbSet<RequestType> RequestTypes => Set<RequestType>();
@@ -43,6 +46,7 @@ public class AppDbContext : DbContext
     public DbSet<TechnicalParameter> TechnicalParameters => Set<TechnicalParameter>();
     public DbSet<ParameterSet> ParameterSets => Set<ParameterSet>();
     public DbSet<Symbol> Symbols => Set<Symbol>();
+    public DbSet<Status> Statuses => Set<Status>();
     public DbSet<ExternalEntityLink> ExternalEntityLinks => Set<ExternalEntityLink>();
 
     public DbSet<Component2020Connection> Component2020Connections => Set<Component2020Connection>();

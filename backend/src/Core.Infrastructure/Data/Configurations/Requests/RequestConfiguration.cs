@@ -59,8 +59,24 @@ public class RequestConfiguration : IEntityTypeConfiguration<Request>
             .HasColumnName("related_entity_id")
             .HasColumnType("uuid");
 
+        builder.Property(r => r.RelatedEntityName)
+            .HasColumnName("related_entity_name")
+            .HasColumnType("text");
+
         builder.Property(r => r.ExternalReferenceId)
             .HasColumnName("external_reference_id")
+            .HasColumnType("text");
+
+        builder.Property(r => r.TargetEntityType)
+            .HasColumnName("target_entity_type")
+            .HasColumnType("text");
+
+        builder.Property(r => r.TargetEntityId)
+            .HasColumnName("target_entity_id")
+            .HasColumnType("uuid");
+
+        builder.Property(r => r.TargetEntityName)
+            .HasColumnName("target_entity_name")
             .HasColumnType("text");
 
         builder.Property(r => r.CreatedAt)

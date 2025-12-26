@@ -3,11 +3,12 @@ import { Form, Input, Typography } from "antd";
 
 import type { RequestTypeProfile, ValidationError } from "./types";
 import { t } from "../../../core/i18n/t";
+import { SUPPLY_REQUEST_TYPE_ID } from "../requestTypeIds";
 
 const { Text } = Typography;
 
 export const supplyRequestProfile: RequestTypeProfile = {
-  code: "SupplyRequest",
+  id: SUPPLY_REQUEST_TYPE_ID,
   title: t("requests.typeProfile.supply.title"),
   direction: "Outgoing",
   renderDetails: ({ request }) => {
@@ -54,4 +55,3 @@ export const supplyRequestProfile: RequestTypeProfile = {
     return errors;
   },
 };
-

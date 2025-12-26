@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Dropdown, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Col, Descriptions, Dropdown, Input, List, Modal, Row, Select, Space, Table, Tag, Typography, message } from "antd";
 import Tooltip from "antd/es/tooltip";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate, useParams } from "react-router-dom";
@@ -142,13 +142,13 @@ function toHttpUrl(raw: string): string | null {
   return `https://${v}`;
 }
 
-type ItemGroupTreeRow = MdmItemGroupReferenceDto & { children?: ItemGroupTreeRow[] };
+type ItemGroupTreeRow = MdmItemGroupReferenceDto & { children?: (ItemGroupTreeRow | MdmItemReferenceDto)[] };
 
 function normalizeTextForSearch(v: string): string {
   return v.trim().toLowerCase();
 }
 
-function buildItemGroupsTreeRows(flat: MdmItemGroupReferenceDto[], q: string): ItemGroupTreeRow[] {
+function buildItemGroupsTreeRows(flat: MdmItemGroupReferenceDto[], q: string, items?: MdmItemReferenceDto[]): ItemGroupTreeRow[] {
 
   
   const ids = flat.map(r => r.id);
@@ -255,13 +255,21 @@ function buildItemGroupsTreeRows(flat: MdmItemGroupReferenceDto[], q: string): I
   }
 
   const sortRecursive = (nodes: ItemGroupTreeRow[]) => {
-    nodes.sort((a, b) => 
-      (a.name ?? "").localeCompare(b.name ?? "") || 
+    nodes.sort((a, b) =>
+      (a.name ?? "").localeCompare(b.name ?? "") ||
       String(a.id).localeCompare(String(b.id))
     );
     for (const n of nodes) {
       if (n.children?.length) {
-        sortRecursive(n.children);
+        // Separate groups and items
+        const groups = n.children.filter(c => 'name' in c && 'parentId' in c) as ItemGroupTreeRow[];
+        const items = n.children.filter(c => !('parentId' in c)) as MdmItemReferenceDto[];
+        // Sort groups recursively
+        sortRecursive(groups);
+        // Sort items
+        items.sort((a, b) => (a.nomenclatureNo ?? a.name ?? "").localeCompare(b.nomenclatureNo ?? b.name ?? ""));
+        // Combine: groups first, then items
+        n.children = [...groups, ...items];
       }
     }
   };
@@ -292,6 +300,78 @@ function collectExpandableRowKeys(rows: ItemGroupTreeRow[]): React.Key[] {
   return keys;
 }
 
+type ItemTreeNode = {
+  key: string;
+  title: React.ReactNode;
+  children?: ItemTreeNode[];
+  isLeaf?: boolean;
+  item?: MdmItemReferenceDto;
+};
+
+function buildItemTree(groups: MdmItemGroupReferenceDto[], items: MdmItemReferenceDto[]): ItemTreeNode[] {
+  const groupMap = new Map<string, ItemGroupTreeRow>();
+  const parentMap = new Map<string, string | null>();
+
+  for (const g of groups) {
+    const id = String(g.id ?? "").trim();
+    if (!id) continue;
+    groupMap.set(id, { ...g, children: [] });
+    parentMap.set(id, g.parentId ? String(g.parentId).trim() : null);
+  }
+
+  const roots: ItemGroupTreeRow[] = [];
+  for (const [id, node] of groupMap.entries()) {
+    const parentId = parentMap.get(id);
+    if (parentId && groupMap.has(parentId)) {
+      groupMap.get(parentId)!.children!.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  const sortRecursive = (nodes: ItemGroupTreeRow[]) => {
+    nodes.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "") || String(a.id).localeCompare(String(b.id)));
+    for (const n of nodes) {
+      if (n.children?.length) sortRecursive(n.children);
+    }
+  };
+  sortRecursive(roots);
+
+  const buildTreeNodes = (groupNodes: ItemGroupTreeRow[]): ItemTreeNode[] => {
+    return groupNodes.map(g => {
+      const groupItems = items.filter(i => i.itemGroupId === g.id);
+      const children: ItemTreeNode[] = groupItems.map(i => ({
+        key: `item-${i.id}`,
+        title: (
+          <Space>
+            <Text>{i.nomenclatureNo ?? i.name}</Text>
+            {i.isActive ? <Tag color="green" size="small">ON</Tag> : <Tag size="small">OFF</Tag>}
+          </Space>
+        ),
+        isLeaf: true,
+        item: i,
+      }));
+
+      if (g.children?.length) {
+        children.unshift(...buildTreeNodes(g.children));
+      }
+
+      return {
+        key: `group-${g.id}`,
+        title: (
+          <Space>
+            <Text strong>{g.name}</Text>
+            {g.abbreviation && <Text type="secondary">({g.abbreviation})</Text>}
+          </Space>
+        ),
+        children: children.length > 0 ? children : undefined,
+      };
+    });
+  };
+
+  return buildTreeNodes(roots);
+}
+
 export const MdmDictionaryJournalPage: React.FC = () => {
   const canView = useCan("Admin.Integration.View");
   const canExecute = useCan("Admin.Integration.Execute");
@@ -316,7 +396,7 @@ export const MdmDictionaryJournalPage: React.FC = () => {
   const supportsImport = dict !== "external-links";
   const supportsIsActive = dict !== "external-links";
   const isItemGroups = dict === "item-groups";
-  const supportsRowOpen = dict !== "external-links" && !isItemGroups;
+  const supportsRowOpen = dict !== "external-links" && dict !== "item-groups";
 
   const [loading, setLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
@@ -328,6 +408,9 @@ export const MdmDictionaryJournalPage: React.FC = () => {
   const [items, setItems] = useState<unknown[]>([]);
   const [total, setTotal] = useState(0);
   const [itemGroupsExpandedRowKeys, setItemGroupsExpandedRowKeys] = useState<React.Key[]>([]);
+  const [itemGroups, setItemGroups] = useState<MdmItemGroupReferenceDto[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     if (dict === "item-groups" && isActive !== "all") {
@@ -356,31 +439,60 @@ export const MdmDictionaryJournalPage: React.FC = () => {
     if (!dict) return [];
 
     if (dict === "items") {
-      const cols: ColumnsType<MdmItemReferenceDto> = [
-        { title: t("references.columns.code"), dataIndex: "nomenclatureNo", key: "nomenclatureNo", width: 160 },
-        { title: t("references.columns.name"), dataIndex: "name", key: "name" },
-        { title: t("references.mdm.items.columns.kind"), dataIndex: "itemKind", key: "itemKind", width: 160 },
+      const cols: ColumnsType<any> = [
+        {
+          title: t("references.columns.name"),
+          key: "name",
+          render: (_: unknown, r: any) => {
+            if ('itemKind' in r) {
+              // Item
+              return (
+                <Space>
+                  <Text>{r.nomenclatureNo ?? r.name}</Text>
+                  {r.isActive ? <Tag color="green" size="small">ON</Tag> : <Tag size="small">OFF</Tag>}
+                </Space>
+              );
+            } else {
+              // Group
+              return (
+                <Space direction="vertical" size={0}>
+                  <Text strong>{r.name}</Text>
+                  {r.abbreviation ? <Text type="secondary">{r.abbreviation}</Text> : null}
+                </Space>
+              );
+            }
+          },
+        },
+        {
+          title: t("references.mdm.items.columns.kind"),
+          dataIndex: "itemKind",
+          key: "itemKind",
+          render: (v: string) => v ?? "-",
+        },
         {
           title: t("references.mdm.items.columns.uom"),
           key: "uom",
-          width: 220,
-          render: (_: unknown, r: MdmItemReferenceDto) => (
-            <Text type="secondary">
-              {r.unitOfMeasureCode
-                ? `${r.unitOfMeasureSymbol ?? r.unitOfMeasureCode} — ${r.unitOfMeasureName ?? ""}`
-                : "-"}
-            </Text>
-          ),
+          render: (_: unknown, r: any) => {
+            if ('unitOfMeasureCode' in r) {
+              return (
+                <Text type="secondary">
+                  {r.unitOfMeasureCode
+                    ? `${r.unitOfMeasureSymbol ?? r.unitOfMeasureCode} — ${r.unitOfMeasureName ?? ""}`
+                    : "-"}
+                </Text>
+              );
+            }
+            return "-";
+          },
         },
         {
           title: t("references.columns.isActive"),
           dataIndex: "isActive",
           key: "isActive",
-          width: 110,
           render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
         },
       ];
-      return cols as ColumnsType<any>;
+      return cols;
     }
 
     if (dict === "item-groups") {
@@ -404,7 +516,6 @@ export const MdmDictionaryJournalPage: React.FC = () => {
           title: t("references.columns.isActive"),
           dataIndex: "isActive",
           key: "isActive",
-          width: 110,
           render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
         },
       ];
@@ -414,19 +525,17 @@ export const MdmDictionaryJournalPage: React.FC = () => {
     if (dict === "units") {
       const cols: ColumnsType<MdmUnitReferenceDto> = [
         { title: t("references.columns.name"), dataIndex: "name", key: "name" },
-        { title: t("references.mdm.units.columns.symbol"), dataIndex: "symbol", key: "symbol", width: 140 },
+        { title: t("references.mdm.units.columns.symbol"), dataIndex: "symbol", key: "symbol" },
         {
           title: t("references.columns.code"),
           dataIndex: "code",
           key: "code",
-          width: 120,
           render: (v: string | null | undefined) => v ?? "-",
         },
         {
           title: t("references.columns.isActive"),
           dataIndex: "isActive",
           key: "isActive",
-          width: 110,
           render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
         },
       ];
@@ -435,26 +544,24 @@ export const MdmDictionaryJournalPage: React.FC = () => {
 
     if (dict === "external-links") {
       const cols: ColumnsType<MdmExternalEntityLinkDto> = [
-        { title: t("references.mdm.externalLinks.columns.entityType"), dataIndex: "entityType", key: "entityType", width: 160 },
+        { title: t("references.mdm.externalLinks.columns.entityType"), dataIndex: "entityType", key: "entityType" },
         {
           title: t("references.mdm.externalLinks.columns.entityId"),
           dataIndex: "entityId",
           key: "entityId",
-          width: 220,
           render: (v: string) => <Text code>{v}</Text>,
         },
-        { title: t("references.mdm.externalLinks.columns.externalSystem"), dataIndex: "externalSystem", key: "externalSystem", width: 160 },
-        { title: t("references.mdm.externalLinks.columns.externalEntity"), dataIndex: "externalEntity", key: "externalEntity", width: 160 },
-        { title: t("references.mdm.externalLinks.columns.externalId"), dataIndex: "externalId", key: "externalId", width: 180 },
+        { title: t("references.mdm.externalLinks.columns.externalSystem"), dataIndex: "externalSystem", key: "externalSystem" },
+        { title: t("references.mdm.externalLinks.columns.externalEntity"), dataIndex: "externalEntity", key: "externalEntity" },
+        { title: t("references.mdm.externalLinks.columns.externalId"), dataIndex: "externalId", key: "externalId" },
         {
           title: t("references.mdm.externalLinks.columns.sourceType"),
           dataIndex: "sourceType",
           key: "sourceType",
-          width: 120,
           render: (v: number | null | undefined) => (typeof v === "number" ? String(v) : "-"),
         },
-        { title: t("references.mdm.externalLinks.columns.syncedAt"), dataIndex: "syncedAt", key: "syncedAt", width: 190 },
-        { title: t("references.mdm.externalLinks.columns.updatedAt"), dataIndex: "updatedAt", key: "updatedAt", width: 190 },
+        { title: t("references.mdm.externalLinks.columns.syncedAt"), dataIndex: "syncedAt", key: "syncedAt" },
+        { title: t("references.mdm.externalLinks.columns.updatedAt"), dataIndex: "updatedAt", key: "updatedAt" },
       ];
       return cols as ColumnsType<any>;
     }
@@ -463,15 +570,14 @@ export const MdmDictionaryJournalPage: React.FC = () => {
       const cols: ColumnsType<MdmCounterpartyReferenceDto> = [
         { title: t("references.columns.name"), dataIndex: "name", key: "name" },
         { title: t("references.mdm.suppliers.columns.fullName"), dataIndex: "fullName", key: "fullName" },
-        { title: t("references.mdm.suppliers.columns.inn"), dataIndex: "inn", key: "inn", width: 140 },
-        { title: t("references.mdm.counterparties.columns.city"), dataIndex: "city", key: "city", width: 140 },
+        { title: t("references.mdm.suppliers.columns.inn"), dataIndex: "inn", key: "inn" },
+        { title: t("references.mdm.counterparties.columns.city"), dataIndex: "city", key: "city" },
         { title: t("references.mdm.counterparties.columns.address"), dataIndex: "address", key: "address" },
-        { title: t("references.mdm.counterparties.columns.email"), dataIndex: "email", key: "email", width: 160 },
+        { title: t("references.mdm.counterparties.columns.email"), dataIndex: "email", key: "email" },
         {
           title: t("references.mdm.counterparties.columns.site"),
           dataIndex: "site",
           key: "site",
-          width: 160,
           render: (v: string | null | undefined) => {
             const href = v ? toHttpUrl(v) : null;
             if (!v || !href) return <Text type="secondary">-</Text>;
@@ -487,13 +593,12 @@ export const MdmDictionaryJournalPage: React.FC = () => {
             );
           },
         },
-        { title: t("references.mdm.counterparties.columns.phone"), dataIndex: "phone", key: "phone", width: 140 },
+        { title: t("references.mdm.counterparties.columns.phone"), dataIndex: "phone", key: "phone" },
         { title: t("references.mdm.counterparties.columns.note"), dataIndex: "note", key: "note" },
         {
           title: t("references.columns.isActive"),
           dataIndex: "isActive",
           key: "isActive",
-          width: 110,
           render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
         },
       ];
@@ -506,33 +611,30 @@ export const MdmDictionaryJournalPage: React.FC = () => {
           title: t("references.columns.code"),
           dataIndex: "code",
           key: "code",
-          width: 120,
           render: (v: string | null | undefined) => v ?? "-",
         },
-        { title: t("references.columns.name"), dataIndex: "name", key: "name", width: 240 },
-        { title: t("references.mdm.currencies.columns.symbol"), dataIndex: "symbol", key: "symbol", width: 90, render: (v: string | null | undefined) => v ?? "-" },
-        { title: t("references.mdm.currencies.columns.rate"), dataIndex: "rate", key: "rate", width: 110, render: (v: number | null | undefined) => (typeof v === "number" ? String(v) : "-") },
+        { title: t("references.columns.name"), dataIndex: "name", key: "name" },
+        { title: t("references.mdm.currencies.columns.symbol"), dataIndex: "symbol", key: "symbol", render: (v: string | null | undefined) => v ?? "-" },
+        { title: t("references.mdm.currencies.columns.rate"), dataIndex: "rate", key: "rate", render: (v: number | null | undefined) => (typeof v === "number" ? String(v) : "-") },
         {
           title: t("references.columns.isActive"),
           dataIndex: "isActive",
           key: "isActive",
-          width: 110,
           render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
         },
-        { title: t("references.mdm.currencies.columns.updatedAt"), dataIndex: "updatedAt", key: "updatedAt", width: 190 },
+        { title: t("references.mdm.currencies.columns.updatedAt"), dataIndex: "updatedAt", key: "updatedAt" },
       ];
       return cols as ColumnsType<any>;
     }
 
     if (dict === "manufacturers") {
       const cols: ColumnsType<MdmManufacturerReferenceDto> = [
-        { title: t("references.columns.name"), dataIndex: "name", key: "name", width: 220 },
+        { title: t("references.columns.name"), dataIndex: "name", key: "name" },
         { title: t("references.mdm.manufacturers.columns.fullName"), dataIndex: "fullName", key: "fullName" },
         {
           title: t("references.mdm.manufacturers.columns.site"),
           dataIndex: "site",
           key: "site",
-          width: 180,
           render: (v: string | null | undefined) => {
             const href = v ? toHttpUrl(v) : null;
             if (!v || !href) return <Text type="secondary">-</Text>;
@@ -548,7 +650,6 @@ export const MdmDictionaryJournalPage: React.FC = () => {
           title: t("references.columns.isActive"),
           dataIndex: "isActive",
           key: "isActive",
-          width: 110,
           render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
         },
       ];
@@ -557,14 +658,13 @@ export const MdmDictionaryJournalPage: React.FC = () => {
 
     if (dict === "suppliers") {
       const cols: ColumnsType<MdmSupplierReferenceDto> = [
-        { title: t("references.columns.code"), dataIndex: "code", key: "code", width: 160 },
+        { title: t("references.columns.code"), dataIndex: "code", key: "code" },
         { title: t("references.columns.name"), dataIndex: "name", key: "name" },
-        { title: t("references.mdm.suppliers.columns.inn"), dataIndex: "inn", key: "inn", width: 140 },
+        { title: t("references.mdm.suppliers.columns.inn"), dataIndex: "inn", key: "inn" },
         {
           title: t("references.columns.isActive"),
           dataIndex: "isActive",
           key: "isActive",
-          width: 110,
           render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
         },
       ];
@@ -572,13 +672,12 @@ export const MdmDictionaryJournalPage: React.FC = () => {
     }
 
     const cols: ColumnsType<MdmSimpleReferenceDto> = [
-      { title: t("references.columns.code"), dataIndex: "code", key: "code", width: 180 },
+      { title: t("references.columns.code"), dataIndex: "code", key: "code" },
       { title: t("references.columns.name"), dataIndex: "name", key: "name" },
       {
         title: t("references.columns.isActive"),
         dataIndex: "isActive",
         key: "isActive",
-        width: 110,
         render: (v: boolean) => (v ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>),
       },
     ];
@@ -589,6 +688,11 @@ export const MdmDictionaryJournalPage: React.FC = () => {
     if (!isItemGroups) return null;
     return buildItemGroupsTreeRows((items as MdmItemGroupReferenceDto[]) ?? [], q);
   }, [isItemGroups, items, q]);
+
+  const itemsTreeData = useMemo(() => {
+    if (dict !== "items") return null;
+    return buildItemGroupsTreeRows(itemGroups, q, items as MdmItemReferenceDto[]);
+  }, [dict, itemGroups, q, items]);
 
   const itemGroupsRootCount = useMemo(() => {
     if (!isItemGroups) return 0;
@@ -642,6 +746,44 @@ export const MdmDictionaryJournalPage: React.FC = () => {
 
         setItems(all);
         setTotal(totalCount);
+        return;
+      }
+
+      if (dict === "items") {
+        // Load all items
+        const take = 10000;
+        let skip = 0;
+        let allItems: any[] = [];
+        let totalCount = 0;
+
+        while (true) {
+          const page = await getMdmDictionaryList<any>(dict, { isActive: activeFilter, skip, take });
+          if (skip === 0) totalCount = page.total;
+          allItems = allItems.concat(page.items);
+
+          if (allItems.length >= page.total || page.items.length === 0) break;
+
+          skip += take;
+          if (skip > 100000) break;
+        }
+
+        setItems(allItems);
+        setTotal(totalCount);
+
+        // Load all item-groups
+        const groupTake = 1000;
+        let groupSkip = 0;
+        let allGroups: MdmItemGroupReferenceDto[] = [];
+
+        while (true) {
+          const page = await getMdmDictionaryList<MdmItemGroupReferenceDto>("item-groups", { skip: groupSkip, take: groupTake });
+          allGroups = allGroups.concat(page.items);
+          if (allGroups.length >= page.total || page.items.length === 0) break;
+          groupSkip += groupTake;
+          if (groupSkip > 200000) break;
+        }
+
+        setItemGroups(allGroups);
         return;
       }
 
@@ -785,7 +927,7 @@ export const MdmDictionaryJournalPage: React.FC = () => {
                 </Dropdown.Button>
               </Tooltip>
             )}
-            {isItemGroups && (
+            {(isItemGroups || dict === "items") && (
               <Space>
                 <Button
                   onClick={() => setItemGroupsExpandedRowKeys(itemGroupsExpandableKeys)}

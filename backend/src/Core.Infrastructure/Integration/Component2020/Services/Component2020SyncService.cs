@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -6,13 +6,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyIS.Core.Application.Auth;
 using MyIS.Core.Application.Integration.Component2020.Abstractions;
 using MyIS.Core.Application.Integration.Component2020.Commands;
 using MyIS.Core.Application.Integration.Component2020.Services;
 using MyIS.Core.Domain.Common;
+using MyIS.Core.Domain.Customers.Entities;
 using MyIS.Core.Domain.Mdm.Entities;
 using MyIS.Core.Domain.Mdm.Services;
 using MyIS.Core.Domain.Mdm.ValueObjects;
+using MyIS.Core.Domain.Organization;
+using MyIS.Core.Domain.Statuses.Entities;
+using MyIS.Core.Domain.Users;
 using MyIS.Core.Infrastructure.Data;
 using MyIS.Core.Infrastructure.Data.Entities.Integration;
 
@@ -25,19 +30,22 @@ public class Component2020SyncService : IComponent2020SyncService
     private readonly IComponent2020DeltaReader _deltaReader;
     private readonly IComponent2020SyncCursorRepository _cursorRepository;
     private readonly ILogger<Component2020SyncService> _logger;
+    private readonly IPasswordHasher _passwordHasher;
 
     public Component2020SyncService(
         AppDbContext dbContext,
         IComponent2020SnapshotReader snapshotReader,
         IComponent2020DeltaReader deltaReader,
         IComponent2020SyncCursorRepository cursorRepository,
-        ILogger<Component2020SyncService> logger)
+        ILogger<Component2020SyncService> logger,
+        IPasswordHasher passwordHasher)
     {
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         _snapshotReader = snapshotReader ?? throw new ArgumentNullException(nameof(snapshotReader));
         _deltaReader = deltaReader ?? throw new ArgumentNullException(nameof(deltaReader));
         _cursorRepository = cursorRepository ?? throw new ArgumentNullException(nameof(cursorRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
     }
 
     private sealed class DryRunSequenceState
@@ -62,6 +70,28 @@ public class Component2020SyncService : IComponent2020SyncService
         183, // УДАЛЕННОЕ
         196  // NO BOM
     };
+
+    private sealed record StatusGroupDefinition(int Kind, string Name, int SortOrder);
+
+    private static readonly IReadOnlyDictionary<int, StatusGroupDefinition> StatusGroupDefinitionsByKind =
+        new Dictionary<int, StatusGroupDefinition>
+        {
+            [0] = new(0, "Статусы компонентов", 0),
+            [1] = new(1, "Статусы заказов поставщикам", 1),
+            [2] = new(2, "Статусы заказов клиентов", 2),
+            [3] = new(3, "Типы заказов клиентов", 3)
+        };
+
+    private static bool TryResolveStatusGroupDefinition(int? kind, out StatusGroupDefinition definition)
+    {
+        if (kind.HasValue && StatusGroupDefinitionsByKind.TryGetValue(kind.Value, out definition))
+        {
+            return true;
+        }
+
+        definition = null!;
+        return false;
+    }
 
     private static string ResolveNomenclaturePrefix(
         ItemKind itemKind,
@@ -357,6 +387,26 @@ public class Component2020SyncService : IComponent2020SyncService
             if (command.Scope == Component2020SyncScope.Symbols || command.Scope == Component2020SyncScope.All)
             {
                 var (processed, errs) = await SyncSymbolsAsync(command.ConnectionId, command.DryRun, command.SyncMode, run.Id, counters, errors, cancellationToken);
+            }
+
+            if (command.Scope == Component2020SyncScope.Employees || command.Scope == Component2020SyncScope.All)
+            {
+                var (processed, errs) = await SyncEmployeesAsync(command.ConnectionId, command.DryRun, command.SyncMode, run.Id, counters, errors, cancellationToken);
+            }
+
+            if (command.Scope == Component2020SyncScope.Users || command.Scope == Component2020SyncScope.All)
+            {
+                var (processed, errs) = await SyncUsersAsync(command.ConnectionId, command.DryRun, command.SyncMode, run.Id, counters, errors, cancellationToken);
+            }
+
+            if (command.Scope == Component2020SyncScope.CustomerOrders || command.Scope == Component2020SyncScope.All)
+            {
+                var (processed, errs) = await SyncCustomerOrdersAsync(command.ConnectionId, command.DryRun, command.SyncMode, run.Id, counters, errors, cancellationToken);
+            }
+
+            if (command.Scope == Component2020SyncScope.Statuses || command.Scope == Component2020SyncScope.All)
+            {
+                var (processed, errs) = await SyncStatusesAsync(command.ConnectionId, command.DryRun, command.SyncMode, run.Id, counters, errors, cancellationToken);
             }
 
             var totalProcessed = counters.Values.Sum();
@@ -2385,6 +2435,940 @@ public class Component2020SyncService : IComponent2020SyncService
 
         counters[entityType] = processed;
         return (processed, errors);
+    }
+
+    private async Task<(int processed, List<Component2020SyncError> errors)> SyncEmployeesAsync(Guid connectionId, bool dryRun, Component2020SyncMode syncMode, Guid runId, Dictionary<string, int> counters, List<Component2020SyncError> errors, CancellationToken cancellationToken)
+    {
+        const string entityType = "Employee";
+        const string sourceEntity = "Person";
+        const string externalSystem = "Component2020";
+        const string externalEntity = "Person";
+        const string linkEntityType = nameof(Employee);
+
+        var isFull = syncMode != Component2020SyncMode.Delta;
+        var isOverwrite = syncMode == Component2020SyncMode.Overwrite;
+
+        var lastKey = isFull ? null : await _cursorRepository.GetLastProcessedKeyAsync(connectionId, sourceEntity, cancellationToken);
+        var persons = (await _deltaReader.ReadPersonsDeltaAsync(connectionId, lastKey, cancellationToken)).ToList();
+
+        int processed = 0;
+        string? newLastKey = lastKey;
+        var incomingExternalIds = isOverwrite ? new HashSet<string>(StringComparer.Ordinal) : null;
+
+        Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
+        Dictionary<Guid, Employee> existingEmployeesById;
+
+        if (!dryRun && persons.Count > 0)
+        {
+            var externalIds = persons.Select(p => p.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
+
+            var existingLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == linkEntityType
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == externalEntity
+                    && externalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            existingLinksByExternalId = existingLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
+
+            var ids = existingLinks.Select(l => l.EntityId).Distinct().ToList();
+            var existingEntities = await _dbContext.Employees
+                .Where(x => ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            existingEmployeesById = existingEntities.ToDictionary(x => x.Id);
+        }
+        else
+        {
+            existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+            existingEmployeesById = new Dictionary<Guid, Employee>();
+        }
+
+        foreach (var person in persons)
+        {
+            try
+            {
+                var externalId = person.Id.ToString();
+                incomingExternalIds?.Add(externalId);
+
+                var fullName = BuildPersonFullName(person);
+                if (string.IsNullOrWhiteSpace(fullName))
+                {
+                    fullName = $"Person {person.Id}";
+                }
+
+                var email = NormalizeOptional(person.Email);
+                var phone = NormalizeOptional(person.Phone);
+                var notes = NormalizeOptional(person.Note);
+
+                Employee? existing = null;
+
+                if (existingLinksByExternalId.TryGetValue(externalId, out var existingLink))
+                {
+                    existingEmployeesById.TryGetValue(existingLink.EntityId, out existing);
+                }
+
+                if (existing == null)
+                {
+                    if (!dryRun)
+                    {
+                        var now = DateTimeOffset.UtcNow;
+                        var created = Employee.Create(Guid.NewGuid(), fullName, email, phone, notes, now);
+                        if (person.Hidden)
+                        {
+                            created.Deactivate(now);
+                        }
+
+                        _dbContext.Employees.Add(created);
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
+                    }
+                    processed++;
+                }
+                else
+                {
+                    if (!dryRun)
+                    {
+                        var now = DateTimeOffset.UtcNow;
+                        existing.Update(fullName, email, phone, notes, now);
+                        if (person.Hidden)
+                        {
+                            existing.Deactivate(now);
+                        }
+                        else
+                        {
+                            existing.Activate(now);
+                        }
+
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
+                    }
+                    processed++;
+                }
+
+                var previous = int.TryParse(newLastKey, out var previousId) ? previousId : 0;
+                newLastKey = Math.Max(previous, person.Id).ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing person {PersonId}", person.Id);
+                var error = new Component2020SyncError(runId, entityType, null, person.Id.ToString(), ex.Message, ex.StackTrace);
+                errors.Add(error);
+            }
+        }
+
+        if (!dryRun && processed > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _cursorRepository.UpsertCursorAsync(connectionId, sourceEntity, newLastKey, cancellationToken);
+        }
+
+        if (!dryRun && isOverwrite && incomingExternalIds != null)
+        {
+            var deleted = await DeleteMissingByExternalLinkAsync(
+                _dbContext.Employees,
+                linkEntityType,
+                externalSystem,
+                externalEntity,
+                incomingExternalIds,
+                runId,
+                entityType,
+                errors,
+                cancellationToken);
+            counters["EmployeeDeleted"] = deleted;
+        }
+
+        counters[entityType] = processed;
+        return (processed, errors);
+    }
+
+    private async Task<(int processed, List<Component2020SyncError> errors)> SyncUsersAsync(Guid connectionId, bool dryRun, Component2020SyncMode syncMode, Guid runId, Dictionary<string, int> counters, List<Component2020SyncError> errors, CancellationToken cancellationToken)
+    {
+        const string entityType = "User";
+        const string sourceEntity = "Users";
+        const string externalSystem = "Component2020";
+        const string externalEntity = "Users";
+        const string linkEntityType = nameof(User);
+
+        var isFull = syncMode != Component2020SyncMode.Delta;
+        var isOverwrite = syncMode == Component2020SyncMode.Overwrite;
+
+        var lastKey = isFull ? null : await _cursorRepository.GetLastProcessedKeyAsync(connectionId, sourceEntity, cancellationToken);
+        var users = (await _deltaReader.ReadUsersDeltaAsync(connectionId, lastKey, cancellationToken)).ToList();
+
+        int processed = 0;
+        string? newLastKey = lastKey;
+        var incomingExternalIds = isOverwrite ? new HashSet<string>(StringComparer.Ordinal) : null;
+
+        Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
+        Dictionary<Guid, User> existingUsersById;
+
+        if (!dryRun && users.Count > 0)
+        {
+            var externalIds = users.Select(u => u.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
+
+            var existingLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == linkEntityType
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == externalEntity
+                    && externalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            existingLinksByExternalId = existingLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
+
+            var ids = existingLinks.Select(l => l.EntityId).Distinct().ToList();
+            var existingEntities = await _dbContext.Users
+                .Include(u => u.UserRoles)
+                .Where(x => ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            existingUsersById = existingEntities.ToDictionary(x => x.Id);
+        }
+        else
+        {
+            existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+            existingUsersById = new Dictionary<Guid, User>();
+        }
+
+        var accessRoles = await _deltaReader.ReadRolesAsync(connectionId, cancellationToken);
+        var accessRoleNameById = accessRoles
+            .GroupBy(r => r.Id)
+            .Select(g => g.First())
+            .ToDictionary(
+                r => r.Id,
+                r => string.IsNullOrWhiteSpace(r.Code) ? r.Name : r.Code);
+
+        var roles = await _dbContext.Roles.AsNoTracking().ToListAsync(cancellationToken);
+        var roleByCode = roles
+            .Where(r => !string.IsNullOrWhiteSpace(r.Code))
+            .GroupBy(r => r.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToDictionary(r => r.Code, StringComparer.OrdinalIgnoreCase);
+        var roleByName = roles
+            .Where(r => !string.IsNullOrWhiteSpace(r.Name))
+            .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
+
+        var personExternalIds = users
+            .Where(u => u.PersonId.HasValue)
+            .Select(u => u.PersonId!.Value.ToString())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var employeeIdByExternalPersonId = new Dictionary<int, Guid>();
+        if (personExternalIds.Count > 0)
+        {
+            var personLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == nameof(Employee)
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == "Person"
+                    && personExternalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            foreach (var link in personLinks)
+            {
+                if (int.TryParse(link.ExternalId, NumberStyles.None, CultureInfo.InvariantCulture, out var personId))
+                {
+                    employeeIdByExternalPersonId[personId] = link.EntityId;
+                }
+            }
+        }
+
+        var employeeIds = employeeIdByExternalPersonId.Values.Distinct().ToList();
+        var employeeNameById = employeeIds.Count > 0
+            ? await _dbContext.Employees
+                .Where(e => employeeIds.Contains(e.Id))
+                .Select(e => new { e.Id, e.FullName })
+                .ToDictionaryAsync(e => e.Id, e => e.FullName, cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        foreach (var accessUser in users)
+        {
+            try
+            {
+                var externalId = accessUser.Id.ToString();
+                incomingExternalIds?.Add(externalId);
+
+                var login = NormalizeOptional(accessUser.Name) ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(login))
+                {
+                    throw new ArgumentException("User login cannot be empty.");
+                }
+
+                var isActive = !accessUser.Hidden;
+
+                Guid? employeeId = null;
+                if (accessUser.PersonId.HasValue && employeeIdByExternalPersonId.TryGetValue(accessUser.PersonId.Value, out var resolvedEmployeeId))
+                {
+                    employeeId = resolvedEmployeeId;
+                }
+
+                employeeNameById.TryGetValue(employeeId ?? Guid.Empty, out var employeeFullName);
+                var fullName = string.IsNullOrWhiteSpace(employeeFullName) ? null : employeeFullName;
+
+                var roleIds = ResolveRoleIds(accessUser, accessRoleNameById, roleByCode, roleByName);
+
+                User? existing = null;
+                if (existingLinksByExternalId.TryGetValue(externalId, out var existingLink))
+                {
+                    existingUsersById.TryGetValue(existingLink.EntityId, out existing);
+                }
+
+                if (existing == null)
+                {
+                    var existingByLogin = await _dbContext.Users
+                        .FirstOrDefaultAsync(u => u.Login == login, cancellationToken);
+                    if (existingByLogin != null)
+                    {
+                        existing = existingByLogin;
+                    }
+                }
+
+                if (existing == null)
+                {
+                    if (!dryRun)
+                    {
+                        var now = DateTimeOffset.UtcNow;
+                        var password = string.IsNullOrWhiteSpace(accessUser.Password) ? login : accessUser.Password;
+                        var passwordHash = _passwordHasher.HashPassword(password);
+
+                        var created = User.Create(Guid.NewGuid(), login, passwordHash, isActive, employeeId, now, fullName);
+                        _dbContext.Users.Add(created);
+                        await ReplaceUserRolesAsync(created.Id, roleIds, now, cancellationToken);
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, now);
+                    }
+                    processed++;
+                }
+                else
+                {
+                    if (!dryRun)
+                    {
+                        var now = DateTimeOffset.UtcNow;
+                        existing.UpdateDetails(login, isActive, employeeId, now, fullName);
+                        if (!string.IsNullOrWhiteSpace(accessUser.Password))
+                        {
+                            var passwordHash = _passwordHasher.HashPassword(accessUser.Password);
+                            existing.ResetPasswordHash(passwordHash, now);
+                        }
+
+                        await ReplaceUserRolesAsync(existing.Id, roleIds, now, cancellationToken);
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
+                    }
+                    processed++;
+                }
+
+                var previous = int.TryParse(newLastKey, out var previousId) ? previousId : 0;
+                newLastKey = Math.Max(previous, accessUser.Id).ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing user {UserId}", accessUser.Id);
+                var error = new Component2020SyncError(runId, entityType, null, accessUser.Id.ToString(), ex.Message, ex.StackTrace);
+                errors.Add(error);
+            }
+        }
+
+        if (!dryRun && processed > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _cursorRepository.UpsertCursorAsync(connectionId, sourceEntity, newLastKey, cancellationToken);
+        }
+
+        if (!dryRun && isOverwrite && incomingExternalIds != null)
+        {
+            var deleted = await DeleteMissingByExternalLinkAsync(
+                _dbContext.Users,
+                linkEntityType,
+                externalSystem,
+                externalEntity,
+                incomingExternalIds,
+                runId,
+                entityType,
+                errors,
+                cancellationToken);
+            counters["UserDeleted"] = deleted;
+        }
+
+        counters[entityType] = processed;
+        return (processed, errors);
+    }
+
+    private async Task<(int processed, List<Component2020SyncError> errors)> SyncCustomerOrdersAsync(Guid connectionId, bool dryRun, Component2020SyncMode syncMode, Guid runId, Dictionary<string, int> counters, List<Component2020SyncError> errors, CancellationToken cancellationToken)
+    {
+        const string entityType = "CustomerOrder";
+        const string sourceEntity = "CustomerOrder";
+        const string externalSystem = "Component2020";
+        const string externalEntity = "CustomerOrder";
+        const string linkEntityType = nameof(CustomerOrder);
+
+        var isFull = syncMode != Component2020SyncMode.Delta;
+        var isOverwrite = syncMode == Component2020SyncMode.Overwrite;
+
+        var lastKey = isFull ? null : await _cursorRepository.GetLastProcessedKeyAsync(connectionId, sourceEntity, cancellationToken);
+        var orders = (await _deltaReader.ReadCustomerOrdersDeltaAsync(connectionId, lastKey, cancellationToken)).ToList();
+
+        int processed = 0;
+        string? newLastKey = lastKey;
+        var incomingExternalIds = isOverwrite ? new HashSet<string>(StringComparer.Ordinal) : null;
+
+        Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
+        Dictionary<Guid, CustomerOrder> existingOrdersById;
+
+        if (!dryRun && orders.Count > 0)
+        {
+            var externalIds = orders.Select(o => o.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
+
+            var existingLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == linkEntityType
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == externalEntity
+                    && externalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            existingLinksByExternalId = existingLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
+
+            var ids = existingLinks.Select(l => l.EntityId).Distinct().ToList();
+            var existingEntities = await _dbContext.CustomerOrders
+                .Where(x => ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            existingOrdersById = existingEntities.ToDictionary(x => x.Id);
+        }
+        else
+        {
+            existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+            existingOrdersById = new Dictionary<Guid, CustomerOrder>();
+        }
+
+        var customerExternalIds = orders
+            .Where(o => o.CustomerId.HasValue)
+            .Select(o => o.CustomerId!.Value.ToString())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var customerIdByExternalId = new Dictionary<int, Guid>();
+        if (customerExternalIds.Count > 0)
+        {
+            var customerLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == nameof(Counterparty)
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == "Providers"
+                    && customerExternalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            foreach (var link in customerLinks)
+            {
+                if (int.TryParse(link.ExternalId, NumberStyles.None, CultureInfo.InvariantCulture, out var externalId))
+                {
+                    customerIdByExternalId[externalId] = link.EntityId;
+                }
+            }
+        }
+
+        var personExternalIds = orders
+            .Where(o => o.PersonId.HasValue)
+            .Select(o => o.PersonId!.Value.ToString())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var employeeIdByExternalId = new Dictionary<int, Guid>();
+        if (personExternalIds.Count > 0)
+        {
+            var employeeLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == nameof(Employee)
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == "Person"
+                    && personExternalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            foreach (var link in employeeLinks)
+            {
+                if (int.TryParse(link.ExternalId, NumberStyles.None, CultureInfo.InvariantCulture, out var externalId))
+                {
+                    employeeIdByExternalId[externalId] = link.EntityId;
+                }
+            }
+        }
+
+        foreach (var order in orders)
+        {
+            try
+            {
+                var externalId = order.Id.ToString();
+                incomingExternalIds?.Add(externalId);
+
+                Guid? customerId = null;
+                if (order.CustomerId.HasValue && customerIdByExternalId.TryGetValue(order.CustomerId.Value, out var resolvedCustomerId))
+                {
+                    customerId = resolvedCustomerId;
+                }
+                else if (order.CustomerId.HasValue)
+                {
+                    errors.Add(new Component2020SyncError(runId, entityType, null, externalId, $"Customer {order.CustomerId.Value} not found.", null));
+                }
+
+                Guid? personId = null;
+                if (order.PersonId.HasValue && employeeIdByExternalId.TryGetValue(order.PersonId.Value, out var resolvedPersonId))
+                {
+                    personId = resolvedPersonId;
+                }
+                else if (order.PersonId.HasValue)
+                {
+                    errors.Add(new Component2020SyncError(runId, entityType, null, externalId, $"Person {order.PersonId.Value} not found.", null));
+                }
+
+                CustomerOrder? existing = null;
+                if (existingLinksByExternalId.TryGetValue(externalId, out var existingLink))
+                {
+                    existingOrdersById.TryGetValue(existingLink.EntityId, out existing);
+                }
+
+                if (existing == null)
+                {
+                    if (!dryRun)
+                    {
+                        var created = new CustomerOrder(
+                            order.Number,
+                            order.OrderDate,
+                            order.DeliveryDate,
+                            order.State,
+                            customerId,
+                            personId,
+                            order.Note,
+                            order.Contract,
+                            order.StoreId,
+                            order.Path,
+                            order.PayDate,
+                            order.FinishedDate,
+                            order.ContactId,
+                            order.Discount,
+                            order.Tax,
+                            order.Mark,
+                            order.Pn,
+                            order.PaymentForm,
+                            order.PayMethod,
+                            order.PayPeriod,
+                            order.Prepayment,
+                            order.Kind,
+                            order.AccountId);
+                        _dbContext.CustomerOrders.Add(created);
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
+                    }
+                    processed++;
+                }
+                else
+                {
+                    if (!dryRun)
+                    {
+                        existing.UpdateFromExternal(
+                            order.Number,
+                            order.OrderDate,
+                            order.DeliveryDate,
+                            order.State,
+                            customerId,
+                            personId,
+                            order.Note,
+                            order.Contract,
+                            order.StoreId,
+                            order.Path,
+                            order.PayDate,
+                            order.FinishedDate,
+                            order.ContactId,
+                            order.Discount,
+                            order.Tax,
+                            order.Mark,
+                            order.Pn,
+                            order.PaymentForm,
+                            order.PayMethod,
+                            order.PayPeriod,
+                            order.Prepayment,
+                            order.Kind,
+                            order.AccountId);
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
+                    }
+                    processed++;
+                }
+
+                var previous = int.TryParse(newLastKey, out var previousId) ? previousId : 0;
+                newLastKey = Math.Max(previous, order.Id).ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing customer order {CustomerOrderId}", order.Id);
+                var error = new Component2020SyncError(runId, entityType, null, order.Id.ToString(), ex.Message, ex.StackTrace);
+                errors.Add(error);
+            }
+        }
+
+        if (!dryRun && processed > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _cursorRepository.UpsertCursorAsync(connectionId, sourceEntity, newLastKey, cancellationToken);
+        }
+
+        if (!dryRun && isOverwrite && incomingExternalIds != null)
+        {
+            var deleted = await DeleteMissingByExternalLinkAsync(
+                _dbContext.CustomerOrders,
+                linkEntityType,
+                externalSystem,
+                externalEntity,
+                incomingExternalIds,
+                runId,
+                entityType,
+                errors,
+                cancellationToken);
+            counters["CustomerOrderDeleted"] = deleted;
+        }
+
+        counters[entityType] = processed;
+        return (processed, errors);
+    }
+
+    private async Task<(int processed, List<Component2020SyncError> errors)> SyncStatusesAsync(Guid connectionId, bool dryRun, Component2020SyncMode syncMode, Guid runId, Dictionary<string, int> counters, List<Component2020SyncError> errors, CancellationToken cancellationToken)
+    {
+        const string entityType = "Status";
+        const string sourceEntity = "Status";
+        const string externalSystem = "Component2020";
+        const string externalEntity = "Status";
+        const string statusCodeExternalEntity = "StatusCode";
+        const string linkEntityType = nameof(Status);
+
+        var isFull = syncMode != Component2020SyncMode.Delta;
+        var isOverwrite = syncMode == Component2020SyncMode.Overwrite;
+
+        var lastKey = isFull ? null : await _cursorRepository.GetLastProcessedKeyAsync(connectionId, sourceEntity, cancellationToken);
+        var statuses = (await _deltaReader.ReadStatusesDeltaAsync(connectionId, lastKey, cancellationToken)).ToList();
+
+        int processed = 0;
+        var newLastId = int.TryParse(lastKey, NumberStyles.None, CultureInfo.InvariantCulture, out var lastIdValue) ? lastIdValue : 0;
+        var incomingExternalIds = isOverwrite ? new HashSet<string>(StringComparer.Ordinal) : null;
+
+        Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
+        Dictionary<string, ExternalEntityLink> existingCodeLinksByExternalId;
+        Dictionary<Guid, Status> existingStatusesById;
+        var statusGroupsByKind = new Dictionary<int, Status>();
+        var statusGroupLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+
+        if (!dryRun && statuses.Count > 0)
+        {
+            var externalIds = statuses.Select(s => s.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
+
+            var existingLinks = await _dbContext.ExternalEntityLinks
+                .Where(l =>
+                    l.EntityType == linkEntityType
+                    && l.ExternalSystem == externalSystem
+                    && l.ExternalEntity == externalEntity
+                    && externalIds.Contains(l.ExternalId))
+                .ToListAsync(cancellationToken);
+
+            existingLinksByExternalId = existingLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
+
+            var statusCodeTokens = statuses
+                .Where(s => s.Code.HasValue)
+                .Select(s => s.Code!.Value.ToString(CultureInfo.InvariantCulture))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (statusCodeTokens.Count > 0)
+            {
+                var existingCodeLinks = await _dbContext.ExternalEntityLinks
+                    .Where(l =>
+                        l.EntityType == linkEntityType
+                        && l.ExternalSystem == externalSystem
+                        && l.ExternalEntity == statusCodeExternalEntity
+                        && statusCodeTokens.Contains(l.ExternalId))
+                    .ToListAsync(cancellationToken);
+
+                existingCodeLinksByExternalId = existingCodeLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
+            }
+            else
+            {
+                existingCodeLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+            }
+
+            var ids = existingLinks.Select(l => l.EntityId).Distinct().ToList();
+            var existingEntities = await _dbContext.Statuses
+                .Where(x => ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            existingStatusesById = existingEntities.ToDictionary(x => x.Id);
+
+            var requiredKinds = statuses
+                .Where(s => s.Kind.HasValue)
+                .Select(s => s.Kind!.Value)
+                .Distinct()
+                .ToList();
+
+            if (requiredKinds.Count > 0)
+            {
+                var requiredKindTokens = requiredKinds
+                    .Select(k => k.ToString(CultureInfo.InvariantCulture))
+                    .ToList();
+
+                var existingGroupLinks = await _dbContext.ExternalEntityLinks
+                    .Where(l =>
+                        l.EntityType == linkEntityType
+                        && l.ExternalSystem == externalSystem
+                        && l.ExternalEntity == "StatusKind"
+                        && requiredKindTokens.Contains(l.ExternalId))
+                    .ToListAsync(cancellationToken);
+
+                statusGroupLinksByExternalId = existingGroupLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
+
+                var groupIds = existingGroupLinks
+                    .Select(x => x.EntityId)
+                    .Distinct()
+                    .ToList();
+
+                if (groupIds.Count > 0)
+                {
+                    var existingGroups = await _dbContext.Statuses
+                        .Where(x => groupIds.Contains(x.Id))
+                        .ToListAsync(cancellationToken);
+
+                    foreach (var group in existingGroups)
+                    {
+                        var link = existingGroupLinks.FirstOrDefault(x => x.EntityId == group.Id);
+                        if (link == null)
+                        {
+                            continue;
+                        }
+
+                        if (int.TryParse(link.ExternalId, NumberStyles.None, CultureInfo.InvariantCulture, out var kind))
+                        {
+                            statusGroupsByKind[kind] = group;
+                        }
+                    }
+                }
+
+                foreach (var definition in StatusGroupDefinitionsByKind.Values)
+                {
+                    if (!requiredKinds.Contains(definition.Kind))
+                    {
+                        continue;
+                    }
+
+                    if (!statusGroupsByKind.TryGetValue(definition.Kind, out var group))
+                    {
+                        group = new Status(null, definition.Name, description: null, color: null, flags: null, sortOrder: definition.SortOrder);
+                        _dbContext.Statuses.Add(group);
+                        statusGroupsByKind[definition.Kind] = group;
+                    }
+                    else
+                    {
+                        group.UpdateFromExternal(definition.Name, group.Description, group.Color, group.Flags, definition.SortOrder, true);
+                    }
+
+                    var now = DateTimeOffset.UtcNow;
+                    EnsureExternalEntityLink(
+                        statusGroupLinksByExternalId,
+                        linkEntityType,
+                        group.Id,
+                        externalSystem,
+                        "StatusKind",
+                        definition.Kind.ToString(CultureInfo.InvariantCulture),
+                        null,
+                        now);
+                }
+            }
+        }
+        else
+        {
+            existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+            existingCodeLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
+            existingStatusesById = new Dictionary<Guid, Status>();
+        }
+
+        foreach (var status in statuses)
+        {
+            try
+            {
+                var externalId = status.Id.ToString();
+                incomingExternalIds?.Add(externalId);
+
+                if (!TryResolveStatusGroupDefinition(status.Kind, out var definition))
+                {
+                    errors.Add(new Component2020SyncError(runId, entityType, null, externalId, $"Unknown status kind '{status.Kind}'.", null));
+                    continue;
+                }
+
+                var name = string.IsNullOrWhiteSpace(status.Name) ? $"Status {status.Id}" : status.Name.Trim();
+
+                Status? existing = null;
+                if (existingLinksByExternalId.TryGetValue(externalId, out var existingLink))
+                {
+                    existingStatusesById.TryGetValue(existingLink.EntityId, out existing);
+                }
+
+                if (existing == null)
+                {
+                    if (!dryRun)
+                    {
+                        if (!statusGroupsByKind.TryGetValue(definition.Kind, out var group))
+                        {
+                            errors.Add(new Component2020SyncError(runId, entityType, null, externalId, $"Missing status group for kind '{definition.Kind}'.", null));
+                            continue;
+                        }
+
+                        var created = new Status(group.Id, name, description: null, status.Color, status.Flags, status.SortOrder);
+                        _dbContext.Statuses.Add(created);
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, created.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
+                        if (status.Code.HasValue)
+                        {
+                            var codeExternalId = status.Code.Value.ToString(CultureInfo.InvariantCulture);
+                            EnsureExternalEntityLink(existingCodeLinksByExternalId, linkEntityType, created.Id, externalSystem, statusCodeExternalEntity, codeExternalId, null, DateTimeOffset.UtcNow);
+                        }
+                    }
+                    processed++;
+                }
+                else
+                {
+                    if (!dryRun)
+                    {
+                        if (!statusGroupsByKind.TryGetValue(definition.Kind, out var group))
+                        {
+                            errors.Add(new Component2020SyncError(runId, entityType, null, externalId, $"Missing status group for kind '{definition.Kind}'.", null));
+                            continue;
+                        }
+
+                        existing.ChangeGroup(group.Id);
+                        existing.UpdateFromExternal(name, existing.Description, status.Color, status.Flags, status.SortOrder, true);
+                        EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, DateTimeOffset.UtcNow);
+                        if (status.Code.HasValue)
+                        {
+                            var codeExternalId = status.Code.Value.ToString(CultureInfo.InvariantCulture);
+                            EnsureExternalEntityLink(existingCodeLinksByExternalId, linkEntityType, existing.Id, externalSystem, statusCodeExternalEntity, codeExternalId, null, DateTimeOffset.UtcNow);
+                        }
+                    }
+                    processed++;
+                }
+
+                newLastId = Math.Max(newLastId, status.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing status {StatusId}", status.Id);
+                var error = new Component2020SyncError(runId, entityType, null, status.Id.ToString(), ex.Message, ex.StackTrace);
+                errors.Add(error);
+            }
+        }
+
+        if (!dryRun && processed > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _cursorRepository.UpsertCursorAsync(connectionId, sourceEntity, newLastId.ToString(CultureInfo.InvariantCulture), cancellationToken);
+        }
+
+        if (!dryRun && isOverwrite && incomingExternalIds != null)
+        {
+            var deleted = await DeleteMissingByExternalLinkAsync(
+                _dbContext.Statuses,
+                linkEntityType,
+                externalSystem,
+                externalEntity,
+                incomingExternalIds,
+                runId,
+                entityType,
+                errors,
+                cancellationToken);
+            counters["StatusDeleted"] = deleted;
+        }
+
+        counters[entityType] = processed;
+        return (processed, errors);
+    }
+
+    private async Task ReplaceUserRolesAsync(Guid userId, IReadOnlyCollection<Guid> roleIds, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var existing = await _dbContext.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        if (existing.Count > 0)
+        {
+            _dbContext.UserRoles.RemoveRange(existing);
+        }
+
+        if (roleIds.Count == 0)
+        {
+            return;
+        }
+
+        var newLinks = roleIds.Select(roleId => new UserRole
+        {
+            UserId = userId,
+            RoleId = roleId,
+            AssignedAt = now,
+            CreatedAt = now
+        });
+
+        await _dbContext.UserRoles.AddRangeAsync(newLinks, cancellationToken);
+    }
+
+    private static IReadOnlyCollection<Guid> ResolveRoleIds(
+        Component2020User accessUser,
+        Dictionary<int, string> accessRoleNameById,
+        Dictionary<string, Role> roleByCode,
+        Dictionary<string, Role> roleByName)
+    {
+        var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (accessUser.RoleId.HasValue && accessRoleNameById.TryGetValue(accessUser.RoleId.Value, out var roleToken))
+        {
+            tokens.Add(roleToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(accessUser.Roles))
+        {
+            var parts = accessUser.Roles
+                .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                {
+                    tokens.Add(trimmed);
+                }
+            }
+        }
+
+        if (tokens.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var result = new HashSet<Guid>();
+        foreach (var token in tokens)
+        {
+            if (roleByCode.TryGetValue(token, out var roleByCodeMatch))
+            {
+                result.Add(roleByCodeMatch.Id);
+                continue;
+            }
+
+            if (roleByName.TryGetValue(token, out var roleByNameMatch))
+            {
+                result.Add(roleByNameMatch.Id);
+            }
+        }
+
+        return result.ToArray();
+    }
+
+    private static string BuildPersonFullName(Component2020Person person)
+    {
+        var parts = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(person.LastName)) parts.Add(person.LastName.Trim());
+        if (!string.IsNullOrWhiteSpace(person.FirstName)) parts.Add(person.FirstName.Trim());
+        if (!string.IsNullOrWhiteSpace(person.SecondName)) parts.Add(person.SecondName.Trim());
+
+        return string.Join(" ", parts);
     }
 
     private async Task<int> DeleteMissingUnitsAsync(HashSet<string> incomingExternalIds, Guid runId, List<Component2020SyncError> errors, CancellationToken cancellationToken)

@@ -10,8 +10,6 @@ public class RequestListItemDto
 
     public Guid RequestTypeId { get; init; }
 
-    public string RequestTypeCode { get; init; } = null!;
-
     public string RequestTypeName { get; init; } = null!;
 
     public Guid RequestStatusId { get; init; }
@@ -23,6 +21,10 @@ public class RequestListItemDto
     public Guid InitiatorId { get; init; }
 
     public string? InitiatorFullName { get; init; }
+
+    public string? TargetEntityName { get; init; }
+
+    public string? RelatedEntityName { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
 

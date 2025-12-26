@@ -130,10 +130,11 @@ public sealed class AdminMdmReferencesController : ControllerBase
         CancellationToken cancellationToken,
         [FromQuery] string? q = null,
         [FromQuery] bool? isActive = null,
+        [FromQuery] Guid? groupId = null,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 200)
     {
-        var result = await _service.GetItemsAsync(q, isActive, skip, take, cancellationToken);
+        var result = await _service.GetItemsAsync(q, isActive, groupId, skip, take, cancellationToken);
         return Ok(new { total = result.Total, items = result.Items });
     }
 

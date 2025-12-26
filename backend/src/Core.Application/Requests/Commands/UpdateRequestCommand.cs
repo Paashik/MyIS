@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace MyIS.Core.Application.Requests.Commands;
 
@@ -24,7 +24,15 @@ public class UpdateRequestCommand
 
     public Guid? RelatedEntityId { get; init; }
 
+    public string? RelatedEntityName { get; init; }
+
     public string? ExternalReferenceId { get; init; }
+
+    public string? TargetEntityType { get; init; }
+
+    public Guid? TargetEntityId { get; init; }
+
+    public string? TargetEntityName { get; init; }
 
     /// <summary>
     /// Позиционное тело заявки (replace-all стратегия v0.1).

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MyIS.Core.Application.Common;
 using MyIS.Core.Application.Common.Dto;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Queries;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
 
@@ -15,13 +18,16 @@ public class SearchRequestsHandler
 {
     private readonly IRequestRepository _requestRepository;
     private readonly IRequestsAccessChecker _accessChecker;
+    private readonly IUserRepository _userRepository;
 
     public SearchRequestsHandler(
         IRequestRepository requestRepository,
-        IRequestsAccessChecker accessChecker)
+        IRequestsAccessChecker accessChecker,
+        IUserRepository userRepository)
     {
         _requestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
         _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
     }
 
     public async Task<SearchRequestsResult> Handle(
@@ -64,11 +70,22 @@ public class SearchRequestsHandler
         // 2. Проверка прав на просмотр для каждой заявки (упрощённо)
         var listItems = new List<RequestListItemDto>(items.Count);
 
+        var initiatorIds = items.Select(x => x.InitiatorId).Distinct().ToArray();
+        var initiators = await _userRepository.GetByIdsAsync(initiatorIds, cancellationToken);
+        var initiatorById = initiators.ToDictionary(
+            u => u.Id,
+            u =>
+            {
+                var baseName = u.Employee?.ShortName ?? u.Employee?.FullName ?? u.FullName ?? u.Login;
+                return PersonNameFormatter.ToShortName(baseName) ?? baseName;
+            });
+
         foreach (var request in items)
         {
             await _accessChecker.EnsureCanViewAsync(query.CurrentUserId, request, cancellationToken);
 
-            var dto = MapToListItemDto(request, initiatorFullName: null);
+            initiatorById.TryGetValue(request.InitiatorId, out var initiatorFullName);
+            var dto = MapToListItemDto(request, initiatorFullName);
             listItems.Add(dto);
         }
 
@@ -93,13 +110,14 @@ public class SearchRequestsHandler
             Id = request.Id.Value,
             Title = request.Title,
             RequestTypeId = type?.Id.Value ?? request.RequestTypeId.Value,
-            RequestTypeCode = type?.Code ?? string.Empty,
             RequestTypeName = type?.Name ?? string.Empty,
             RequestStatusId = status?.Id.Value ?? request.RequestStatusId.Value,
             RequestStatusCode = status?.Code.Value ?? string.Empty,
             RequestStatusName = status?.Name ?? string.Empty,
             InitiatorId = request.InitiatorId,
             InitiatorFullName = initiatorFullName,
+            TargetEntityName = request.TargetEntityName,
+            RelatedEntityName = request.RelatedEntityName,
             CreatedAt = request.CreatedAt,
             DueDate = request.DueDate
         };

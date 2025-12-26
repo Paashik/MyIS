@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace MyIS.Core.Application.Requests.Commands;
 
@@ -28,11 +28,19 @@ public class CreateRequestCommand
     /// </summary>
     public Guid? RelatedEntityId { get; init; }
 
+    public string? RelatedEntityName { get; init; }
+
     /// <summary>
     /// Внешняя ссылка (например, идентификатор объекта в Компонент‑2020).
     /// Полноценная интеграция будет реализована на следующих итерациях.
     /// </summary>
     public string? ExternalReferenceId { get; init; }
+
+    public string? TargetEntityType { get; init; }
+
+    public Guid? TargetEntityId { get; init; }
+
+    public string? TargetEntityName { get; init; }
 
     /// <summary>
     /// Позиционное тело заявки (replace-all стратегия v0.1).

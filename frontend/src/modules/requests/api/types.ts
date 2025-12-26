@@ -14,13 +14,14 @@ export interface RequestListItemDto {
   id: string;
   title: string;
   requestTypeId: string;
-  requestTypeCode: string;
   requestTypeName: string;
   requestStatusId: string;
   requestStatusCode: string;
   requestStatusName: string;
   initiatorId: string;
   initiatorFullName?: string | null;
+  targetEntityName?: string | null;
+  relatedEntityName?: string | null;
   createdAt: string;
   dueDate?: string | null;
 }
@@ -30,7 +31,11 @@ export interface RequestDto extends RequestListItemDto {
   bodyText?: string | null;
   relatedEntityType?: string | null;
   relatedEntityId?: string | null;
+  relatedEntityName?: string | null;
   externalReferenceId?: string | null;
+  targetEntityType?: string | null;
+  targetEntityId?: string | null;
+  targetEntityName?: string | null;
   updatedAt: string;
 
   lines: RequestLineDto[];
@@ -86,10 +91,15 @@ export interface RequestCommentDto {
 
 export interface RequestTypeDto {
   id: string;
-  code: string;
   name: string;
   direction: RequestDirection;
   description?: string | null;
+}
+
+export interface RequestCounterpartyLookupDto {
+  id: string;
+  name: string;
+  fullName?: string | null;
 }
 
 export interface RequestStatusDto {
@@ -119,7 +129,11 @@ export interface CreateRequestPayload {
   dueDate?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  relatedEntityName?: string;
   externalReferenceId?: string;
+  targetEntityType?: string;
+  targetEntityId?: string;
+  targetEntityName?: string;
 }
 
 export interface UpdateRequestPayload {
@@ -129,7 +143,11 @@ export interface UpdateRequestPayload {
   dueDate?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  relatedEntityName?: string;
   externalReferenceId?: string;
+  targetEntityType?: string;
+  targetEntityId?: string;
+  targetEntityName?: string;
 }
 
 export interface AddRequestCommentPayload {

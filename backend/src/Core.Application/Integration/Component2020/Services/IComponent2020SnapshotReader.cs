@@ -160,3 +160,75 @@ public class Component2020Symbol
     public string? LibraryPath { get; set; }
     public string? LibraryRef { get; set; }
 }
+
+public class Component2020Person
+{
+    public int Id { get; set; }
+    public string? LastName { get; set; }
+    public string? FirstName { get; set; }
+    public string? SecondName { get; set; }
+    public string? Position { get; set; }
+    public int? DeptId { get; set; }
+    public bool Hidden { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? Note { get; set; }
+}
+
+public class Component2020User
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string? Password { get; set; }
+    public bool Hidden { get; set; }
+    public int? RoleId { get; set; }
+    public int? PersonId { get; set; }
+    public string? Roles { get; set; }
+    public string? Ui { get; set; }
+}
+
+public class Component2020Role
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string? Code { get; set; }
+}
+
+public class Component2020CustomerOrder
+{
+    public int Id { get; set; }
+    public string? Number { get; set; }
+    public DateTime? OrderDate { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public int? State { get; set; }
+    public int? CustomerId { get; set; }
+    public string? Note { get; set; }
+    public string? Contract { get; set; }
+    public int? StoreId { get; set; }
+    public int? PersonId { get; set; }
+    public string? Path { get; set; }
+    public DateTime? PayDate { get; set; }
+    public DateTime? FinishedDate { get; set; }
+    public int? ContactId { get; set; }
+    public int? Discount { get; set; }
+    public int? Tax { get; set; }
+    public int? Mark { get; set; }
+    public int? Pn { get; set; }
+    public int? PaymentForm { get; set; }
+    public int? PayMethod { get; set; }
+    public int? PayPeriod { get; set; }
+    public int? Prepayment { get; set; }
+    public int? Kind { get; set; }
+    public int? AccountId { get; set; }
+}
+
+public class Component2020Status
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = null!;
+    public int? Color { get; set; }
+    public int? Kind { get; set; }
+    public int? Code { get; set; }
+    public int? SortOrder { get; set; }
+    public int? Flags { get; set; }
+}

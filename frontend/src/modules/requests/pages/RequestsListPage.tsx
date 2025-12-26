@@ -1,12 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Segmented, Select, Tabs, Typography } from "antd";
+﻿import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Button, Typography } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
+
 import { RequestListTable, RequestListTableFilters } from "../components/RequestListTable";
 import {
   RequestListItemDto,
   RequestStatusDto,
   RequestTypeDto,
 } from "../api/types";
+import {
+  CHANGE_REQUEST_TYPE_ID,
+  CUSTOMER_DEVELOPMENT_TYPE_ID,
+  EXTERNAL_TECH_STAGE_TYPE_ID,
+  INTERNAL_PRODUCTION_TYPE_ID,
+  SUPPLY_REQUEST_TYPE_ID,
+} from "../requestTypeIds";
 import {
   getRequestStatuses,
   getRequestTypes,
@@ -26,13 +34,12 @@ type LoadState =
   | { kind: "loaded" }
   | { kind: "error"; message: string };
 
+type RequestsDirectionSegment = "incoming" | "outgoing";
+
 export const RequestsListPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const canCreate = useCan("Requests.Create");
-
-  type RequestsDirectionSegment = "incoming" | "outgoing";
-  type RequestsTypeTabKey = "all" | string;
 
   const direction: RequestsDirectionSegment = useMemo(() => {
     const sp = new URLSearchParams(location.search);
@@ -40,15 +47,15 @@ export const RequestsListPage: React.FC = () => {
     if (raw === "outgoing") return "outgoing";
     if (raw === "incoming") return "incoming";
 
-    // Backward-compatible (old routes used path segment)
     const seg = (location.pathname.split("/")[2] || "").toLowerCase();
     return seg === "outgoing" ? "outgoing" : "incoming";
   }, [location.pathname, location.search]);
 
-  const getTypeFromLocation = (): RequestsTypeTabKey => {
+  const getTypeFromLocation = (): string | undefined => {
     const sp = new URLSearchParams(location.search);
     const raw = (sp.get("type") || "").trim();
-    return raw ? raw : "all";
+    if (!raw || raw === "all") return undefined;
+    return raw;
   };
 
   const getOnlyMineFromLocation = (): boolean => {
@@ -56,8 +63,6 @@ export const RequestsListPage: React.FC = () => {
     const raw = (sp.get("onlyMine") || "").trim().toLowerCase();
     return raw === "1" || raw === "true";
   };
-
-  const [activeTypeKey, setActiveTypeKey] = useState<RequestsTypeTabKey>(getTypeFromLocation());
 
   const [items, setItems] = useState<RequestListItemDto[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -69,15 +74,18 @@ export const RequestsListPage: React.FC = () => {
 
   const [filters, setFilters] = useState<RequestListTableFilters>({
     requestStatusId: undefined,
+    requestTypeId: getTypeFromLocation(),
     onlyMine: getOnlyMineFromLocation(),
   });
 
   const [state, setState] = useState<LoadState>({ kind: "idle" });
 
-  // синхронизация вкладки типа с URL (?type=all|<typeCode>)
   useEffect(() => {
-    setActiveTypeKey(getTypeFromLocation());
-    setFilters((prev) => ({ ...prev, onlyMine: getOnlyMineFromLocation() }));
+    setFilters((prev) => ({
+      ...prev,
+      requestTypeId: getTypeFromLocation(),
+      onlyMine: getOnlyMineFromLocation(),
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
@@ -88,50 +96,40 @@ export const RequestsListPage: React.FC = () => {
     const hasDirection = rawDirection === "incoming" || rawDirection === "outgoing";
     if (!hasDirection) {
       sp.set("direction", direction);
-    }
-
-    const rawType = (sp.get("type") || "").trim();
-    const hasType = !!rawType;
-    if (!hasType) {
-      sp.set("type", "all");
-    }
-
-    if (!hasDirection || !hasType) {
       navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
     }
   }, [direction, location.pathname, location.search, navigate]);
 
   const requestTypesForDirection = useMemo(() => {
     const expected = direction === "incoming" ? "Incoming" : "Outgoing";
-    return requestTypes.filter((t) => t.direction === expected);
+    const filtered = requestTypes.filter((t) => t.direction === expected);
+
+    const order =
+      direction === "incoming"
+        ? [CUSTOMER_DEVELOPMENT_TYPE_ID, INTERNAL_PRODUCTION_TYPE_ID, CHANGE_REQUEST_TYPE_ID]
+        : [SUPPLY_REQUEST_TYPE_ID, EXTERNAL_TECH_STAGE_TYPE_ID, CHANGE_REQUEST_TYPE_ID];
+
+    return filtered.sort((a, b) => {
+      const indexA = order.indexOf(a.id);
+      const indexB = order.indexOf(b.id);
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
   }, [direction, requestTypes]);
 
-  // Нормализация query-параметра type:
-  // - отсутствует/пустой/неизвестный/не соответствует направлению => replace на ?type=all
   useEffect(() => {
+    if (!filters.requestTypeId) return;
+
+    const exists = requestTypesForDirection.some((t) => t.id === filters.requestTypeId);
+    if (exists) return;
+
     const sp = new URLSearchParams(location.search);
-    const raw = sp.get("type");
-    const trimmed = (raw || "").trim();
+    sp.set("type", "all");
+    navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
+    setFilters((prev) => ({ ...prev, requestTypeId: undefined }));
+  }, [filters.requestTypeId, location.pathname, location.search, navigate, requestTypesForDirection]);
 
-    // отсутствует/пустой
-    if (!raw || !trimmed) {
-      sp.set("type", "all");
-      navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
-      return;
-    }
-
-    // неизвестный / не соответствует направлению — можем проверить только после загрузки справочника
-    if (!requestTypes.length) return;
-    if (trimmed === "all") return;
-
-    const existsInDirection = requestTypesForDirection.some((t) => t.code === trimmed);
-    if (!existsInDirection) {
-      sp.set("type", "all");
-      navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
-    }
-  }, [location.pathname, location.search, navigate, requestTypes.length, requestTypesForDirection]);
-
-  // Загрузка справочников типов и статусов один раз
   useEffect(() => {
     let cancelled = false;
 
@@ -145,8 +143,7 @@ export const RequestsListPage: React.FC = () => {
         setRequestTypes(types);
         setRequestStatuses(statuses);
       } catch {
-        // Справочники не критичны для работы страницы: ошибки не блокируют UI,
-        // пользователю всё равно покажется таблица, просто без фильтров.
+        // Ignore lookup errors; page will still show general error from main load.
       }
     };
 
@@ -157,14 +154,6 @@ export const RequestsListPage: React.FC = () => {
     };
   }, []);
 
-  // activeTypeKey синхронизируем только из URL (source of truth = query param)
-
-  const selectedRequestType = useMemo((): RequestTypeDto | undefined => {
-    if (activeTypeKey === "all") return undefined;
-    return requestTypesForDirection.find((t) => t.code === activeTypeKey);
-  }, [activeTypeKey, requestTypesForDirection]);
-
-  // Загрузка списка заявок при изменении фильтров/страницы
   useEffect(() => {
     let cancelled = false;
 
@@ -172,7 +161,7 @@ export const RequestsListPage: React.FC = () => {
       setState({ kind: "loading" });
       try {
         const result = await getRequests({
-          requestTypeId: selectedRequestType?.id,
+          requestTypeId: filters.requestTypeId,
           requestStatusId: filters.requestStatusId,
           direction: direction === "incoming" ? "Incoming" : "Outgoing",
           onlyMine: filters.onlyMine,
@@ -201,17 +190,7 @@ export const RequestsListPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [direction, filters.requestStatusId, filters.onlyMine, pageNumber, pageSize, selectedRequestType?.id]);
-
-  const handleTypeTabChange = (key: string) => {
-    const nextKey = key || "all";
-    setActiveTypeKey(nextKey);
-    setPageNumber(1);
-
-    const sp = new URLSearchParams(location.search);
-    sp.set("type", nextKey);
-    navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
-  };
+  }, [direction, filters.requestStatusId, filters.onlyMine, filters.requestTypeId, pageNumber, pageSize]);
 
   const handleFiltersChange = (next: RequestListTableFilters) => {
     setFilters(next);
@@ -219,6 +198,8 @@ export const RequestsListPage: React.FC = () => {
     const sp = new URLSearchParams(location.search);
     if (next.onlyMine) sp.set("onlyMine", "1");
     else sp.delete("onlyMine");
+
+    sp.set("type", next.requestTypeId ?? "all");
     navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
   };
 
@@ -230,7 +211,7 @@ export const RequestsListPage: React.FC = () => {
   const handleRowClick = (item: RequestListItemDto) => {
     const sp = new URLSearchParams();
     sp.set("direction", direction);
-    sp.set("type", activeTypeKey);
+    sp.set("type", filters.requestTypeId ?? "all");
     if (filters.onlyMine) {
       sp.set("onlyMine", "1");
     }
@@ -241,9 +222,9 @@ export const RequestsListPage: React.FC = () => {
   };
 
   const handleCreateClick = () => {
-    if (activeTypeKey === "all") return;
+    const typeParam = filters.requestTypeId ?? "all";
     navigate(
-      `/requests/new?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(activeTypeKey)}`
+      `/requests/new?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(typeParam)}`
     );
   };
 
@@ -258,45 +239,15 @@ export const RequestsListPage: React.FC = () => {
           </Title>
         }
         right={
-          <>
-            <Segmented
-              value={direction}
-              options={[
-                { label: t("nav.requests.incoming"), value: "incoming" },
-                { label: t("nav.requests.outgoing"), value: "outgoing" },
-              ]}
-              onChange={(v: string | number) => {
-                const next = String(v) === "outgoing" ? "outgoing" : "incoming";
-                const sp = new URLSearchParams(location.search);
-                sp.set("direction", next);
-                navigate(`${location.pathname}?${sp.toString()}`, { replace: true });
-              }}
-            />
-
-            <Select
-              value={filters.onlyMine ? "mine" : "all"}
-              style={{ width: 160 }}
-              options={[
-                { value: "all", label: t("requests.list.views.all") },
-                { value: "mine", label: t("requests.list.views.mine") },
-              ]}
-              onChange={(v: "all" | "mine") => {
-                handleFiltersChange({ ...filters, onlyMine: v === "mine" });
-              }}
-            />
-
-            {canCreate && (
-              <Button
-                data-testid="requests-create-button"
-                type="primary"
-                onClick={handleCreateClick}
-                disabled={activeTypeKey === "all"}
-                title={activeTypeKey === "all" ? t("requests.list.create.selectTypeHint") : undefined}
-              >
-                {t("requests.list.create")}
-              </Button>
-            )}
-          </>
+          canCreate ? (
+            <Button
+              data-testid="requests-create-button"
+              type="primary"
+              onClick={handleCreateClick}
+            >
+              {t("requests.list.create")}
+            </Button>
+          ) : null
         }
       />
 
@@ -311,17 +262,6 @@ export const RequestsListPage: React.FC = () => {
         />
       )}
 
-      <Tabs
-        data-testid="requests-list-type-tabs"
-        activeKey={activeTypeKey}
-        onChange={handleTypeTabChange}
-        items={[
-          { key: "all", label: t("requests.list.typeTabs.all") },
-          ...requestTypesForDirection.map((rt) => ({ key: rt.code, label: rt.name })),
-        ]}
-        style={{ marginBottom: 12 }}
-      />
-
       <RequestListTable
         loading={state.kind === "loading" && items.length === 0}
         items={items}
@@ -329,6 +269,7 @@ export const RequestsListPage: React.FC = () => {
         pageNumber={pageNumber}
         pageSize={pageSize}
         requestStatuses={requestStatuses}
+        requestTypes={requestTypesForDirection}
         filters={filters}
         onFiltersChange={handleFiltersChange}
         onPageChange={handlePageChange}

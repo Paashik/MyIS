@@ -42,6 +42,7 @@ public sealed class UpdateAdminEmployeeHandler
         {
             Id = employee.Id,
             FullName = employee.FullName,
+            ShortName = employee.ShortName,
             Email = employee.Email,
             Phone = employee.Phone,
             Notes = employee.Notes,

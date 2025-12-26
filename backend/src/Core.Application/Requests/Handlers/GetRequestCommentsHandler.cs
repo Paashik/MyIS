@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MyIS.Core.Application.Common;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Queries;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
 
@@ -15,15 +18,18 @@ public class GetRequestCommentsHandler
     private readonly IRequestRepository _requestRepository;
     private readonly IRequestCommentRepository _commentRepository;
     private readonly IRequestsAccessChecker _accessChecker;
+    private readonly IUserRepository _userRepository;
 
     public GetRequestCommentsHandler(
         IRequestRepository requestRepository,
         IRequestCommentRepository commentRepository,
-        IRequestsAccessChecker accessChecker)
+        IRequestsAccessChecker accessChecker,
+        IUserRepository userRepository)
     {
         _requestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
         _commentRepository = commentRepository ?? throw new ArgumentNullException(nameof(commentRepository));
         _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
     }
 
     public async Task<GetRequestCommentsResult> Handle(
@@ -59,14 +65,25 @@ public class GetRequestCommentsHandler
 
         // 4. Маппинг в DTO
         var dtos = new List<RequestCommentDto>(items.Count);
+        var authorIds = items.Select(x => x.AuthorId).Distinct().ToArray();
+        var authors = await _userRepository.GetByIdsAsync(authorIds, cancellationToken);
+        var authorById = authors.ToDictionary(
+            u => u.Id,
+            u =>
+            {
+                var baseName = u.Employee?.ShortName ?? u.Employee?.FullName ?? u.FullName ?? u.Login;
+                return PersonNameFormatter.ToShortName(baseName) ?? baseName;
+            });
+
         foreach (var c in items)
         {
+            authorById.TryGetValue(c.AuthorId, out var authorFullName);
             var dto = new RequestCommentDto
             {
                 Id = c.Id,
                 RequestId = c.RequestId.Value,
                 AuthorId = c.AuthorId,
-                AuthorFullName = null,
+                AuthorFullName = authorFullName,
                 Text = c.Text,
                 CreatedAt = c.CreatedAt
             };

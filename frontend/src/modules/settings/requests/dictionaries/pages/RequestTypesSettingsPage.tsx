@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
@@ -50,11 +50,6 @@ export const RequestTypesSettingsPage: React.FC = () => {
   const columns: ColumnsType<AdminRequestTypeDto> = useMemo(
     () => [
       {
-        title: t("settings.requests.types.columns.code"),
-        dataIndex: "code",
-        key: "code",
-      },
-      {
         title: t("settings.requests.types.columns.name"),
         dataIndex: "name",
         key: "name",
@@ -63,12 +58,17 @@ export const RequestTypesSettingsPage: React.FC = () => {
         title: t("settings.requests.types.columns.direction"),
         dataIndex: "direction",
         key: "direction",
+        render: (v: string) => {
+          if (v === "Incoming") return t("settings.requests.types.direction.incoming");
+          if (v === "Outgoing") return t("settings.requests.types.direction.outgoing");
+          return v;
+        },
       },
       {
         title: t("settings.requests.types.columns.isActive"),
         dataIndex: "isActive",
         key: "isActive",
-        render: (v: boolean) => (v ? "Да" : "Нет"),
+        render: (v: boolean) => (v ? t("common.yes") : t("common.no")),
       },
       {
         title: t("settings.requests.types.columns.actions"),
@@ -91,7 +91,7 @@ export const RequestTypesSettingsPage: React.FC = () => {
               disabled={!canEdit || !record.isActive}
               data-testid="references-requests-types-archive"
             >
-              Архивировать
+              {t("common.actions.archive")}
             </Button>
           </>
         ),
@@ -149,4 +149,3 @@ export const RequestTypesSettingsPage: React.FC = () => {
     </div>
   );
 };
-

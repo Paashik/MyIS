@@ -38,6 +38,7 @@ public sealed class GetAdminEmployeeByIdHandler
         {
             Id = e.Id,
             FullName = e.FullName,
+            ShortName = e.ShortName,
             Email = e.Email,
             Phone = e.Phone,
             Notes = e.Notes,

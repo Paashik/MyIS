@@ -7,7 +7,6 @@ public sealed class RequestWorkflowTransitionDto
     public Guid Id { get; init; }
 
     public Guid RequestTypeId { get; init; }
-    public string RequestTypeCode { get; init; } = null!;
 
     public Guid FromStatusId { get; init; }
     public string FromStatusCode { get; init; } = null!;

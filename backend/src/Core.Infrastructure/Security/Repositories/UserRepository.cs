@@ -42,6 +42,16 @@ public sealed class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.Login == normalized, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids is null || ids.Count == 0) return Array.Empty<User>();
+
+        return await _dbContext.Users
+            .Include(u => u.Employee)
+            .Where(u => ids.Contains(u.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<User>> SearchAsync(string? search, bool? isActive, CancellationToken cancellationToken)
     {
         var query = _dbContext.Users

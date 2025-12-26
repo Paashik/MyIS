@@ -61,7 +61,6 @@ public sealed class AdminRequestTypesController : ControllerBase
         var command = new CreateAdminRequestTypeCommand
         {
             CurrentUserId = currentUserId,
-            Code = request.Code,
             Name = request.Name,
             Direction = request.Direction,
             Description = request.Description,

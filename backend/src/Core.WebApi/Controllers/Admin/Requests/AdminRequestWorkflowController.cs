@@ -37,7 +37,7 @@ public sealed class AdminRequestWorkflowController : ControllerBase
 
     [HttpGet("transitions")]
     public async Task<ActionResult<IReadOnlyList<RequestWorkflowTransitionDto>>> GetTransitions(
-        [FromQuery] string? typeCode,
+        [FromQuery] Guid? typeId,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId)) return Unauthorized();
@@ -45,7 +45,7 @@ public sealed class AdminRequestWorkflowController : ControllerBase
         var query = new GetAdminRequestWorkflowTransitionsQuery
         {
             CurrentUserId = currentUserId,
-            TypeCode = typeCode
+            TypeId = typeId
         };
 
         try
@@ -69,7 +69,7 @@ public sealed class AdminRequestWorkflowController : ControllerBase
         var command = new ReplaceAdminRequestWorkflowTransitionsCommand
         {
             CurrentUserId = currentUserId,
-            TypeCode = request.TypeCode,
+            TypeId = request.TypeId,
             Transitions = Array.ConvertAll(request.Transitions, x => new RequestWorkflowTransitionInputDto
             {
                 FromStatusId = x.FromStatusId,

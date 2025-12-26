@@ -578,6 +578,7 @@ public sealed class MdmReferencesQueryService : IMdmReferencesQueryService
     public async Task<MdmListResultDto<MdmItemReferenceDto>> GetItemsAsync(
         string? q,
         bool? isActive,
+        Guid? groupId,
         int skip,
         int take,
         CancellationToken cancellationToken)
@@ -606,6 +607,34 @@ public sealed class MdmReferencesQueryService : IMdmReferencesQueryService
         if (isActive.HasValue)
         {
             query = query.Where(x => x.IsActive == isActive.Value);
+        }
+
+        if (groupId.HasValue)
+        {
+            // Find all descendant group IDs recursively
+            var groupIds = new HashSet<Guid> { groupId.Value };
+            var queue = new Queue<Guid>();
+            queue.Enqueue(groupId.Value);
+
+            while (queue.Count > 0)
+            {
+                var currentId = queue.Dequeue();
+                var childGroups = await _dbContext.ItemGroups
+                    .AsNoTracking()
+                    .Where(g => g.ParentId == currentId)
+                    .Select(g => g.Id)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var childId in childGroups)
+                {
+                    if (groupIds.Add(childId))
+                    {
+                        queue.Enqueue(childId);
+                    }
+                }
+            }
+
+            query = query.Where(x => x.ItemGroupId.HasValue && groupIds.Contains(x.ItemGroupId.Value));
         }
 
         skip = Math.Max(0, skip);

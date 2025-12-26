@@ -4,7 +4,7 @@ namespace MyIS.Core.WebApi.Contracts.Admin.Requests;
 
 public sealed class AdminReplaceWorkflowTransitionsRequest
 {
-    public string TypeCode { get; init; } = null!;
+    public Guid TypeId { get; init; }
 
     public AdminWorkflowTransitionItemRequest[] Transitions { get; init; } = [];
 }

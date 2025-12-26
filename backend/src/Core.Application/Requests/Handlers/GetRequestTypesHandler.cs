@@ -54,7 +54,6 @@ public class GetRequestTypesHandler
         return new RequestTypeDto
         {
             Id = type.Id.Value,
-            Code = type.Code,
             Name = type.Name,
             Direction = type.Direction.ToString(),
             Description = type.Description,

@@ -15,6 +15,8 @@ public interface IRequestRepository
 
     Task UpdateAsync(Request request, CancellationToken cancellationToken);
 
+    Task DeleteAsync(RequestId id, CancellationToken cancellationToken);
+
     /// <summary>
     /// Поиск заявок с базовой пагинацией и простыми фильтрами.
     /// Возвращает кортеж: список сущностей и общее количество строк под фильтром.
@@ -32,4 +34,6 @@ public interface IRequestRepository
     Task<bool> AnyWithTypeIdAsync(RequestTypeId requestTypeId, CancellationToken cancellationToken);
 
     Task<bool> AnyWithStatusIdAsync(RequestStatusId requestStatusId, CancellationToken cancellationToken);
+
+    Task<long> GetNextRequestNumberAsync(CancellationToken cancellationToken);
 }

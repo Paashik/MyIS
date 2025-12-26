@@ -17,4 +17,9 @@ public interface IComponent2020DeltaReader
     Task<IEnumerable<Component2020TechnicalParameter>> ReadTechnicalParametersDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken);
     Task<IEnumerable<Component2020ParameterSet>> ReadParameterSetsDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken);
     Task<IEnumerable<Component2020Symbol>> ReadSymbolsDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken);
+    Task<IEnumerable<Component2020Person>> ReadPersonsDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken);
+    Task<IEnumerable<Component2020User>> ReadUsersDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken);
+    Task<IEnumerable<Component2020Role>> ReadRolesAsync(Guid connectionId, CancellationToken cancellationToken);
+    Task<IEnumerable<Component2020CustomerOrder>> ReadCustomerOrdersDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken);
+    Task<IEnumerable<Component2020Status>> ReadStatusesDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken);
 }

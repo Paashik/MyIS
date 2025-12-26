@@ -26,19 +26,6 @@ public sealed class RequestTypeRepository : IRequestTypeRepository
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
-    public async Task<RequestType?> GetByCodeAsync(string code, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            throw new ArgumentException("Code is required.", nameof(code));
-        }
-
-        var normalized = code.Trim();
-
-        return await _dbContext.RequestTypes
-            .FirstOrDefaultAsync(t => t.Code == normalized, cancellationToken);
-    }
-
     public async Task<IReadOnlyList<RequestType>> GetAllAsync(bool includeInactive, CancellationToken cancellationToken)
     {
         var query = _dbContext.RequestTypes.AsQueryable();
@@ -53,19 +40,6 @@ public sealed class RequestTypeRepository : IRequestTypeRepository
             .ToListAsync(cancellationToken);
 
         return items;
-    }
-
-    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            return false;
-        }
-
-        var normalized = code.Trim();
-
-        return await _dbContext.RequestTypes
-            .AnyAsync(t => t.Code == normalized, cancellationToken);
     }
 
     public async Task AddAsync(RequestType type, CancellationToken cancellationToken)

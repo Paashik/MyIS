@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MyIS.Core.Application.Common;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Queries;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
 
@@ -15,15 +18,18 @@ public class GetRequestHistoryHandler
     private readonly IRequestRepository _requestRepository;
     private readonly IRequestHistoryRepository _historyRepository;
     private readonly IRequestsAccessChecker _accessChecker;
+    private readonly IUserRepository _userRepository;
 
     public GetRequestHistoryHandler(
         IRequestRepository requestRepository,
         IRequestHistoryRepository historyRepository,
-        IRequestsAccessChecker accessChecker)
+        IRequestsAccessChecker accessChecker,
+        IUserRepository userRepository)
     {
         _requestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
         _historyRepository = historyRepository ?? throw new ArgumentNullException(nameof(historyRepository));
         _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
     }
 
     public async Task<GetRequestHistoryResult> Handle(
@@ -59,15 +65,26 @@ public class GetRequestHistoryHandler
 
         // 4. Маппинг в DTO
         var dtos = new List<RequestHistoryItemDto>(items.Count);
+        var performerIds = items.Select(x => x.PerformedBy).Distinct().ToArray();
+        var performers = await _userRepository.GetByIdsAsync(performerIds, cancellationToken);
+        var performerById = performers.ToDictionary(
+            u => u.Id,
+            u =>
+            {
+                var baseName = u.Employee?.ShortName ?? u.Employee?.FullName ?? u.FullName ?? u.Login;
+                return PersonNameFormatter.ToShortName(baseName) ?? baseName;
+            });
+
         foreach (var h in items)
         {
+            performerById.TryGetValue(h.PerformedBy, out var performerFullName);
             var dto = new RequestHistoryItemDto
             {
                 Id = h.Id,
                 RequestId = h.RequestId.Value,
                 Action = h.Action,
                 PerformedBy = h.PerformedBy,
-                PerformedByFullName = null,
+                PerformedByFullName = performerFullName,
                 Timestamp = h.Timestamp,
                 OldValue = h.OldValue,
                 NewValue = h.NewValue,

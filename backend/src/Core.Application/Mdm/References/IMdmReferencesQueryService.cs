@@ -56,6 +56,7 @@ public interface IMdmReferencesQueryService
     Task<MdmListResultDto<MdmItemReferenceDto>> GetItemsAsync(
         string? q,
         bool? isActive,
+        Guid? groupId,
         int skip,
         int take,
         CancellationToken cancellationToken);

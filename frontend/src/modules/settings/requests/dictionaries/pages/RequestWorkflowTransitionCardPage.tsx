@@ -22,7 +22,7 @@ type Mode = "create" | "edit";
 export const RequestWorkflowTransitionCardPage: React.FC = () => {
   const canEdit = useCan("Admin.Requests.EditWorkflow");
   const navigate = useNavigate();
-  const { typeCode, id } = useParams<{ typeCode: string; id: string }>();
+  const { typeId, id } = useParams<{ typeId: string; id: string }>();
 
   const mode: Mode = id === "new" ? "create" : "edit";
 
@@ -43,14 +43,14 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
   );
 
   const load = useCallback(async () => {
-    if (!typeCode) return;
+    if (!typeId) return;
 
     setLoading(true);
     setError(null);
     try {
       const [sts, transitions] = await Promise.all([
         getAdminRequestStatuses(),
-        getAdminWorkflowTransitions(typeCode),
+        getAdminWorkflowTransitions(typeId),
       ]);
       setStatuses(sts);
       setItems(transitions);
@@ -80,7 +80,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [form, id, mode, typeCode]);
+  }, [form, id, mode, typeId]);
 
   useEffect(() => {
     void load();
@@ -89,10 +89,10 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
   const onCancel = () => navigate("/administration/requests/workflow");
 
   const persist = async (next: AdminRequestWorkflowTransitionDto[]) => {
-    if (!typeCode) return;
+    if (!typeId) return;
 
     const payload = {
-      typeCode,
+      typeId,
       transitions: next.map<WorkflowTransitionInput>((x) => ({
         fromStatusId: x.fromStatusId,
         toStatusId: x.toStatusId,
@@ -106,7 +106,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
   };
 
   const onSave = async () => {
-    if (!typeCode) return;
+    if (!typeId) return;
     const values = await form.validateFields();
 
     const fromStatus = statuses.find((s) => s.id === values.fromStatusId);
@@ -114,8 +114,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
 
     const draft: AdminRequestWorkflowTransitionDto = {
       id: mode === "edit" ? id : `new-${Date.now()}`,
-      requestTypeId: "",
-      requestTypeCode: typeCode,
+      requestTypeId: typeId,
       fromStatusId: values.fromStatusId,
       fromStatusCode: fromStatus?.code ?? "",
       toStatusId: values.toStatusId,
@@ -227,3 +226,4 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
     </div>
   );
 };
+

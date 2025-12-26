@@ -6,6 +6,6 @@ public sealed class GetAdminRequestWorkflowTransitionsQuery
 {
     public Guid CurrentUserId { get; init; }
 
-    public string? TypeCode { get; init; }
+    public Guid? TypeId { get; init; }
 }
 

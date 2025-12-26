@@ -32,6 +32,10 @@ public enum Component2020SyncScope
     TechnicalParameters,
     ParameterSets,
     Symbols,
+    Employees,
+    Users,
+    CustomerOrders,
+    Statuses,
     All
 }
 

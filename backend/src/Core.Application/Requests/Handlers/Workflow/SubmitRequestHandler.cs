@@ -4,6 +4,7 @@ using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Commands.Workflow;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Workflow;
+using MyIS.Core.Application.Security.Abstractions;
 
 namespace MyIS.Core.Application.Requests.Handlers.Workflow;
 
@@ -14,8 +15,9 @@ public sealed class SubmitRequestHandler : RequestWorkflowActionHandlerBase
         IRequestTypeRepository requestTypeRepository,
         IRequestStatusRepository requestStatusRepository,
         IRequestTransitionRepository transitionRepository,
-        IRequestsAccessChecker accessChecker)
-        : base(requestRepository, requestTypeRepository, requestStatusRepository, transitionRepository, accessChecker)
+        IRequestsAccessChecker accessChecker,
+        IUserRepository userRepository)
+        : base(requestRepository, requestTypeRepository, requestStatusRepository, transitionRepository, accessChecker, userRepository)
     {
     }
 

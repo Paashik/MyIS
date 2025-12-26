@@ -7,6 +7,7 @@ public class Employee
     public Guid Id { get; set; }
 
     public string FullName { get; private set; } = null!;
+    public string ShortName { get; private set; } = null!;
     public string? Email { get; private set; }
     public string? Phone { get; private set; }
     public string? Notes { get; private set; }
@@ -37,6 +38,7 @@ public class Employee
         {
             Id = id,
             FullName = fullName.Trim(),
+            ShortName = BuildShortName(fullName),
             Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim(),
             Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
@@ -59,6 +61,7 @@ public class Employee
         }
 
         FullName = fullName.Trim();
+        ShortName = BuildShortName(fullName);
         Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
         Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
         Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
@@ -85,6 +88,31 @@ public class Employee
 
         IsActive = false;
         UpdatedAt = now;
+    }
+
+    private static string BuildShortName(string fullName)
+    {
+        var parts = fullName
+            .Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 0)
+        {
+            return fullName.Trim();
+        }
+
+        if (parts.Length == 1)
+        {
+            return parts[0];
+        }
+
+        var initials = $"{parts[1][0]}.";
+        if (parts.Length >= 3)
+        {
+            initials += $"{parts[2][0]}.";
+        }
+
+        return $"{parts[0]} {initials}";
     }
 }
 

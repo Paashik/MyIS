@@ -7,7 +7,6 @@ public class RequestType
 {
     public RequestTypeId Id { get; private set; }
 
-    public string Code { get; private set; } = null!;
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
 
@@ -22,7 +21,6 @@ public class RequestType
 
     public RequestType(
         RequestTypeId id,
-        string code,
         string name,
         RequestDirection direction,
         string? description = null,
@@ -33,18 +31,12 @@ public class RequestType
             throw new ArgumentException("Id cannot be empty.", nameof(id));
         }
 
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            throw new ArgumentException("Code is required.", nameof(code));
-        }
-
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("Name is required.", nameof(name));
         }
 
         Id = id;
-        Code = code.Trim();
         Name = name.Trim();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         Direction = direction;

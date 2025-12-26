@@ -55,7 +55,6 @@ public sealed class AdminRequestsDictionariesIntegrationTests : IClassFixture<Cu
         {
             Content = JsonContent.Create(new AdminRequestTypeCreateRequest
             {
-                Code = "TestType",
                 Name = "Тестовый тип",
                 Direction = "Incoming",
                 Description = "Created by integration test",

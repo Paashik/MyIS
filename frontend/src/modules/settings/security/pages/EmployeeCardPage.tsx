@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Form, Input, Typography, message } from "antd";
 import Switch from "antd/es/switch";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -48,6 +48,7 @@ export const EmployeeCardPage: React.FC = () => {
 
       form.setFieldsValue({
         fullName: found.fullName,
+        shortName: found.shortName ?? "",
         email: found.email ?? "",
         phone: found.phone ?? "",
         notes: found.notes ?? "",
@@ -64,7 +65,7 @@ export const EmployeeCardPage: React.FC = () => {
     if (mode === "create") {
       setEntity(null);
       form.resetFields();
-      form.setFieldsValue({ isActive: true });
+      form.setFieldsValue({ isActive: true, shortName: "" });
       return;
     }
 
@@ -131,7 +132,7 @@ export const EmployeeCardPage: React.FC = () => {
           <>
             {mode === "edit" && (
               <Button onClick={() => void onToggleActive()} disabled={!canEdit || loading}>
-                {entity?.isActive ? "Деактивировать" : "Активировать"}
+                {entity?.isActive ? t("settings.security.actions.deactivate") : t("settings.security.actions.activate")}
               </Button>
             )}
             <Button onClick={onCancel}>{t("common.actions.cancel")}</Button>
@@ -153,9 +154,16 @@ export const EmployeeCardPage: React.FC = () => {
           <Form.Item
             label={t("settings.security.employees.columns.fullName")}
             name="fullName"
-            rules={[{ required: true, message: "Введите ФИО" }]}
+            rules={[{ required: true, message: t("settings.security.employees.form.fullName.required") }]}
           >
             <Input />
+          </Form.Item>
+
+          <Form.Item
+            label={t("settings.security.employees.columns.shortName")}
+            name="shortName"
+          >
+            <Input disabled />
           </Form.Item>
 
           <Form.Item label="Email" name="email">
@@ -166,7 +174,7 @@ export const EmployeeCardPage: React.FC = () => {
             <Input />
           </Form.Item>
 
-          <Form.Item label="Примечания" name="notes">
+          <Form.Item label={t("settings.security.employees.fields.notes")} name="notes">
             <Input.TextArea rows={3} />
           </Form.Item>
 

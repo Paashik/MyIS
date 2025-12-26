@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Form, Spin, Typography } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+
 import {
   CreateRequestPayload,
   RequestDto,
@@ -25,13 +26,13 @@ type PageState =
   | { kind: "loaded" }
   | { kind: "error"; message: string };
 
+type RequestsDirectionSegment = "incoming" | "outgoing";
+
 export const RequestEditPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
   const location = useLocation();
-
-  type RequestsDirectionSegment = "incoming" | "outgoing";
 
   const returnContext = (() => {
     const sp = new URLSearchParams(location.search);
@@ -48,8 +49,6 @@ export const RequestEditPage: React.FC = () => {
     return { direction, type, onlyMine };
   })();
 
-  // Для create: направление берём из сегмента URL (/requests/{direction}/new)
-  // Для edit: направление нужно только для возврата в список/детали, поэтому берём из query (?direction=...)
   const direction: RequestsDirectionSegment = returnContext.direction;
 
   const typeKeyFromQuery = (() => {
@@ -62,8 +61,6 @@ export const RequestEditPage: React.FC = () => {
   const [request, setRequest] = useState<RequestDto | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [createContextError, setCreateContextError] = useState<string | null>(null);
-  const [fixedCreateTypeId, setFixedCreateTypeId] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -85,25 +82,6 @@ export const RequestEditPage: React.FC = () => {
           setRequest(existing as RequestDto);
         }
 
-        // new: тип берём из query (?type=...) и не даём создавать без выбранного типа
-        if (!isEdit) {
-          const expectedDirection = direction === "incoming" ? "Incoming" : "Outgoing";
-
-          if (!typeKeyFromQuery || typeKeyFromQuery === "all") {
-            setCreateContextError(t("requests.edit.createContext.selectType"));
-            setFixedCreateTypeId(null);
-          } else {
-            const found = types.find((x) => x.code === typeKeyFromQuery);
-            if (!found || found.direction !== expectedDirection) {
-              setCreateContextError(t("requests.edit.createContext.selectType"));
-              setFixedCreateTypeId(null);
-            } else {
-              setCreateContextError(null);
-              setFixedCreateTypeId(found.id);
-            }
-          }
-        }
-
         setState({ kind: "loaded" });
       } catch (error) {
         if (cancelled) return;
@@ -121,7 +99,18 @@ export const RequestEditPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [direction, id, isEdit, typeKeyFromQuery]);
+  }, [id, isEdit]);
+
+  const requestTypesForDirection = useMemo(() => {
+    const expected = direction === "incoming" ? "Incoming" : "Outgoing";
+    return requestTypes.filter((t) => t.direction === expected);
+  }, [direction, requestTypes]);
+
+  const preselectedTypeId = useMemo(() => {
+    if (!typeKeyFromQuery || typeKeyFromQuery === "all") return undefined;
+    const found = requestTypesForDirection.find((x) => x.id === typeKeyFromQuery);
+    return found ? found.id : undefined;
+  }, [requestTypesForDirection, typeKeyFromQuery]);
 
   const handleCancel = () => {
     if (isEdit && id) {
@@ -151,7 +140,11 @@ export const RequestEditPage: React.FC = () => {
           dueDate: values.dueDate,
           relatedEntityType: values.relatedEntityType,
           relatedEntityId: values.relatedEntityId,
+          relatedEntityName: values.relatedEntityName,
           externalReferenceId: values.externalReferenceId,
+          targetEntityType: values.targetEntityType,
+          targetEntityId: values.targetEntityId,
+          targetEntityName: values.targetEntityName,
         };
 
         const updated = await updateRequest(id, payload);
@@ -168,20 +161,23 @@ export const RequestEditPage: React.FC = () => {
           dueDate: values.dueDate,
           relatedEntityType: values.relatedEntityType,
           relatedEntityId: values.relatedEntityId,
+          relatedEntityName: values.relatedEntityName,
           externalReferenceId: values.externalReferenceId,
+          targetEntityType: values.targetEntityType,
+          targetEntityId: values.targetEntityId,
+          targetEntityName: values.targetEntityName,
         };
 
         const created = await createRequest(payload);
+        const typeParam = values.requestTypeId || "all";
         navigate(
-          `/requests/${encodeURIComponent(created.id)}?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(typeKeyFromQuery)}${returnContext.onlyMine ? "&onlyMine=1" : ""}`,
+          `/requests/${encodeURIComponent(created.id)}?direction=${encodeURIComponent(direction)}&type=${encodeURIComponent(typeParam)}${returnContext.onlyMine ? "&onlyMine=1" : ""}`,
           { replace: true }
         );
       }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : t("requests.edit.error.save");
-      // Не переводим страницу в "error" (иначе показывается заголовок про подготовку/загрузку формы).
-      // Ошибка сохранения должна отображаться поверх уже загруженной формы.
       setSaveError(message);
     } finally {
       setSubmitting(false);
@@ -230,24 +226,6 @@ export const RequestEditPage: React.FC = () => {
     );
   }
 
-  if (!isEdit && createContextError) {
-    return (
-      <div>
-        <Alert
-          data-testid="request-edit-create-context-error-alert"
-          type="error"
-          message={t("requests.edit.error.prepare.title")}
-          description={createContextError}
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-        <Button data-testid="request-edit-back-button" onClick={handleCancel}>
-          {t("common.actions.back")}
-        </Button>
-      </div>
-    );
-  }
-
   if (isEdit && !request) {
     return (
       <Alert
@@ -279,20 +257,28 @@ export const RequestEditPage: React.FC = () => {
           dueDate: request.dueDate ?? undefined,
           relatedEntityType: request.relatedEntityType ?? "",
           relatedEntityId: request.relatedEntityId ?? "",
+          relatedEntityName: request.relatedEntityName ?? "",
           externalReferenceId: request.externalReferenceId ?? "",
+          targetEntityType: request.targetEntityType ?? "",
+          targetEntityId: request.targetEntityId ?? "",
+          targetEntityName: request.targetEntityName ?? "",
         }
-      : fixedCreateTypeId
-        ? {
-            requestTypeId: fixedCreateTypeId,
-            title: "",
-            description: "",
-            lines: [],
-            dueDate: undefined,
-            relatedEntityType: "",
-            relatedEntityId: "",
-            externalReferenceId: "",
-          }
-        : undefined;
+      : {
+          requestTypeId: preselectedTypeId,
+          title: "",
+          description: "",
+          lines: [],
+          dueDate: undefined,
+          relatedEntityType: "",
+          relatedEntityId: "",
+          relatedEntityName: "",
+          externalReferenceId: "",
+          targetEntityType: "",
+          targetEntityId: "",
+          targetEntityName: "",
+        };
+
+  const requestTypesForForm = isEdit ? requestTypes : requestTypesForDirection;
 
   return (
     <div data-testid="request-edit-page">
@@ -333,10 +319,8 @@ export const RequestEditPage: React.FC = () => {
       <Card data-testid="request-edit-card">
         <RequestForm
           mode={isEdit ? "edit" : "create"}
-          requestTypeCode={request?.requestTypeCode}
           initialValues={initialValues}
-          requestTypes={requestTypes}
-          fixedRequestTypeId={!isEdit ? fixedCreateTypeId ?? undefined : undefined}
+          requestTypes={requestTypesForForm}
           form={form}
           showActions={false}
           submitting={submitting}

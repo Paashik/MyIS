@@ -133,9 +133,9 @@ export async function archiveAdminRequestStatus(id: string): Promise<void> {
 }
 
 export async function getAdminWorkflowTransitions(
-  typeCode: string
+  typeId: string
 ): Promise<AdminRequestWorkflowTransitionDto[]> {
-  const query = new URLSearchParams({ typeCode }).toString();
+  const query = new URLSearchParams({ typeId }).toString();
   return httpRequest<AdminRequestWorkflowTransitionDto[]>(
     `/api/admin/requests/workflow/transitions?${query}`,
     {

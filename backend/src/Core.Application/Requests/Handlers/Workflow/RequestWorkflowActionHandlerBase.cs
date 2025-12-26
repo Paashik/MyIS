@@ -1,9 +1,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MyIS.Core.Application.Common;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Workflow;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
 using MyIS.Core.Domain.Mdm.ValueObjects;
@@ -17,19 +19,22 @@ public abstract class RequestWorkflowActionHandlerBase
     protected readonly IRequestStatusRepository RequestStatusRepository;
     protected readonly IRequestTransitionRepository TransitionRepository;
     protected readonly IRequestsAccessChecker AccessChecker;
+    protected readonly IUserRepository UserRepository;
 
     protected RequestWorkflowActionHandlerBase(
         IRequestRepository requestRepository,
         IRequestTypeRepository requestTypeRepository,
         IRequestStatusRepository requestStatusRepository,
         IRequestTransitionRepository transitionRepository,
-        IRequestsAccessChecker accessChecker)
+        IRequestsAccessChecker accessChecker,
+        IUserRepository userRepository)
     {
         RequestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
         RequestTypeRepository = requestTypeRepository ?? throw new ArgumentNullException(nameof(requestTypeRepository));
         RequestStatusRepository = requestStatusRepository ?? throw new ArgumentNullException(nameof(requestStatusRepository));
         TransitionRepository = transitionRepository ?? throw new ArgumentNullException(nameof(transitionRepository));
         AccessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
+        UserRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
     }
 
     protected async Task<RequestDto> ExecuteAsync(
@@ -72,7 +77,7 @@ public abstract class RequestWorkflowActionHandlerBase
         if (transition is null)
         {
             throw new InvalidOperationException(
-                $"Transition is not allowed. Type='{requestType.Code}', From='{currentStatus.Code.Value}', Action='{actionCode}'.");
+                $"Transition is not allowed. TypeId='{requestType.Id.Value}', From='{currentStatus.Code.Value}', Action='{actionCode}'.");
         }
 
         // Права
@@ -82,7 +87,7 @@ public abstract class RequestWorkflowActionHandlerBase
         if (string.Equals(currentStatus.Code.Value, RequestStatusCode.Draft.Value, StringComparison.OrdinalIgnoreCase)
             && string.Equals(actionCode, RequestActionCodes.Submit, StringComparison.OrdinalIgnoreCase))
         {
-            request.EnsureBodyIsValidForSubmit(requestType.Code);
+            request.EnsureBodyIsValidForSubmit(requestType.Id);
         }
 
         // Целевой статус
@@ -103,6 +108,10 @@ public abstract class RequestWorkflowActionHandlerBase
 
         await RequestRepository.UpdateAsync(request, cancellationToken);
 
+        var initiator = await UserRepository.GetByIdAsync(request.InitiatorId, cancellationToken);
+        var initiatorBaseName = initiator?.Employee?.ShortName ?? initiator?.Employee?.FullName ?? initiator?.FullName ?? initiator?.Login;
+        var initiatorFullName = PersonNameFormatter.ToShortName(initiatorBaseName) ?? initiatorBaseName;
+
         return new RequestDto
         {
             Id = request.Id.Value,
@@ -110,16 +119,19 @@ public abstract class RequestWorkflowActionHandlerBase
             Description = request.Description,
             BodyText = request.Description,
             RequestTypeId = requestType.Id.Value,
-            RequestTypeCode = requestType.Code,
             RequestTypeName = requestType.Name,
             RequestStatusId = targetStatus.Id.Value,
             RequestStatusCode = targetStatus.Code.Value,
             RequestStatusName = targetStatus.Name,
             InitiatorId = request.InitiatorId,
-            InitiatorFullName = null,
+            InitiatorFullName = initiatorFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
+            RelatedEntityName = request.RelatedEntityName,
             ExternalReferenceId = request.ExternalReferenceId,
+            TargetEntityType = request.TargetEntityType,
+            TargetEntityId = request.TargetEntityId,
+            TargetEntityName = request.TargetEntityName,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
             DueDate = request.DueDate,

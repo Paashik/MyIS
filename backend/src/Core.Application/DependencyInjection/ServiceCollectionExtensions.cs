@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         // Requests — команды
         services.AddScoped<CreateRequestHandler>();
         services.AddScoped<UpdateRequestHandler>();
+        services.AddScoped<DeleteRequestHandler>();
         services.AddScoped<AddRequestCommentHandler>();
 
         // Requests — workflow actions

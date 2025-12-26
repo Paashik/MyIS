@@ -1,9 +1,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MyIS.Core.Application.Common;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Queries;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
 using MyIS.Core.Domain.Mdm.ValueObjects;
@@ -16,17 +18,20 @@ public class GetRequestByIdHandler
     private readonly IRequestTypeRepository _requestTypeRepository;
     private readonly IRequestStatusRepository _requestStatusRepository;
     private readonly IRequestsAccessChecker _accessChecker;
+    private readonly IUserRepository _userRepository;
 
     public GetRequestByIdHandler(
         IRequestRepository requestRepository,
         IRequestTypeRepository requestTypeRepository,
         IRequestStatusRepository requestStatusRepository,
-        IRequestsAccessChecker accessChecker)
+        IRequestsAccessChecker accessChecker,
+        IUserRepository userRepository)
     {
         _requestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
         _requestTypeRepository = requestTypeRepository ?? throw new ArgumentNullException(nameof(requestTypeRepository));
         _requestStatusRepository = requestStatusRepository ?? throw new ArgumentNullException(nameof(requestStatusRepository));
         _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
     }
 
     public async Task<GetRequestByIdResult> Handle(
@@ -69,7 +74,11 @@ public class GetRequestByIdHandler
         }
 
         // 4. Маппинг в DTO
-        var dto = MapToDto(request, requestType, status, initiatorFullName: null);
+        var initiator = await _userRepository.GetByIdAsync(request.InitiatorId, cancellationToken);
+        var initiatorBaseName = initiator?.Employee?.ShortName ?? initiator?.Employee?.FullName ?? initiator?.FullName ?? initiator?.Login;
+        var initiatorFullName = PersonNameFormatter.ToShortName(initiatorBaseName) ?? initiatorBaseName;
+
+        var dto = MapToDto(request, requestType, status, initiatorFullName);
 
         return new GetRequestByIdResult(dto);
     }
@@ -87,7 +96,6 @@ public class GetRequestByIdHandler
             Description = request.Description,
             BodyText = request.Description,
             RequestTypeId = requestType.Id.Value,
-            RequestTypeCode = requestType.Code,
             RequestTypeName = requestType.Name,
             RequestStatusId = status.Id.Value,
             RequestStatusCode = status.Code.Value,
@@ -96,7 +104,11 @@ public class GetRequestByIdHandler
             InitiatorFullName = initiatorFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
+            RelatedEntityName = request.RelatedEntityName,
             ExternalReferenceId = request.ExternalReferenceId,
+            TargetEntityType = request.TargetEntityType,
+            TargetEntityId = request.TargetEntityId,
+            TargetEntityName = request.TargetEntityName,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
             DueDate = request.DueDate,

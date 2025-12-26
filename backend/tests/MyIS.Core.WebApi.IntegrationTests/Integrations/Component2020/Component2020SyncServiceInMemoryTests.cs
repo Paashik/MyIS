@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using MyIS.Core.Application.Auth;
 using MyIS.Core.Application.Integration.Component2020.Commands;
 using MyIS.Core.Application.Integration.Component2020.Services;
 using MyIS.Core.Infrastructure.Data;
@@ -73,6 +74,27 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         public Task<IEnumerable<Component2020Symbol>> ReadSymbolsDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken) =>
             Task.FromResult(Enumerable.Empty<Component2020Symbol>());
+
+        public Task<IEnumerable<Component2020Person>> ReadPersonsDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken) =>
+            Task.FromResult(Enumerable.Empty<Component2020Person>());
+
+        public Task<IEnumerable<Component2020User>> ReadUsersDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken) =>
+            Task.FromResult(Enumerable.Empty<Component2020User>());
+
+        public Task<IEnumerable<Component2020Role>> ReadRolesAsync(Guid connectionId, CancellationToken cancellationToken) =>
+            Task.FromResult(Enumerable.Empty<Component2020Role>());
+
+        public Task<IEnumerable<Component2020CustomerOrder>> ReadCustomerOrdersDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken) =>
+            Task.FromResult(Enumerable.Empty<Component2020CustomerOrder>());
+
+        public Task<IEnumerable<Component2020Status>> ReadStatusesDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken) =>
+            Task.FromResult(Enumerable.Empty<Component2020Status>());
+    }
+
+    private sealed class FakePasswordHasher : IPasswordHasher
+    {
+        public string HashPassword(string password) => $"hash:{password}";
+        public bool VerifyHashedPassword(string hash, string password) => hash == $"hash:{password}";
     }
 
     private static AppDbContext CreateDbContext()
@@ -83,6 +105,8 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         return new AppDbContext(options);
     }
+
+    private static readonly IPasswordHasher PasswordHasher = new FakePasswordHasher();
 
     [Fact]
     public async Task RunSyncAsync_Suppliers_InsertsAndUpdatesCursor()
@@ -104,7 +128,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -177,7 +202,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -213,7 +239,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -244,7 +271,7 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var deltaReader = new FakeDeltaReader(new[]
         {
-            new Component2020Unit { Id = 1, Name = "Штуки", Symbol = "Шт.", Code = "796" }
+            new Component2020Unit { Id = 1, Name = "РЁС‚СѓРєРё", Symbol = "РЁС‚.", Code = "796" }
         }, Array.Empty<Component2020Supplier>());
 
         var cursorRepository = new Component2020SyncCursorRepository(db);
@@ -254,7 +281,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -269,8 +297,8 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var unit = await db.UnitOfMeasures.SingleAsync();
         unit.Code.Should().Be("796");
-        unit.Name.Should().Be("Штуки");
-        unit.Symbol.Should().Be("Шт.");
+        unit.Name.Should().Be("РЁС‚СѓРєРё");
+        unit.Symbol.Should().Be("РЁС‚.");
         var link = await db.ExternalEntityLinks.SingleAsync(l => l.EntityType == nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure) && l.EntityId == unit.Id);
         link.ExternalSystem.Should().Be("Component2020");
         link.ExternalEntity.Should().Be("Unit");
@@ -288,12 +316,12 @@ public sealed class Component2020SyncServiceInMemoryTests
         var connectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
         // Legacy record without external linkage
-        db.UnitOfMeasures.Add(new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("1", "Штуки", "Шт."));
+        db.UnitOfMeasures.Add(new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("1", "РЁС‚СѓРєРё", "РЁС‚."));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(new[]
         {
-            new Component2020Unit { Id = 1, Name = "Штуки", Symbol = "Шт.", Code = "796" }
+            new Component2020Unit { Id = 1, Name = "РЁС‚СѓРєРё", Symbol = "РЁС‚.", Code = "796" }
         }, Array.Empty<Component2020Supplier>());
 
         var cursorRepository = new Component2020SyncCursorRepository(db);
@@ -303,7 +331,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -318,8 +347,8 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var unit = await db.UnitOfMeasures.SingleAsync();
         unit.Code.Should().Be("796");
-        unit.Name.Should().Be("Штуки");
-        unit.Symbol.Should().Be("Шт.");
+        unit.Name.Should().Be("РЁС‚СѓРєРё");
+        unit.Symbol.Should().Be("РЁС‚.");
         var link = await db.ExternalEntityLinks.SingleAsync(l => l.EntityType == nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure) && l.EntityId == unit.Id);
         link.ExternalSystem.Should().Be("Component2020");
         link.ExternalEntity.Should().Be("Unit");
@@ -333,12 +362,12 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var connectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        db.UnitOfMeasures.Add(new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure(null, "Метр", "м"));
+        db.UnitOfMeasures.Add(new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure(null, "РњРµС‚СЂ", "Рј"));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(new[]
         {
-            new Component2020Unit { Id = 3, Name = "Метр", Symbol = "м", Code = null }
+            new Component2020Unit { Id = 3, Name = "РњРµС‚СЂ", Symbol = "Рј", Code = null }
         }, Array.Empty<Component2020Supplier>());
 
         var cursorRepository = new Component2020SyncCursorRepository(db);
@@ -348,7 +377,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -362,8 +392,8 @@ public sealed class Component2020SyncServiceInMemoryTests
         response.ProcessedCount.Should().Be(1);
 
         var unit = await db.UnitOfMeasures.SingleAsync();
-        unit.Name.Should().Be("Метр");
-        unit.Symbol.Should().Be("м");
+        unit.Name.Should().Be("РњРµС‚СЂ");
+        unit.Symbol.Should().Be("Рј");
         unit.Code.Should().BeNull();
     }
 
@@ -374,20 +404,20 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var connectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        var keep = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("796", "Штуки", "шт.");
+        var keep = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("796", "РЁС‚СѓРєРё", "С€С‚.");
         db.UnitOfMeasures.Add(keep);
 
-        var toDelete = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("999", "Лишняя", "лш");
+        var toDelete = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("999", "Р›РёС€РЅСЏСЏ", "Р»С€");
         db.UnitOfMeasures.Add(toDelete);
 
-        db.UnitOfMeasures.Add(new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure(null, "Локальная", "лок"));
+        db.UnitOfMeasures.Add(new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure(null, "Р›РѕРєР°Р»СЊРЅР°СЏ", "Р»РѕРє"));
         db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), keep.Id, "Component2020", "Unit", "1", null, DateTimeOffset.UtcNow));
         db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), toDelete.Id, "Component2020", "Unit", "2", null, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(new[]
         {
-            new Component2020Unit { Id = 1, Name = "Штуки", Symbol = "шт.", Code = "796" }
+            new Component2020Unit { Id = 1, Name = "РЁС‚СѓРєРё", Symbol = "С€С‚.", Code = "796" }
         }, Array.Empty<Component2020Supplier>());
 
         var cursorRepository = new Component2020SyncCursorRepository(db);
@@ -397,7 +427,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -412,7 +443,7 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var units = await db.UnitOfMeasures.OrderBy(u => u.Name).ToListAsync();
         units.Should().HaveCount(2);
-        units.Select(u => u.Name).Should().Contain(new[] { "Штуки", "Локальная" });
+        units.Select(u => u.Name).Should().Contain(new[] { "РЁС‚СѓРєРё", "Р›РѕРєР°Р»СЊРЅР°СЏ" });
     }
 
     [Fact]
@@ -422,21 +453,21 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         var connectionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        var keep = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("796", "Штуки", "шт.");
+        var keep = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("796", "РЁС‚СѓРєРё", "С€С‚.");
         db.UnitOfMeasures.Add(keep);
 
-        var referenced = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("999", "Нельзя удалить", "н/у");
+        var referenced = new MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure("999", "РќРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ", "РЅ/Сѓ");
         db.UnitOfMeasures.Add(referenced);
         db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), keep.Id, "Component2020", "Unit", "1", null, DateTimeOffset.UtcNow));
         db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), referenced.Id, "Component2020", "Unit", "2", null, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
 
-        db.Items.Add(new MyIS.Core.Domain.Mdm.Entities.Item("X1", "X1", "Деталь", MyIS.Core.Domain.Mdm.Entities.ItemKind.Component, referenced.Id));
+        db.Items.Add(new MyIS.Core.Domain.Mdm.Entities.Item("X1", "X1", "Р”РµС‚Р°Р»СЊ", MyIS.Core.Domain.Mdm.Entities.ItemKind.Component, referenced.Id));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(new[]
         {
-            new Component2020Unit { Id = 1, Name = "Штуки", Symbol = "шт.", Code = "796" }
+            new Component2020Unit { Id = 1, Name = "РЁС‚СѓРєРё", Symbol = "С€С‚.", Code = "796" }
         }, Array.Empty<Component2020Supplier>());
 
         var cursorRepository = new Component2020SyncCursorRepository(db);
@@ -446,7 +477,8 @@ public sealed class Component2020SyncServiceInMemoryTests
             new FakeSnapshotReader(),
             deltaReader,
             cursorRepository,
-            NullLogger<Component2020SyncService>.Instance);
+            NullLogger<Component2020SyncService>.Instance,
+            PasswordHasher);
 
         var response = await service.RunSyncAsync(new RunComponent2020SyncCommand
         {
@@ -460,10 +492,11 @@ public sealed class Component2020SyncServiceInMemoryTests
         response.Status.Should().Be("Partial");
 
         var unitNames = await db.UnitOfMeasures.Select(u => u.Name).ToListAsync();
-        unitNames.Should().Contain("Нельзя удалить");
+        unitNames.Should().Contain("РќРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ");
 
         (await db.Component2020SyncErrors.AnyAsync(e => e.EntityType == "UnitOfMeasure"))
             .Should()
             .BeTrue();
     }
 }
+

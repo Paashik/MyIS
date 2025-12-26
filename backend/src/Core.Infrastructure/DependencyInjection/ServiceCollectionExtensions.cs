@@ -1,12 +1,15 @@
 using Microsoft.Extensions.DependencyInjection;
 using MyIS.Core.Application.Auth;
+using MyIS.Core.Application.Customers.Queries;
 using MyIS.Core.Application.Integration.Component2020.Abstractions;
 using MyIS.Core.Application.Integration.Component2020.Services;
 using MyIS.Core.Application.Mdm.Abstractions;
 using MyIS.Core.Application.Mdm.References;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Security.Abstractions;
+using MyIS.Core.Application.Statuses;
 using MyIS.Core.Infrastructure.Auth;
+using MyIS.Core.Infrastructure.Customers.Services;
 using MyIS.Core.Infrastructure.Integration.Component2020.Repositories;
 using MyIS.Core.Infrastructure.Integration.Component2020.Services;
 using MyIS.Core.Infrastructure.Mdm.Repositories;
@@ -14,6 +17,7 @@ using MyIS.Core.Infrastructure.Mdm.Services;
 using MyIS.Core.Infrastructure.Requests.Access;
 using MyIS.Core.Infrastructure.Requests.Repositories;
 using MyIS.Core.Infrastructure.Security.Repositories;
+using MyIS.Core.Infrastructure.Statuses;
  
 namespace MyIS.Core.Infrastructure.DependencyInjection;
  
@@ -49,6 +53,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IParameterSetRepository, ParameterSetRepository>();
         services.AddScoped<ISymbolRepository, SymbolRepository>();
         services.AddScoped<IMdmReferencesQueryService, MdmReferencesQueryService>();
+        services.AddScoped<IStatusDictionaryService, StatusDictionaryService>();
+
+        // Customers
+        services.AddScoped<ICustomerOrdersQueryService, CustomerOrdersQueryService>();
 
         // Integration.Component2020
         services.AddScoped<IComponent2020ConnectionProvider, Component2020ConnectionProvider>();

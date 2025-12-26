@@ -22,14 +22,6 @@ public class RequestTypeConfiguration : IEntityTypeConfiguration<RequestType>
                 id => id.Value,
                 value => new RequestTypeId(value));
 
-        builder.Property(t => t.Code)
-            .HasColumnName("code")
-            .IsRequired()
-            .HasColumnType("text");
-
-        builder.HasIndex(t => t.Code)
-            .IsUnique();
-
         builder.Property(t => t.Name)
             .HasColumnName("name")
             .IsRequired()

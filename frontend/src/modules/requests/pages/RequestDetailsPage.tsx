@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Button, Descriptions, Divider, Result, Spin, Table, Tabs, Typography } from "antd";
+import { Alert, Button, Descriptions, Divider, Modal, Result, Spin, Table, Tabs, Typography } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   RequestCommentDto,
@@ -8,6 +8,7 @@ import {
 } from "../api/types";
 import {
   addRequestComment,
+  deleteRequest,
   getRequest,
   getRequestComments,
   getRequestHistory,
@@ -197,6 +198,25 @@ export const RequestDetailsPage: React.FC = () => {
     }
   };
 
+  const handleDelete = () => {
+    if (!id) return;
+    Modal.confirm({
+      title: 'Удалить заявку?',
+      content: 'Это действие нельзя отменить.',
+      okText: 'Удалить',
+      okType: 'danger',
+      cancelText: 'Отмена',
+      onOk: async () => {
+        try {
+          await deleteRequest(id);
+          navigate('/requests/journal');
+        } catch (error) {
+          // Handle error
+        }
+      },
+    });
+  };
+
   if (state.kind === "notFound") {
     return (
       <Result
@@ -265,7 +285,7 @@ export const RequestDetailsPage: React.FC = () => {
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <Title level={3} style={{ margin: 0 }}>
-                {request.requestTypeCode}{" "}
+                {request.requestTypeName}{" "}
                 <Text type="secondary" style={{ fontSize: 14 }}>
                   <Text code>{request.id}</Text>
                 </Text>
@@ -280,6 +300,15 @@ export const RequestDetailsPage: React.FC = () => {
         }
         right={
           <>
+            {canEdit && (
+              <Button
+                data-testid="request-details-delete-button"
+                danger
+                onClick={handleDelete}
+              >
+                Удалить
+              </Button>
+            )}
             {canEdit && (
               <Button
                 data-testid="request-details-edit-button"
@@ -302,7 +331,7 @@ export const RequestDetailsPage: React.FC = () => {
             <Text code>{request.id}</Text>
           </Descriptions.Item>
           <Descriptions.Item label={t("requests.details.fields.type")}>
-            <Text strong>{request.requestTypeCode}</Text> {request.requestTypeName}
+            <Text strong>{request.requestTypeName}</Text>
           </Descriptions.Item>
           <Descriptions.Item label={t("requests.details.fields.status")}>
             <RequestStatusBadge
@@ -312,6 +341,16 @@ export const RequestDetailsPage: React.FC = () => {
           </Descriptions.Item>
           <Descriptions.Item label={t("requests.details.fields.initiator")}>
             {request.initiatorFullName || request.initiatorId}
+          </Descriptions.Item>
+          <Descriptions.Item label={t("requests.details.fields.target")}>
+            {request.targetEntityName || (
+              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label={t("requests.details.fields.basis")}>
+            {request.relatedEntityName || (
+              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
+            )}
           </Descriptions.Item>
           <Descriptions.Item label={t("requests.details.fields.createdAt")}>
             {createdAt.toLocaleDateString()} {createdAt.toLocaleTimeString()}
@@ -352,7 +391,7 @@ export const RequestDetailsPage: React.FC = () => {
             children: (
               <RequestBodyRenderer
                 mode="details"
-                requestTypeCode={request.requestTypeCode}
+                requestTypeId={request.requestTypeId}
                 request={request}
               />
             ),
@@ -368,7 +407,7 @@ export const RequestDetailsPage: React.FC = () => {
                   size="small"
                   pagination={false}
                   columns={[
-                    { title: "#", dataIndex: "lineNo", key: "lineNo", width: 60 },
+                    { title: "#", dataIndex: "lineNo", key: "lineNo" },
                     {
                       title: t("requests.supply.lines.columns.description"),
                       dataIndex: "description",
@@ -380,13 +419,11 @@ export const RequestDetailsPage: React.FC = () => {
                       title: t("requests.supply.lines.columns.quantity"),
                       dataIndex: "quantity",
                       key: "quantity",
-                      width: 120,
                     },
                     {
                       title: t("requests.supply.lines.columns.needByDate"),
                       dataIndex: "needByDate",
                       key: "needByDate",
-                      width: 180,
                       render: (value?: string | null) => {
                         if (!value) return <Text type="secondary">{t("requests.details.value.notSet")}</Text>;
                         const date = new Date(value);
@@ -397,13 +434,11 @@ export const RequestDetailsPage: React.FC = () => {
                       title: t("requests.supply.lines.columns.supplierName"),
                       dataIndex: "supplierName",
                       key: "supplierName",
-                      width: 220,
                     },
                     {
                       title: t("requests.supply.lines.columns.supplierContact"),
                       dataIndex: "supplierContact",
                       key: "supplierContact",
-                      width: 220,
                     },
                   ] as any}
                   dataSource={request.lines ?? []}

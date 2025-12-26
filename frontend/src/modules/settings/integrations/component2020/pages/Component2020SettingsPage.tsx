@@ -264,7 +264,6 @@ export const Component2020SettingsPage: React.FC = () => {
         title: t("settings.integrations.component2020.connection.mdbPicker.columns.size"),
         dataIndex: "sizeBytes",
         key: "sizeBytes",
-        width: 120,
         render: (v?: number | null, r?: Component2020FsEntryDto) => {
           if (!r || r.isDirectory) return "-";
           const bytes = v ?? 0;
@@ -276,13 +275,11 @@ export const Component2020SettingsPage: React.FC = () => {
         title: t("settings.integrations.component2020.connection.mdbPicker.columns.modified"),
         dataIndex: "lastWriteTimeUtc",
         key: "lastWriteTimeUtc",
-        width: 200,
         render: (v?: string | null) => (v ? new Date(v).toLocaleString() : "-"),
       },
       {
         title: t("settings.integrations.component2020.connection.mdbPicker.columns.actions"),
         key: "actions",
-        width: 110,
         render: (_: unknown, r: Component2020FsEntryDto) => {
           if (r.isDirectory) {
             return (
@@ -579,6 +576,10 @@ export const Component2020SettingsPage: React.FC = () => {
                 { value: "TechnicalParameters", label: t("settings.integrations.component2020.sync.scope.option.TechnicalParameters") },
                 { value: "ParameterSets", label: t("settings.integrations.component2020.sync.scope.option.ParameterSets") },
                 { value: "Symbols", label: t("settings.integrations.component2020.sync.scope.option.Symbols") },
+                { value: "Employees", label: t("settings.integrations.component2020.sync.scope.option.Employees") },
+                { value: "Users", label: t("settings.integrations.component2020.sync.scope.option.Users") },
+                { value: "CustomerOrders", label: t("settings.integrations.component2020.sync.scope.option.CustomerOrders") },
+                { value: "Statuses", label: t("settings.integrations.component2020.sync.scope.option.Statuses") },
                 { value: "All", label: t("settings.integrations.component2020.sync.scope.option.All") },
               ]}
               data-testid="component2020-sync-scope"
@@ -635,6 +636,9 @@ export const Component2020SettingsPage: React.FC = () => {
           </Button>
           <Button onClick={() => navigate("/references/mdm/symbols")}>
             {t("references.mdm.symbols.title")}
+          </Button>
+          <Button onClick={() => navigate("/references/mdm/statuses")}>
+            {t("references.statuses.title")}
           </Button>
         </Space>
       </Card>

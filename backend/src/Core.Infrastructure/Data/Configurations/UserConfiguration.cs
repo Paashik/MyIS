@@ -51,7 +51,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(u => u.EmployeeId)
-            .IsUnique()
             .HasFilter("\"employee_id\" IS NOT NULL");
 
         builder.Property(u => u.CreatedAt)

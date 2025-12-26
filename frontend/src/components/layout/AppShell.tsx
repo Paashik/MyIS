@@ -62,15 +62,15 @@ const AppShell: React.FC = () => {
   const selectedKey = useMemo(() => {
     if (location.pathname.startsWith("/requests")) {
       const sp = new URLSearchParams(location.search);
-      const onlyMine = (sp.get("onlyMine") || "").trim().toLowerCase();
-      if (onlyMine === "1" || onlyMine === "true") return "/requests/my";
-      return "/requests/journal";
+      const direction = sp.get("direction");
+      if (direction === "outgoing") return "/requests/outgoing";
+      return "/requests/incoming";
     }
 
     if (location.pathname.startsWith("/references/requests/types"))
       return "/references/requests/types";
     if (location.pathname.startsWith("/references/requests/statuses"))
-      return "/references/requests/statuses";
+      return "/references/mdm/statuses";
     if (location.pathname.startsWith("/references/mdm/")) {
       const parts = location.pathname.split("/").filter(Boolean);
       const dict = parts.length >= 3 ? parts[2] : "";
@@ -140,8 +140,8 @@ const AppShell: React.FC = () => {
         icon: <DatabaseOutlined />,
         label: t("nav.requests"),
         children: [
-          { key: "/requests/journal", label: t("nav.requests.journal") },
-          { key: "/requests/my", label: t("nav.requests.my") },
+          { key: "/requests/incoming", label: t("nav.requests.incoming") },
+          { key: "/requests/outgoing", label: t("nav.requests.outgoing") },
         ],
       },
       { key: "/customers", icon: <TeamOutlined />, label: t("nav.customers") },
@@ -172,7 +172,6 @@ const AppShell: React.FC = () => {
         label: t("nav.references"),
         children: [
           { key: "/references/requests/types", label: t("nav.references.requests.types") },
-          { key: "/references/requests/statuses", label: t("nav.references.requests.statuses") },
           { type: "divider" },
           { key: "/references/mdm/units", label: t("references.mdm.units.title") },
           { key: "/references/mdm/counterparties", label: t("references.mdm.counterparties.title") },
@@ -184,6 +183,7 @@ const AppShell: React.FC = () => {
           { key: "/references/mdm/technical-parameters", label: t("references.mdm.technicalParameters.title") },
           { key: "/references/mdm/parameter-sets", label: t("references.mdm.parameterSets.title") },
           { key: "/references/mdm/symbols", label: t("references.mdm.symbols.title") },
+          { key: "/references/mdm/statuses", label: t("references.statuses.title") },
           { key: "/references/mdm/external-links", label: t("references.mdm.externalLinks.title") },
         ],
       });
@@ -225,12 +225,12 @@ const AppShell: React.FC = () => {
       navigate("/requests/journal?direction=incoming&type=all");
       return;
     }
-    if (path === "/requests/journal") {
+    if (path === "/requests/incoming") {
       navigate("/requests/journal?direction=incoming&type=all");
       return;
     }
-    if (path === "/requests/my") {
-      navigate("/requests/journal?direction=incoming&type=all&onlyMine=1");
+    if (path === "/requests/outgoing") {
+      navigate("/requests/journal?direction=outgoing&type=all");
       return;
     }
 
@@ -312,7 +312,7 @@ const AppShell: React.FC = () => {
             <Input.Search
               placeholder={t("nav.search.placeholder")}
               allowClear
-              style={{ width: 360, maxWidth: "40vw" }}
+              style={{ width: 360, maxWidth: "40vw", marginTop: 8 }}
               onSearch={() => {
                 // Global search is not implemented yet.
               }}

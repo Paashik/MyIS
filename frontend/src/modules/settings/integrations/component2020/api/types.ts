@@ -76,6 +76,10 @@ export enum Component2020SyncScope {
   TechnicalParameters = 'TechnicalParameters',
   ParameterSets = 'ParameterSets',
   Symbols = 'Symbols',
+  Employees = 'Employees',
+  Users = 'Users',
+  CustomerOrders = 'CustomerOrders',
+  Statuses = 'Statuses',
   All = 'All'
 }
 

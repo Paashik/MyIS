@@ -12,6 +12,8 @@ public interface IUserRepository
 
     Task<User?> GetByLoginAsync(string login, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<User>> SearchAsync(string? search, bool? isActive, CancellationToken cancellationToken);
 
     Task<bool> ExistsByLoginAsync(string login, CancellationToken cancellationToken);

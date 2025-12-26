@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Form, Input, Select, Typography, message } from "antd";
 import Switch from "antd/es/switch";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -52,7 +52,6 @@ export const RequestTypeCardPage: React.FC = () => {
       }
 
       form.setFieldsValue({
-        code: found.code,
         name: found.name,
         description: found.description ?? "",
         direction: found.direction,
@@ -85,7 +84,6 @@ export const RequestTypeCardPage: React.FC = () => {
     try {
       if (mode === "create") {
         const payload: CreateAdminRequestTypePayload = {
-          code: values.code,
           name: values.name,
           description: values.description,
           direction: values.direction as RequestDirection,
@@ -132,7 +130,7 @@ export const RequestTypeCardPage: React.FC = () => {
           <>
             {mode === "edit" && (
               <Button danger onClick={() => void onArchive()} disabled={!canEdit || !entity?.isActive}>
-                Архивировать
+                {t("common.actions.archive")}
               </Button>
             )}
             <Button onClick={onCancel}>{t("common.actions.cancel")}</Button>
@@ -157,17 +155,9 @@ export const RequestTypeCardPage: React.FC = () => {
       <Card>
         <Form form={form} layout="vertical" disabled={!canEdit}>
           <Form.Item
-            label={t("settings.requests.form.code")}
-            name="code"
-            rules={[{ required: true, message: "Введите код" }]}
-          >
-            <Input disabled={mode === "edit"} />
-          </Form.Item>
-
-          <Form.Item
             label={t("settings.requests.form.name")}
             name="name"
-            rules={[{ required: true, message: "Введите название" }]}
+            rules={[{ required: true, message: t("settings.requests.form.name.required") }]}
           >
             <Input />
           </Form.Item>
@@ -175,12 +165,12 @@ export const RequestTypeCardPage: React.FC = () => {
           <Form.Item
             label={t("settings.requests.form.direction")}
             name="direction"
-            rules={[{ required: true, message: "Выберите направление" }]}
+            rules={[{ required: true, message: t("settings.requests.form.direction.required") }]}
           >
             <Select
               options={[
-                { value: "Incoming", label: "Incoming" },
-                { value: "Outgoing", label: "Outgoing" },
+                { value: "Incoming", label: t("settings.requests.types.direction.incoming") },
+                { value: "Outgoing", label: t("settings.requests.types.direction.outgoing") },
               ]}
             />
           </Form.Item>

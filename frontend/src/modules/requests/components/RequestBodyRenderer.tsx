@@ -9,7 +9,7 @@ export type RequestBodyRendererMode = "details" | "edit";
 
 export interface RequestBodyRendererProps {
   mode: RequestBodyRendererMode;
-  requestTypeCode?: string | null;
+  requestTypeId?: string | null;
   request?: RequestDto;
   form?: FormInstance;
   editMode?: "create" | "edit";
@@ -17,12 +17,12 @@ export interface RequestBodyRendererProps {
 
 export const RequestBodyRenderer: React.FC<RequestBodyRendererProps> = ({
   mode,
-  requestTypeCode,
+  requestTypeId,
   request,
   form,
   editMode,
 }) => {
-  const profile = getRequestTypeProfile(requestTypeCode);
+  const profile = getRequestTypeProfile(requestTypeId);
 
   if (mode === "details") {
     if (!request) return null;
@@ -35,7 +35,7 @@ export const RequestBodyRenderer: React.FC<RequestBodyRendererProps> = ({
     <>
       {profile.renderEdit({
         form,
-        requestTypeCode: requestTypeCode ?? profile.code,
+        requestTypeId: requestTypeId ?? profile.id,
         mode: editMode ?? "create",
       })}
     </>

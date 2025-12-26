@@ -29,11 +29,10 @@ public class UpdateRequestHandlerTests
             _accessCheckerMock.Object);
     }
 
-    private static RequestType CreateRequestType(Guid? id = null, string code = "TYPE1", string name = "Type 1")
+    private static RequestType CreateRequestType(Guid? id = null, string name = "Type 1")
     {
         return new RequestType(
             new RequestTypeId(id ?? Guid.NewGuid()),
-            code,
             name,
             RequestDirection.Incoming,
             description: "Test type");
@@ -149,7 +148,6 @@ public class UpdateRequestHandlerTests
         dto.Title.Should().Be(savedRequest.Title);
         dto.Description.Should().Be(savedRequest.Description);
         dto.RequestTypeId.Should().Be(type.Id.Value);
-        dto.RequestTypeCode.Should().Be(type.Code);
         dto.RequestTypeName.Should().Be(type.Name);
         dto.RequestStatusId.Should().Be(status.Id.Value);
         dto.RequestStatusCode.Should().Be(status.Code.Value);

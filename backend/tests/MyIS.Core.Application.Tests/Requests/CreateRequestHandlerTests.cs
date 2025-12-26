@@ -29,11 +29,10 @@ public class CreateRequestHandlerTests
             _accessCheckerMock.Object);
     }
 
-    private static RequestType CreateRequestType(Guid? id = null, string code = "TYPE1", string name = "Type 1")
+    private static RequestType CreateRequestType(Guid? id = null, string name = "Type 1")
     {
         return new RequestType(
             new RequestTypeId(id ?? Guid.NewGuid()),
-            code,
             name,
             RequestDirection.Incoming,
             description: "Test type");
@@ -58,7 +57,7 @@ public class CreateRequestHandlerTests
         var requestTypeId = Guid.NewGuid();
         var initiatorId = Guid.NewGuid();
 
-        var type = CreateRequestType(requestTypeId, code: "REQ", name: "Request");
+        var type = CreateRequestType(requestTypeId, name: "Request");
         var draftStatus = CreateStatus(RequestStatusCode.Draft, "Draft", isFinal: false);
 
         _requestTypeRepositoryMock
@@ -113,7 +112,6 @@ public class CreateRequestHandlerTests
         dto.Title.Should().Be(command.Title);
         dto.Description.Should().Be(command.Description);
         dto.RequestTypeId.Should().Be(type.Id.Value);
-        dto.RequestTypeCode.Should().Be(type.Code);
         dto.RequestTypeName.Should().Be(type.Name);
         dto.RequestStatusId.Should().Be(draftStatus.Id.Value);
         dto.RequestStatusCode.Should().Be(draftStatus.Code.Value);

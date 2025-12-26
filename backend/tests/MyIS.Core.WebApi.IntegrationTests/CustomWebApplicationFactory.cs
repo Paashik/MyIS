@@ -71,32 +71,27 @@ public class CustomWebApplicationFactory : WebApplicationFactory<WebApiAssemblyM
         {
             db.RequestTypes.AddRange(
                 new RequestType(
-                    RequestTypeId.New(),
-                    "CustomerDevelopment",
+                    RequestTypeIds.CustomerDevelopment,
                     "Заявка заказчика",
                     RequestDirection.Incoming,
                     description: null),
                 new RequestType(
-                    RequestTypeId.New(),
-                    "InternalProductionRequest",
+                    RequestTypeIds.InternalProduction,
                     "Внутренняя производственная заявка",
                     RequestDirection.Incoming,
                     description: null),
                 new RequestType(
-                    RequestTypeId.New(),
-                    "ChangeRequest",
+                    RequestTypeIds.ChangeRequest,
                     "Заявка на изменение (ECR/ECO-light)",
                     RequestDirection.Incoming,
                     description: null),
                 new RequestType(
-                    RequestTypeId.New(),
-                    "SupplyRequest",
+                    RequestTypeIds.SupplyRequest,
                     "Заявка на обеспечение/закупку",
                     RequestDirection.Outgoing,
                     description: null),
                 new RequestType(
-                    RequestTypeId.New(),
-                    "ExternalTechStageRequest",
+                    RequestTypeIds.ExternalTechStage,
                     "Заявка на внешний технологический этап",
                     RequestDirection.Outgoing,
                     description: null));
@@ -166,3 +161,4 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }
+

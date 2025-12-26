@@ -30,12 +30,13 @@ public sealed class ReplaceAdminRequestWorkflowTransitionsHandler
     {
         if (command is null) throw new ArgumentNullException(nameof(command));
         if (command.CurrentUserId == Guid.Empty) throw new ArgumentException("CurrentUserId is required.", nameof(command));
-        if (string.IsNullOrWhiteSpace(command.TypeCode)) throw new ArgumentException("TypeCode is required.", nameof(command));
+        if (command.TypeId == Guid.Empty) throw new ArgumentException("TypeId is required.", nameof(command));
 
-        var type = await _requestTypeRepository.GetByCodeAsync(command.TypeCode.Trim(), cancellationToken);
+        var typeId = new RequestTypeId(command.TypeId);
+        var type = await _requestTypeRepository.GetByIdAsync(typeId, cancellationToken);
         if (type is null)
         {
-            throw new InvalidOperationException($"RequestType with code '{command.TypeCode}' was not found.");
+            throw new InvalidOperationException($"RequestType with id '{command.TypeId}' was not found.");
         }
 
         // Load statuses once for id -> code mapping.

@@ -37,6 +37,7 @@ public sealed class CreateAdminEmployeeHandler
         {
             Id = employee.Id,
             FullName = employee.FullName,
+            ShortName = employee.ShortName,
             Email = employee.Email,
             Phone = employee.Phone,
             Notes = employee.Notes,

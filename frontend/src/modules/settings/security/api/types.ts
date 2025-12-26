@@ -1,6 +1,7 @@
 export interface AdminEmployeeDto {
   id: string;
   fullName: string;
+  shortName: string;
   email?: string | null;
   phone?: string | null;
   notes?: string | null;

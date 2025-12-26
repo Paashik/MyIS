@@ -1,16 +1,16 @@
-import type { RequestTypeCode, RequestTypeProfile } from "./types";
+import type { RequestTypeId, RequestTypeProfile } from "./types";
 import { defaultRequestTypeProfile } from "./default.profile";
 import { supplyRequestProfile } from "./supplyRequest.profile";
 
-const registry: Record<RequestTypeCode, RequestTypeProfile> = {
-  [supplyRequestProfile.code]: supplyRequestProfile,
+const registry: Record<RequestTypeId, RequestTypeProfile> = {
+  [supplyRequestProfile.id]: supplyRequestProfile,
 };
 
-export function getRequestTypeProfile(code: RequestTypeCode | null | undefined): RequestTypeProfile {
-  if (!code) {
+export function getRequestTypeProfile(typeId: RequestTypeId | null | undefined): RequestTypeProfile {
+  if (!typeId) {
     return defaultRequestTypeProfile;
   }
 
-  return registry[code] ?? defaultRequestTypeProfile;
+  return registry[typeId] ?? defaultRequestTypeProfile;
 }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +22,7 @@ public sealed class RequestsController : ControllerBase
 {
     private readonly CreateRequestHandler _createHandler;
     private readonly UpdateRequestHandler _updateHandler;
+    private readonly DeleteRequestHandler _deleteHandler;
     private readonly SearchRequestsHandler _searchHandler;
     private readonly GetRequestByIdHandler _getByIdHandler;
     private readonly GetRequestHistoryHandler _historyHandler;
@@ -40,6 +41,7 @@ public sealed class RequestsController : ControllerBase
     public RequestsController(
         CreateRequestHandler createHandler,
         UpdateRequestHandler updateHandler,
+        DeleteRequestHandler deleteHandler,
         SearchRequestsHandler searchHandler,
         GetRequestByIdHandler getByIdHandler,
         GetRequestHistoryHandler historyHandler,
@@ -57,6 +59,7 @@ public sealed class RequestsController : ControllerBase
     {
         _createHandler = createHandler ?? throw new ArgumentNullException(nameof(createHandler));
         _updateHandler = updateHandler ?? throw new ArgumentNullException(nameof(updateHandler));
+        _deleteHandler = deleteHandler ?? throw new ArgumentNullException(nameof(deleteHandler));
         _searchHandler = searchHandler ?? throw new ArgumentNullException(nameof(searchHandler));
         _getByIdHandler = getByIdHandler ?? throw new ArgumentNullException(nameof(getByIdHandler));
         _historyHandler = historyHandler ?? throw new ArgumentNullException(nameof(historyHandler));
@@ -178,7 +181,11 @@ public sealed class RequestsController : ControllerBase
             DueDate = request.DueDate,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
-            ExternalReferenceId = request.ExternalReferenceId
+            RelatedEntityName = request.RelatedEntityName,
+            ExternalReferenceId = request.ExternalReferenceId,
+            TargetEntityType = request.TargetEntityType,
+            TargetEntityId = request.TargetEntityId,
+            TargetEntityName = request.TargetEntityName
         };
 
         var created = await _createHandler.Handle(command, cancellationToken);
@@ -232,7 +239,11 @@ public sealed class RequestsController : ControllerBase
             DueDate = request.DueDate,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
-            ExternalReferenceId = request.ExternalReferenceId
+            RelatedEntityName = request.RelatedEntityName,
+            ExternalReferenceId = request.ExternalReferenceId,
+            TargetEntityType = request.TargetEntityType,
+            TargetEntityId = request.TargetEntityId,
+            TargetEntityName = request.TargetEntityName
         };
 
         try
@@ -243,6 +254,40 @@ public sealed class RequestsController : ControllerBase
         catch (InvalidOperationException)
         {
             return NotFound();
+        }
+    }
+
+    /// <summary>
+    /// Удаление заявки.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var command = new DeleteRequestCommand
+        {
+            Id = id,
+            CurrentUserId = currentUserId
+        };
+
+        try
+        {
+            await _deleteHandler.Handle(command, cancellationToken);
+            return NoContent();
+        }
+        catch (InvalidOperationException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
     }
 

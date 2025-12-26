@@ -78,4 +78,12 @@ public interface IRequestsAccessChecker
         Guid currentUserId,
         string referenceDataScope,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Проверка права на удаление заявки.
+    /// </summary>
+    Task EnsureCanDeleteAsync(
+        Guid currentUserId,
+        Request request,
+        CancellationToken cancellationToken);
 }

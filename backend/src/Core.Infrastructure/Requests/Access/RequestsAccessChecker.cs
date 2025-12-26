@@ -119,4 +119,22 @@ public sealed class RequestsAccessChecker : IRequestsAccessChecker
         // TODO: привязать к permissions (например, Requests.ViewReferenceData) на следующих итерациях.
         return Task.CompletedTask;
     }
+
+    public Task EnsureCanDeleteAsync(
+        Guid currentUserId,
+        Request request,
+        CancellationToken cancellationToken)
+    {
+        EnsureAuthenticated(currentUserId);
+        if (request is null) throw new ArgumentNullException(nameof(request));
+
+        // На текущей итерации разрешаем удаление только инициатору заявки.
+        if (request.InitiatorId != currentUserId)
+        {
+            throw new UnauthorizedAccessException("Only the initiator can delete the request.");
+        }
+
+        // TODO: в будущем можно добавить дополнительные проверки (например, статус не финальный).
+        return Task.CompletedTask;
+    }
 }

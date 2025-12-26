@@ -113,23 +113,21 @@ export const MdmOwnershipPage: React.FC = () => {
   const columns: ColumnsType<OwnershipRow> = useMemo(
     () => [
       { title: t("administration.mdm.columns.dictionary"), dataIndex: "dictionary", key: "dictionary" },
-      { title: t("administration.mdm.columns.entity"), dataIndex: "entity", key: "entity", width: 220 },
-      { title: t("administration.mdm.columns.owner"), dataIndex: "owner", key: "owner", width: 180 },
+      { title: t("administration.mdm.columns.entity"), dataIndex: "entity", key: "entity" },
+      { title: t("administration.mdm.columns.owner"), dataIndex: "owner", key: "owner" },
       {
         title: t("administration.mdm.columns.mode"),
         dataIndex: "mode",
         key: "mode",
-        width: 170,
         render: (v: OwnershipRow["mode"]) => <Tag>{v}</Tag>,
       },
       {
         title: t("administration.mdm.columns.editable"),
         dataIndex: "editable",
         key: "editable",
-        width: 120,
         render: (v: boolean) => (v ? <Tag color="green">YES</Tag> : <Tag>NO</Tag>),
       },
-      { title: t("administration.mdm.columns.source"), dataIndex: "source", key: "source", width: 220 },
+      { title: t("administration.mdm.columns.source"), dataIndex: "source", key: "source" },
     ],
     []
   );

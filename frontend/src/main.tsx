@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ConfigProvider, theme } from "antd";
 import ruRU from "antd/locale/ru_RU";
 import "antd/dist/reset.css";
+import "./core/styles/antd-overrides.css";
 
 import dayjs from "dayjs";
 import "dayjs/locale/ru";

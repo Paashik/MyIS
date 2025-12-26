@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,6 +45,16 @@ public sealed class RequestRepository : IRequestRepository
 
         _dbContext.Requests.Update(request);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(RequestId id, CancellationToken cancellationToken)
+    {
+        var request = await _dbContext.Requests.FindAsync(new object[] { id }, cancellationToken);
+        if (request != null)
+        {
+            _dbContext.Requests.Remove(request);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task<(IReadOnlyList<Request> Items, int TotalCount)> SearchAsync(
@@ -112,5 +124,19 @@ public sealed class RequestRepository : IRequestRepository
         return await _dbContext.Requests
             .AsNoTracking()
             .AnyAsync(r => r.RequestStatusId == requestStatusId, cancellationToken);
+    }
+
+    public async Task<long> GetNextRequestNumberAsync(CancellationToken cancellationToken)
+    {
+        await using var command = _dbContext.Database.GetDbConnection().CreateCommand();
+        command.CommandText = "SELECT nextval('requests.request_number_seq')";
+
+        if (command.Connection.State != ConnectionState.Open)
+        {
+            await command.Connection.OpenAsync(cancellationToken);
+        }
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt64(result, CultureInfo.InvariantCulture);
     }
 }

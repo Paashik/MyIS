@@ -17,8 +17,6 @@ public class RequestDto
 
     public Guid RequestTypeId { get; init; }
 
-    public string RequestTypeCode { get; init; } = null!;
-
     public string RequestTypeName { get; init; } = null!;
 
     public Guid RequestStatusId { get; init; }
@@ -35,7 +33,15 @@ public class RequestDto
 
     public Guid? RelatedEntityId { get; init; }
 
+    public string? RelatedEntityName { get; init; }
+
     public string? ExternalReferenceId { get; init; }
+
+    public string? TargetEntityType { get; init; }
+
+    public Guid? TargetEntityId { get; init; }
+
+    public string? TargetEntityName { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
 

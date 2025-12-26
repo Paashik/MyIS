@@ -3,7 +3,7 @@ import type { FormInstance } from "rc-field-form";
 
 import type { RequestDirection, RequestDto, RequestLineInputDto } from "../api/types";
 
-export type RequestTypeCode = string;
+export type RequestTypeId = string;
 
 export interface ValidationError {
   /** AntD Form path, например: ["lines", 0, "quantity"] */
@@ -12,7 +12,7 @@ export interface ValidationError {
 }
 
 export interface RequestDraft {
-  requestTypeCode: RequestTypeCode;
+  requestTypeId: RequestTypeId;
   description?: string;
   lines?: RequestLineInputDto[];
 }
@@ -23,12 +23,12 @@ export interface DetailsContext {
 
 export interface EditContext {
   form: FormInstance;
-  requestTypeCode: RequestTypeCode;
+  requestTypeId: RequestTypeId;
   mode: "create" | "edit";
 }
 
 export interface RequestTypeProfile {
-  code: RequestTypeCode;
+  id: RequestTypeId;
   title: string;
   direction?: RequestDirection;
   renderDetails: (ctx: DetailsContext) => React.ReactNode;

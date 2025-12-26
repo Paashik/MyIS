@@ -2,7 +2,6 @@ export type RequestDirection = "Incoming" | "Outgoing";
 
 export interface AdminRequestTypeDto {
   id: string;
-  code: string;
   name: string;
   direction: RequestDirection;
   description?: string | null;
@@ -21,7 +20,6 @@ export interface AdminRequestStatusDto {
 export interface AdminRequestWorkflowTransitionDto {
   id: string;
   requestTypeId: string;
-  requestTypeCode: string;
 
   fromStatusId: string;
   fromStatusCode: string;
@@ -34,7 +32,6 @@ export interface AdminRequestWorkflowTransitionDto {
 }
 
 export interface CreateAdminRequestTypePayload {
-  code: string;
   name: string;
   direction: RequestDirection;
   description?: string;
@@ -64,7 +61,7 @@ export interface UpdateAdminRequestStatusPayload {
 }
 
 export interface ReplaceWorkflowTransitionsPayload {
-  typeCode: string;
+  typeId: string;
   transitions: WorkflowTransitionInput[];
 }
 

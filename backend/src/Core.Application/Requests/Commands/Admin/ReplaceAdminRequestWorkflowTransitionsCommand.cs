@@ -6,7 +6,7 @@ public sealed class ReplaceAdminRequestWorkflowTransitionsCommand
 {
     public Guid CurrentUserId { get; init; }
 
-    public string TypeCode { get; init; } = null!;
+    public Guid TypeId { get; init; }
 
     public RequestWorkflowTransitionInputDto[] Transitions { get; init; } = [];
 }

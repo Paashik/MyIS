@@ -15,6 +15,11 @@ namespace MyIS.Core.WebApi.IntegrationTests.Requests;
 public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
+    private static readonly Guid SupplyRequestTypeId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static readonly Guid CustomerDevelopmentTypeId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private static readonly Guid InternalProductionTypeId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    private static readonly Guid ChangeRequestTypeId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+    private static readonly Guid ExternalTechStageTypeId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
 
     public RequestsControllerIntegrationTests(CustomWebApplicationFactory factory)
     {
@@ -35,7 +40,7 @@ public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplica
         types.Should().NotBeNull();
         types!.Should().HaveCount(5);
 
-        var requestType = types!.Single(t => t.Code == "SupplyRequest");
+        var requestType = types!.Single(t => t.Id == SupplyRequestTypeId);
 
         var createPayload = new CreateRequestRequest
         {
@@ -61,7 +66,6 @@ public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplica
         created.Title.Should().Be(createPayload.Title);
         created.Description.Should().Be(createPayload.Description);
         created.RequestTypeId.Should().Be(requestType.Id);
-        created.RequestTypeCode.Should().Be(requestType.Code);
         created.RequestTypeName.Should().Be(requestType.Name);
 
         // Стартовый статус должен быть Draft
@@ -108,30 +112,30 @@ public class RequestsControllerIntegrationTests : IClassFixture<CustomWebApplica
 
         nonNullTypes.Should().HaveCount(5, "справочник типов заявок должен быть канонизирован до exact-set из 5 элементов");
 
-        nonNullTypes.Select(t => t.Code).Should().OnlyHaveUniqueItems("в справочнике типов не должно быть дубликатов по Code");
+        nonNullTypes.Select(t => t.Id).Should().OnlyHaveUniqueItems("в справочнике типов не должно быть дубликатов по Id");
 
-        var expectedCodes = new[]
+        var expectedIds = new[]
         {
-            "CustomerDevelopment",
-            "InternalProductionRequest",
-            "ChangeRequest",
-            "SupplyRequest",
-            "ExternalTechStageRequest",
+            CustomerDevelopmentTypeId,
+            InternalProductionTypeId,
+            ChangeRequestTypeId,
+            SupplyRequestTypeId,
+            ExternalTechStageTypeId,
         };
 
-        nonNullTypes.Select(t => t.Code)
+        nonNullTypes.Select(t => t.Id)
             .Should()
-            .BeEquivalentTo(expectedCodes, options => options.WithoutStrictOrdering());
+            .BeEquivalentTo(expectedIds, options => options.WithoutStrictOrdering());
 
         // Exact-set по (Code, Name, Direction): ловит любые рассинхроны имен/направлений и появление лишних типов.
         nonNullTypes.Should().BeEquivalentTo(
             new[]
             {
-                new { Code = "CustomerDevelopment", Name = "Заявка заказчика", Direction = "Incoming" },
-                new { Code = "InternalProductionRequest", Name = "Внутренняя производственная заявка", Direction = "Incoming" },
-                new { Code = "ChangeRequest", Name = "Заявка на изменение (ECR/ECO-light)", Direction = "Incoming" },
-                new { Code = "SupplyRequest", Name = "Заявка на обеспечение/закупку", Direction = "Outgoing" },
-                new { Code = "ExternalTechStageRequest", Name = "Заявка на внешний технологический этап", Direction = "Outgoing" },
+                new { Id = CustomerDevelopmentTypeId, Name = "Заявка заказчика", Direction = "Incoming" },
+                new { Id = InternalProductionTypeId, Name = "Внутренняя производственная заявка", Direction = "Incoming" },
+                new { Id = ChangeRequestTypeId, Name = "Заявка на изменение (ECR/ECO-light)", Direction = "Incoming" },
+                new { Id = SupplyRequestTypeId, Name = "Заявка на обеспечение/закупку", Direction = "Outgoing" },
+                new { Id = ExternalTechStageTypeId, Name = "Заявка на внешний технологический этап", Direction = "Outgoing" },
             },
             options => options.WithoutStrictOrdering().ExcludingMissingMembers());
     }

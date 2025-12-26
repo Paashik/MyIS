@@ -48,7 +48,7 @@ public sealed class GetAdminUsersHandler
             Login = u.Login,
             IsActive = u.IsActive,
             EmployeeId = u.EmployeeId,
-            EmployeeFullName = u.Employee?.FullName,
+            EmployeeFullName = u.Employee?.ShortName ?? u.Employee?.FullName,
             RoleCodes = roleCodes
         };
     }

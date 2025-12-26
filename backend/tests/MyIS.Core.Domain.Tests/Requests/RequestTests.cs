@@ -12,11 +12,10 @@ public class RequestTests
 {
     #region Helpers
 
-    private static RequestType CreateRequestType(string code = "TYPE1", string name = "Type 1")
+    private static RequestType CreateRequestType(string name = "Type 1")
     {
         return new RequestType(
             RequestTypeId.New(),
-            code,
             name,
             RequestDirection.Incoming,
             description: "Test type");

@@ -102,7 +102,7 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         var whereClause = hasLast ? " WHERE ID > ?" : string.Empty;
 
         var command = new OleDbCommand(
-            $"SELECT ID, Code, Name, Description, GroupID, UnitID, PartNumber FROM Component{whereClause} ORDER BY ID",
+            $"SELECT ID, Code, Name, Description, [Group], UnitID, PartNumber FROM Component{whereClause} ORDER BY ID",
             connection);
         if (hasLast)
         {
@@ -110,10 +110,11 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         }
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
+        Console.WriteLine($"Executing query: {command.CommandText}, lastProcessedKey={lastProcessedKey}");
         var items = new List<Component2020Item>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            items.Add(new Component2020Item
+            var item = new Component2020Item
             {
                 Id = reader.GetInt32(0),
                 Code = reader.IsDBNull(1) ? null : reader.GetString(1),
@@ -122,9 +123,12 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
                 GroupId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
                 UnitId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
                 PartNumber = reader.IsDBNull(6) ? null : reader.GetString(6)
-            });
+            };
+            Console.WriteLine($"Read Component Item: Id={item.Id}, Code={item.Code}, Name={item.Name}");
+            items.Add(item);
         }
 
+        Console.WriteLine($"Returning {items.Count} items from Component");
         return items;
     }
 
@@ -349,6 +353,228 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         }
 
         return symbols;
+    }
+
+    public async Task<IEnumerable<Component2020Person>> ReadPersonsDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken)
+    {
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken);
+        var connectionString = BuildConnectionString(connectionDto);
+
+        using var connection = new OleDbConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var hasLast = int.TryParse(lastProcessedKey, out var lastId);
+        var whereClause = hasLast ? " WHERE ID > ?" : string.Empty;
+
+        var command = new OleDbCommand(
+            $"SELECT ID, LastName, FirstName, SecondName, Position, DeptID, Hidden, Email, Phone, Note FROM Person{whereClause} ORDER BY ID",
+            connection);
+
+        if (hasLast)
+        {
+            command.Parameters.AddWithValue("@p1", lastId);
+        }
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var people = new List<Component2020Person>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            people.Add(new Component2020Person
+            {
+                Id = reader.GetInt32(0),
+                LastName = reader.IsDBNull(1) ? null : reader.GetString(1),
+                FirstName = reader.IsDBNull(2) ? null : reader.GetString(2),
+                SecondName = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Position = reader.IsDBNull(4) ? null : reader.GetString(4),
+                DeptId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                Hidden = !reader.IsDBNull(6) && reader.GetBoolean(6),
+                Email = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Phone = reader.IsDBNull(8) ? null : reader.GetString(8),
+                Note = reader.IsDBNull(9) ? null : reader.GetString(9)
+            });
+        }
+
+        return people;
+    }
+
+    public async Task<IEnumerable<Component2020User>> ReadUsersDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken)
+    {
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken);
+        var connectionString = BuildConnectionString(connectionDto);
+
+        using var connection = new OleDbConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var hasLast = int.TryParse(lastProcessedKey, out var lastId);
+        var whereClause = hasLast ? " WHERE ID > ?" : string.Empty;
+
+        var command = new OleDbCommand(
+            $"SELECT ID, Name, Password, Hidden, RoleID, PersonID, Roles, UI FROM Users{whereClause} ORDER BY ID",
+            connection);
+
+        if (hasLast)
+        {
+            command.Parameters.AddWithValue("@p1", lastId);
+        }
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var users = new List<Component2020User>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            users.Add(new Component2020User
+            {
+                Id = reader.GetInt32(0),
+                Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                Password = reader.IsDBNull(2) ? null : reader.GetString(2),
+                Hidden = !reader.IsDBNull(3) && reader.GetBoolean(3),
+                RoleId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                PersonId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                Roles = reader.IsDBNull(6) ? null : reader.GetString(6),
+                Ui = reader.IsDBNull(7) ? null : reader.GetString(7)
+            });
+        }
+
+        return users;
+    }
+
+    public async Task<IEnumerable<Component2020Role>> ReadRolesAsync(Guid connectionId, CancellationToken cancellationToken)
+    {
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken);
+        var connectionString = BuildConnectionString(connectionDto);
+
+        using var connection = new OleDbConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var roles = new List<Component2020Role>();
+        try
+        {
+            var command = new OleDbCommand("SELECT ID, Name, Code FROM Roles ORDER BY ID", connection);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                roles.Add(new Component2020Role
+                {
+                    Id = reader.GetInt32(0),
+                    Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                    Code = reader.IsDBNull(2) ? null : reader.GetString(2)
+                });
+            }
+        }
+        catch (OleDbException)
+        {
+            var command = new OleDbCommand("SELECT ID, Name FROM Roles ORDER BY ID", connection);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                roles.Add(new Component2020Role
+                {
+                    Id = reader.GetInt32(0),
+                    Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
+                });
+            }
+        }
+
+        return roles;
+    }
+
+    public async Task<IEnumerable<Component2020CustomerOrder>> ReadCustomerOrdersDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken)
+    {
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken);
+        var connectionString = BuildConnectionString(connectionDto);
+
+        using var connection = new OleDbConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var hasLast = int.TryParse(lastProcessedKey, out var lastId);
+        var whereClause = hasLast ? " WHERE ID > ?" : string.Empty;
+
+        var command = new OleDbCommand(
+            "SELECT ID, [Number], [Data], [DeliveryData], State, CustomerID, Note, Contract, StoreID, PersonID, [Path], DatePay, DateFinished, ContactID, Discount, Tax, Mark, PN, PaymentForm, PayMethod, PayPeriod, Prepayment, Kind, AccountID " +
+            $"FROM CustomerOrder{whereClause} ORDER BY ID",
+            connection);
+
+        if (hasLast)
+        {
+            command.Parameters.AddWithValue("@p1", lastId);
+        }
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var orders = new List<Component2020CustomerOrder>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            orders.Add(new Component2020CustomerOrder
+            {
+                Id = reader.GetInt32(0),
+                Number = reader.IsDBNull(1) ? null : reader.GetString(1),
+                OrderDate = reader.IsDBNull(2) ? null : reader.GetDateTime(2),
+                DeliveryDate = reader.IsDBNull(3) ? null : reader.GetDateTime(3),
+                State = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                CustomerId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                Note = reader.IsDBNull(6) ? null : reader.GetString(6),
+                Contract = reader.IsDBNull(7) ? null : reader.GetString(7),
+                StoreId = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                PersonId = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                Path = reader.IsDBNull(10) ? null : reader.GetString(10),
+                PayDate = reader.IsDBNull(11) ? null : reader.GetDateTime(11),
+                FinishedDate = reader.IsDBNull(12) ? null : reader.GetDateTime(12),
+                ContactId = reader.IsDBNull(13) ? null : reader.GetInt32(13),
+                Discount = reader.IsDBNull(14) ? null : reader.GetInt32(14),
+                Tax = reader.IsDBNull(15) ? null : reader.GetInt32(15),
+                Mark = reader.IsDBNull(16) ? null : reader.GetInt32(16),
+                Pn = reader.IsDBNull(17) ? null : reader.GetInt32(17),
+                PaymentForm = reader.IsDBNull(18) ? null : reader.GetInt32(18),
+                PayMethod = reader.IsDBNull(19) ? null : reader.GetInt32(19),
+                PayPeriod = reader.IsDBNull(20) ? null : reader.GetInt32(20),
+                Prepayment = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                Kind = reader.IsDBNull(22) ? null : reader.GetInt32(22),
+                AccountId = reader.IsDBNull(23) ? null : reader.GetInt32(23)
+            });
+        }
+
+        return orders;
+    }
+
+    public async Task<IEnumerable<Component2020Status>> ReadStatusesDeltaAsync(Guid connectionId, string? lastProcessedKey, CancellationToken cancellationToken)
+    {
+        var connectionDto = await _connectionProvider.GetConnectionAsync(connectionId, cancellationToken);
+        var connectionString = BuildConnectionString(connectionDto);
+
+        using var connection = new OleDbConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var hasLast = int.TryParse(lastProcessedKey, out var lastId);
+        var whereClause = hasLast ? " WHERE ID > ?" : string.Empty;
+
+        var command = new OleDbCommand(
+            $"SELECT ID, Name, Color, Kind, Code, SN, Flags FROM Status{whereClause} ORDER BY ID",
+            connection);
+
+        if (hasLast)
+        {
+            command.Parameters.AddWithValue("@p1", lastId);
+        }
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        var statuses = new List<Component2020Status>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            statuses.Add(new Component2020Status
+            {
+                Id = reader.GetInt32(0),
+                Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                Color = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                Kind = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                Code = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                SortOrder = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                Flags = reader.IsDBNull(6) ? null : reader.GetInt32(6)
+            });
+        }
+
+        return statuses;
     }
 
     private static string BuildConnectionString(Component2020ConnectionDto connection)

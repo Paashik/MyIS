@@ -7,6 +7,7 @@ import {
   RequestDto,
   RequestHistoryItemDto,
   RequestListItemDto,
+  RequestCounterpartyLookupDto,
   RequestStatusDto,
   RequestTypeDto,
   UpdateRequestPayload,
@@ -202,6 +203,22 @@ export async function getRequestTypes(): Promise<RequestTypeDto[]> {
   });
 }
 
+export async function getRequestCounterparties(
+  q?: string,
+  prioritizeByOrders?: boolean
+): Promise<RequestCounterpartyLookupDto[]> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (prioritizeByOrders) params.set("prioritizeByOrders", "true");
+  params.set("take", "50");
+  const query = params.toString();
+
+  return httpRequest<RequestCounterpartyLookupDto[]>(
+    `/api/requests/references/counterparties${query ? `?${query}` : ""}`,
+    { method: "GET" }
+  );
+}
+
 /**
  * Получить список статусов заявок.
  * GET /api/request-statuses
@@ -209,5 +226,15 @@ export async function getRequestTypes(): Promise<RequestTypeDto[]> {
 export async function getRequestStatuses(): Promise<RequestStatusDto[]> {
   return httpRequest<RequestStatusDto[]>("/api/request-statuses", {
     method: "GET",
+  });
+}
+
+/**
+ * Удалить заявку.
+ * DELETE /api/requests/{id}
+ */
+export async function deleteRequest(id: string): Promise<void> {
+  return httpRequest<void>(`/api/requests/${encodeURIComponent(id)}`, {
+    method: "DELETE",
   });
 }

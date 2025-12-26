@@ -27,11 +27,10 @@ public class SearchRequestsHandlerTests
             _accessCheckerMock.Object);
     }
 
-    private static RequestType CreateRequestType(Guid? id = null, string code = "TYPE1", string name = "Type 1")
+    private static RequestType CreateRequestType(Guid? id = null, string name = "Type 1")
     {
         return new RequestType(
             new RequestTypeId(id ?? Guid.NewGuid()),
-            code,
             name,
             RequestDirection.Incoming,
             description: "Test type");
@@ -82,7 +81,7 @@ public class SearchRequestsHandlerTests
         var requestTypeId = Guid.NewGuid();
         var requestStatusId = Guid.NewGuid();
 
-        var type = CreateRequestType(requestTypeId, code: "REQ", name: "Request");
+        var type = CreateRequestType(requestTypeId, name: "Request");
         var status = CreateStatus(new RequestStatusCode("InReview"), "In review", isFinal: false);
 
         var request1 = CreateRequest(type, status, currentUserId, "Request 1");
@@ -130,7 +129,6 @@ public class SearchRequestsHandlerTests
         first.Id.Should().Be(request1.Id.Value);
         first.Title.Should().Be(request1.Title);
         first.RequestTypeId.Should().Be(type.Id.Value);
-        first.RequestTypeCode.Should().Be(type.Code);
         first.RequestTypeName.Should().Be(type.Name);
         first.RequestStatusId.Should().Be(status.Id.Value);
         first.RequestStatusCode.Should().Be(status.Code.Value);

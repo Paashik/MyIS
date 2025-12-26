@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Form, Input, Select, Typography, message } from "antd";
 import Switch from "antd/es/switch";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -125,7 +125,7 @@ export const UserCardPage: React.FC = () => {
     () =>
       employees.map((e) => ({
         value: e.id,
-        label: e.fullName,
+        label: e.shortName || e.fullName,
       })),
     [employees]
   );

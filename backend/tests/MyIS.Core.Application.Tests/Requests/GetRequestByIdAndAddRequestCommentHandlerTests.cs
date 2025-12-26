@@ -30,11 +30,10 @@ public class GetRequestByIdHandlerTests
             _accessCheckerMock.Object);
     }
 
-    private static RequestType CreateRequestType(Guid? id = null, string code = "TYPE1", string name = "Type 1")
+    private static RequestType CreateRequestType(Guid? id = null, string name = "Type 1")
     {
         return new RequestType(
             new RequestTypeId(id ?? Guid.NewGuid()),
-            code,
             name,
             RequestDirection.Incoming,
             description: "Test type");
@@ -73,7 +72,7 @@ public class GetRequestByIdHandlerTests
         var requestIdGuid = Guid.NewGuid();
         var currentUserId = Guid.NewGuid();
 
-        var type = CreateRequestType(code: "REQ", name: "Request");
+        var type = CreateRequestType(name: "Request");
         var status = CreateStatus(RequestStatusCode.Draft, "Draft", isFinal: false);
         var request = CreateRequest(type, status, initiatorId: currentUserId, title: "My request");
 
@@ -116,7 +115,6 @@ public class GetRequestByIdHandlerTests
         dto.Title.Should().Be(request.Title);
         dto.Description.Should().Be(request.Description);
         dto.RequestTypeId.Should().Be(type.Id.Value);
-        dto.RequestTypeCode.Should().Be(type.Code);
         dto.RequestTypeName.Should().Be(type.Name);
         dto.RequestStatusId.Should().Be(status.Id.Value);
         dto.RequestStatusCode.Should().Be(status.Code.Value);
@@ -304,7 +302,6 @@ public class AddRequestCommentHandlerTests
     {
         return new RequestType(
             RequestTypeId.New(),
-            "TYPE1",
             "Type 1",
             RequestDirection.Incoming,
             description: "Test type");

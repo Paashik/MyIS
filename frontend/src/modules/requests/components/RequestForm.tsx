@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { Button, DatePicker, Form, Input, Select, Space, Tabs, Typography } from "antd";
 import type { FormInstance } from "rc-field-form";
+import dayjs from "dayjs";
 
-import type { RequestLineInputDto, RequestTypeDto } from "../api/types";
+import type { RequestCounterpartyLookupDto, RequestLineInputDto, RequestTypeDto } from "../api/types";
+import { getRequestCounterparties } from "../api/requestsApi";
 import { RequestBodyRenderer } from "./RequestBodyRenderer";
 import { SupplyLinesEditor } from "./SupplyLinesEditor";
 import { getRequestTypeProfile } from "../typeProfiles/registry";
@@ -12,28 +14,25 @@ const { Text } = Typography;
 
 export interface RequestFormValues {
   requestTypeId: string;
-  requestTypeCode?: string;
   title: string;
   description?: string;
   lines?: RequestLineInputDto[];
   dueDate?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  relatedEntityName?: string;
   externalReferenceId?: string;
+  targetEntityType?: string;
+  targetEntityId?: string;
+  targetEntityName?: string;
 }
 
 export interface RequestFormProps {
   mode: "create" | "edit";
   initialValues?: RequestFormValues;
-  requestTypeCode?: string;
   requestTypes: RequestTypeDto[];
   form?: FormInstance;
   showActions?: boolean;
-  /**
-   * Fixed type for create (from list context / URL).
-   * If set — type selector is hidden, and the value is taken from this field.
-   */
-  fixedRequestTypeId?: string;
   submitting: boolean;
   onSubmit: (values: RequestFormValues) => Promise<void> | void;
   onCancel?: () => void;
@@ -42,11 +41,9 @@ export interface RequestFormProps {
 export const RequestForm: React.FC<RequestFormProps> = ({
   mode,
   initialValues,
-  requestTypeCode,
   requestTypes,
   form: externalForm,
   showActions = true,
-  fixedRequestTypeId,
   submitting,
   onSubmit,
   onCancel,
@@ -63,37 +60,78 @@ export const RequestForm: React.FC<RequestFormProps> = ({
   const [selectedTypeId, setSelectedTypeId] = useState<string | undefined>(
     initialValues?.requestTypeId
   );
+  const [counterpartySearch, setCounterpartySearch] = useState("");
+  const [counterpartyLoading, setCounterpartyLoading] = useState(false);
+  const [counterpartyOptions, setCounterpartyOptions] = useState<RequestCounterpartyLookupDto[]>([]);
 
-  const selectedTypeCode = useMemo(() => {
-    if (mode === "edit" && requestTypeCode) {
-      return requestTypeCode;
+
+  const selectedTypeIdValue = useMemo(() => {
+    if (mode === "edit" && initialValues?.requestTypeId) {
+      return initialValues.requestTypeId;
     }
 
-    if (!selectedTypeId) {
-      return undefined;
-    }
+    return selectedTypeId;
+  }, [initialValues?.requestTypeId, mode, selectedTypeId]);
 
-    const type = requestTypes.find((t) => t.id === selectedTypeId);
-    return type?.code;
-  }, [mode, requestTypeCode, requestTypes, selectedTypeId]);
+  const selectedType = useMemo(
+    () => requestTypes.find((t) => t.id === selectedTypeIdValue),
+    [requestTypes, selectedTypeIdValue]
+  );
+
+  const isOutgoing = selectedType?.direction === "Outgoing";
 
   useEffect(() => {
     if (!initialValues) return;
 
     form.setFieldsValue({
       ...initialValues,
+      dueDate: initialValues.dueDate ? dayjs(initialValues.dueDate) : undefined,
       lines: initialValues.lines ?? [],
     });
     setSelectedTypeId(initialValues.requestTypeId);
   }, [initialValues, form]);
 
   useEffect(() => {
-    if (mode !== "create") return;
-    if (!fixedRequestTypeId) return;
+    if (!isOutgoing) {
+      form.setFieldsValue({
+        targetEntityType: undefined,
+        targetEntityId: undefined,
+        targetEntityName: undefined,
+      });
+      return;
+    }
 
-    setSelectedTypeId(fixedRequestTypeId);
-    form.setFieldValue("requestTypeId", fixedRequestTypeId);
-  }, [fixedRequestTypeId, form, mode]);
+    const currentType = form.getFieldValue("targetEntityType");
+    if (!currentType) {
+      form.setFieldsValue({ targetEntityType: "Counterparty" });
+    }
+  }, [form, isOutgoing]);
+
+  useEffect(() => {
+    if (!isOutgoing) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setCounterpartyLoading(true);
+      try {
+        const items = await getRequestCounterparties(counterpartySearch.trim() || undefined);
+        if (!cancelled) {
+          setCounterpartyOptions(items);
+        }
+      } finally {
+        if (!cancelled) {
+          setCounterpartyLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [counterpartySearch, isOutgoing]);
 
   const handleFinish = async (values: any) => {
     const toIso = (v: any): string | undefined => {
@@ -101,8 +139,6 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       if (typeof v === "string") return v;
       if (typeof v === "object" && "toISOString" in v) {
         try {
-          // dayjs or Date
-          // @ts-ignore
           return v.toISOString();
         } catch {
           return undefined;
@@ -113,8 +149,8 @@ export const RequestForm: React.FC<RequestFormProps> = ({
 
     const dueDate = toIso(values.dueDate);
 
-    const typeCode = selectedTypeCode;
-    if (!typeCode) {
+    const typeId = selectedTypeIdValue ?? values.requestTypeId;
+    if (!typeId) {
       return;
     }
 
@@ -130,10 +166,10 @@ export const RequestForm: React.FC<RequestFormProps> = ({
         }))
       : undefined;
 
-    const profile = getRequestTypeProfile(typeCode);
+    const profile = getRequestTypeProfile(typeId);
     if (profile.validate) {
       const errors = profile.validate({
-        requestTypeCode: typeCode,
+        requestTypeId: typeId,
         description: values.description || "",
         lines,
       });
@@ -155,9 +191,11 @@ export const RequestForm: React.FC<RequestFormProps> = ({
     }
 
     const payload: RequestFormValues = {
-      requestTypeId: values.requestTypeId,
-      requestTypeCode: typeCode,
-      title: values.title,
+      requestTypeId: typeId,
+      title:
+        typeof values.title === "string" && values.title.trim()
+          ? values.title.trim()
+          : "AUTO",
       description: values.description || undefined,
       lines,
       relatedEntityType:
@@ -168,9 +206,25 @@ export const RequestForm: React.FC<RequestFormProps> = ({
         typeof values.relatedEntityId === "string" && values.relatedEntityId.trim()
           ? values.relatedEntityId.trim()
           : undefined,
+      relatedEntityName:
+        typeof values.relatedEntityName === "string" && values.relatedEntityName.trim()
+          ? values.relatedEntityName.trim()
+          : undefined,
       externalReferenceId:
         typeof values.externalReferenceId === "string" && values.externalReferenceId.trim()
           ? values.externalReferenceId.trim()
+          : undefined,
+      targetEntityType:
+        typeof values.targetEntityType === "string" && values.targetEntityType.trim()
+          ? values.targetEntityType.trim()
+          : undefined,
+      targetEntityId:
+        typeof values.targetEntityId === "string" && values.targetEntityId.trim()
+          ? values.targetEntityId.trim()
+          : undefined,
+      targetEntityName:
+        typeof values.targetEntityName === "string" && values.targetEntityName.trim()
+          ? values.targetEntityName.trim()
           : undefined,
       dueDate,
     };
@@ -184,13 +238,17 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       layout="vertical"
       form={form}
       initialValues={{
-        requestTypeId: fixedRequestTypeId ?? initialValues?.requestTypeId,
+        requestTypeId: initialValues?.requestTypeId,
         title: initialValues?.title ?? "",
         description: initialValues?.description ?? "",
         lines: initialValues?.lines ?? [],
         relatedEntityType: initialValues?.relatedEntityType ?? "",
         relatedEntityId: initialValues?.relatedEntityId ?? "",
+        relatedEntityName: initialValues?.relatedEntityName ?? "",
         externalReferenceId: initialValues?.externalReferenceId ?? "",
+        targetEntityType: initialValues?.targetEntityType ?? "",
+        targetEntityId: initialValues?.targetEntityId ?? "",
+        targetEntityName: initialValues?.targetEntityName ?? "",
       }}
       onFinish={handleFinish}
     >
@@ -201,48 +259,41 @@ export const RequestForm: React.FC<RequestFormProps> = ({
             label: t("requests.card.tabs.general"),
             children: (
               <>
-                {mode === "create" && fixedRequestTypeId ? (
-                  <Form.Item
-                    name="requestTypeId"
-                    hidden
-                    rules={[{ required: true, message: t("requests.form.type.required") }]}
-                  >
-                    <Input />
-                  </Form.Item>
-                ) : (
-                  <Form.Item
-                    label={t("requests.form.type.label")}
-                    name="requestTypeId"
-                    rules={[{ required: true, message: t("requests.form.type.required") }]}
-                  >
-                    <Select
-                      data-testid="request-form-type-select"
-                      disabled={mode === "edit"}
-                      showSearch
-                      optionFilterProp="label"
-                      options={requestTypes.map((t) => ({
-                        value: t.id,
-                        label: `${t.code} — ${t.name}`,
-                      }))}
-                      onChange={(next: string) => {
-                        setSelectedTypeId(next || undefined);
-                        form.setFieldValue("requestTypeId", next);
-                      }}
-                    />
-                  </Form.Item>
-                )}
+                <Form.Item
+                  label={t("requests.form.type.label")}
+                  name="requestTypeId"
+                  rules={[{ required: true, message: t("requests.form.type.required") }]}
+                >
+                  <Select
+                    data-testid="request-form-type-select"
+                    disabled={mode === "edit"}
+                    showSearch
+                    optionFilterProp="label"
+                    options={requestTypes.map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                    }))}
+                    onChange={(next: string) => {
+                      setSelectedTypeId(next || undefined);
+                      form.setFieldValue("requestTypeId", next);
+                    }}
+                  />
+                </Form.Item>
 
                 <Form.Item
                   label={t("requests.form.title.label")}
                   name="title"
-                  rules={[{ required: true, message: t("requests.form.title.required") }]}
                 >
-                  <Input data-testid="request-form-title-input" />
+                  <Input
+                    data-testid="request-form-title-input"
+                    disabled
+                    placeholder={mode === "create" ? t("requests.form.title.auto") : undefined}
+                  />
                 </Form.Item>
 
                 <RequestBodyRenderer
                   mode="edit"
-                  requestTypeCode={selectedTypeCode}
+                  requestTypeId={selectedTypeIdValue}
                   form={form}
                   editMode={mode}
                 />
@@ -257,6 +308,10 @@ export const RequestForm: React.FC<RequestFormProps> = ({
 
                 <Form.Item label={t("requests.form.relatedType.label")} name="relatedEntityType">
                   <Input data-testid="request-form-related-type-input" />
+                </Form.Item>
+
+                <Form.Item label={t("requests.form.relatedName.label")} name="relatedEntityName">
+                  <Input data-testid="request-form-related-name-input" />
                 </Form.Item>
 
                 <Form.Item
@@ -284,13 +339,60 @@ export const RequestForm: React.FC<RequestFormProps> = ({
                 <Form.Item label={t("requests.form.externalId.label")} name="externalReferenceId">
                   <Input data-testid="request-form-external-id-input" />
                 </Form.Item>
+
+                {isOutgoing && (
+                  <>
+                    <Form.Item label={t("requests.form.targetType.label")} name="targetEntityType">
+                      <Select
+                        data-testid="request-form-target-type-select"
+                        options={[
+                          { value: "Counterparty", label: t("requests.form.targetType.option.counterparty") },
+                          { value: "OrgStructure", label: t("requests.form.targetType.option.orgStructure"), disabled: true },
+                        ]}
+                      />
+                    </Form.Item>
+
+                    <Form.Item label={t("requests.form.targetName.label")} name="targetEntityId">
+                      <Select
+                        data-testid="request-form-target-name-select"
+                        showSearch
+                        allowClear
+                        filterOption={false}
+                        loading={counterpartyLoading}
+                        onSearch={(value: string) => setCounterpartySearch(value)}
+                        onChange={(value: string | null, option: any) => {
+                          if (!value) {
+                            form.setFieldsValue({
+                              targetEntityId: undefined,
+                              targetEntityName: undefined,
+                            });
+                            return;
+                          }
+                          const label = option?.label as string | undefined;
+                          form.setFieldsValue({
+                            targetEntityId: value,
+                            targetEntityName: label ?? "",
+                            targetEntityType: "Counterparty",
+                          });
+                        }}
+                        options={counterpartyOptions.map((c) => ({
+                          value: c.id,
+                          label: c.fullName || c.name,
+                        }))}
+                      />
+                    </Form.Item>
+                    <Form.Item name="targetEntityName" hidden>
+                      <Input />
+                    </Form.Item>
+                  </>
+                )}
               </>
             ),
           },
           {
             key: "composition",
             label: t("requests.card.tabs.composition"),
-            children: <SupplyLinesEditor name="lines" />,
+            children: <SupplyLinesEditor name="lines" form={form} />,
           },
           {
             key: "documents",

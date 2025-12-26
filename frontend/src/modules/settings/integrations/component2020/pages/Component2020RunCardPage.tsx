@@ -71,19 +71,16 @@ export const Component2020RunCardPage: React.FC = () => {
         title: t("settings.integrations.component2020.errors.columns.createdAt"),
         dataIndex: "createdAt",
         key: "createdAt",
-        width: 180,
         render: (v: string) => new Date(v).toLocaleString(),
       },
       {
         title: t("settings.integrations.component2020.errors.columns.entityType"),
         dataIndex: "entityType",
         key: "entityType",
-        width: 160,
       },
       {
         title: t("settings.integrations.component2020.errors.columns.external"),
         key: "external",
-        width: 240,
         render: (_: unknown, r: Component2020SyncErrorDto) =>
           `${r.externalEntity ?? "-"}:${r.externalKey ?? "-"}`,
       },
@@ -170,4 +167,3 @@ export const Component2020RunCardPage: React.FC = () => {
     </div>
   );
 };
-

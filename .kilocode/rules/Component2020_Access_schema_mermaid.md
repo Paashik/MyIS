@@ -219,23 +219,23 @@ erDiagram
   %% CustomerOrder — заказы покупателей
   CustomerOrder {
     autonumber ID PK
-    text(50) Number
-    datetime Data
-    datetime DeliveryData
-    int32 State
-    int32 CustomerID FK
-    text(100) Note
-    text(30) Contract
-    int32 StoreID
-    int32 PersonID FK
-    text(255) Path
-    datetime DatePay
-    datetime DateFinished
-    int32 ContactID FK
+    text(50) Number %%Номер заказа
+    datetime Data %%Дата заказа
+    datetime DeliveryData %%Дата Поставки
+    int32 State %%%Состояние заказа (статус)
+    int32 CustomerID FK %%Заказчик
+    text(100) Note %%Примечание
+    text(30) Contract %%Договор
+    int32 StoreID %%Место хранения (на складе)
+    int32 PersonID FK %%Менеджер
+    text(255) Path %%Состав заказа
+    datetime DatePay %%Дата платежа
+    datetime DateFinished %%Дата завершения
+    int32 ContactID FK %%Контакты заказчика
     int32 Discount
     int32 Tax
     int32 Mark
-    int32 PN
+    int32 PN 
     int32 PaymentForm
     int32 PayMethod
     int32 PayPeriod
@@ -616,15 +616,15 @@ erDiagram
   %% Person — справочник сотрудников
   Person {
     autonumber ID PK
-    text(20) LastName
-    text(20) FirstName
-    text(20) SecondName
-    text(40) Position
-    int32 DeptID FK
-    bool Hidden
-    text(50) Email
-    text(20) Phone
-    text(100) Note
+    text(20) LastName Фамилия
+    text(20) FirstName Имя
+    text(20) SecondName Отчество
+    text(40) Position Должность
+    int32 DeptID FK Подразделение
+    bool Hidden Уволен
+    text(50) Email Почта
+    text(20) Phone Телефон
+    text(100) Note Примечание
   }
 
   %% Photo — фотоархив
@@ -943,12 +943,12 @@ erDiagram
   %% Status — справочник состояний
   Status {
     autonumber ID PK
-    text(30) Name
-    int32 Color
-    int32 Kind
-    int32 Code
-    int32 SN
-    int32 Flags
+    text(30) Name %%Название статуса
+    int32 Color %%Цвет
+    int32 Kind %%Группа статусов (0 - Статусы компонентов, 1 - Статусы заказов позиций поставщикам, 2 - Статусы заказов клиентов, 3 - Типы заказов клиентов)
+    int32 Code %%Код статуса (тот что указан в других таблицах)
+    int32 SN %%№ п/п
+    int32 Flags %%Перечень свойств
   }
 
   %% Stock — остатки на складе
@@ -1098,13 +1098,13 @@ erDiagram
 
   %% Users — реестр пользователей
   Users {
-    autonumber ID PK
-    text(20) Name NOTNULL
-    text(10) Password
-    bool Hidden
-    int32 RoleID FK
-    int32 PersonID
-    longtext Roles
+    autonumber ID PK 
+    text(20) Name NOTNULL Логин
+    text(10) Password Пароль
+    bool Hidden Активный
+    int32 RoleID FK Роль
+    int32 PersonID Сотрудник
+    longtext Roles Дополнительные роли (выбирается из списка ролей)
     longtext UI
   }
 

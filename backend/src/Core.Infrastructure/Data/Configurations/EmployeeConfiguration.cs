@@ -23,6 +23,11 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
             .IsRequired()
             .HasColumnType("text");
 
+        builder.Property(e => e.ShortName)
+            .HasColumnName("short_name")
+            .IsRequired()
+            .HasColumnType("text");
+
         builder.Property(e => e.Email)
             .HasColumnName("email")
             .HasColumnType("text");

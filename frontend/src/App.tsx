@@ -27,10 +27,8 @@ import { RequestEditPage } from "./modules/requests/pages/RequestEditPage";
 
 // Settings module (Requests dictionaries)
 import { RequestTypesSettingsPage } from "./modules/settings/requests/dictionaries/pages/RequestTypesSettingsPage";
-import { RequestStatusesSettingsPage } from "./modules/settings/requests/dictionaries/pages/RequestStatusesSettingsPage";
 import { RequestWorkflowSettingsPage } from "./modules/settings/requests/dictionaries/pages/RequestWorkflowSettingsPage";
 import { RequestTypeCardPage } from "./modules/settings/requests/dictionaries/pages/RequestTypeCardPage";
-import { RequestStatusCardPage } from "./modules/settings/requests/dictionaries/pages/RequestStatusCardPage";
 import { RequestWorkflowTransitionCardPage } from "./modules/settings/requests/dictionaries/pages/RequestWorkflowTransitionCardPage";
 
 // Settings module (Security)
@@ -51,6 +49,8 @@ import { Component2020RunCardPage } from "./modules/settings/integrations/compon
 import { MdmDictionaryJournalPage } from "./modules/references/mdm/pages/MdmDictionaryJournalPage";
 import { MdmDictionaryCardPage } from "./modules/references/mdm/pages/MdmDictionaryCardPage";
 import { MdmItemCardPage } from "./modules/references/mdm/pages/MdmItemCardPage";
+import { ItemsPage } from "./pages/references/mdm/ItemsPage";
+import { StatusDictionaryPage } from "./modules/references/statuses/pages/StatusDictionaryPage";
 
 // Settings module (System)
 import { GlobalPathsSettingsPage } from "./modules/settings/system/pages/GlobalPathsSettingsPage";
@@ -125,18 +125,20 @@ const App: React.FC = () => {
             />
             <Route
               path="references/requests/statuses"
-              element={<RequestStatusesSettingsPage />}
+              element={<Navigate to="/references/mdm/statuses?group=Requests" replace />}
             />
             <Route
               path="references/requests/statuses/new"
-              element={<RequestStatusCardPage />}
+              element={<Navigate to="/references/mdm/statuses?group=Requests" replace />}
             />
             <Route
               path="references/requests/statuses/:id"
-              element={<RequestStatusCardPage />}
+              element={<Navigate to="/references/mdm/statuses?group=Requests" replace />}
             />
-            <Route path="references/mdm/:dict" element={<MdmDictionaryJournalPage />} />
+            <Route path="references/mdm/statuses" element={<StatusDictionaryPage />} />
+            <Route path="references/mdm/items" element={<ItemsPage />} />
             <Route path="references/mdm/items/:id" element={<MdmItemCardPage />} />
+            <Route path="references/mdm/:dict" element={<MdmDictionaryJournalPage />} />
             <Route path="references/mdm/:dict/:id" element={<MdmDictionaryCardPage />} />
 
             {/* Administration */}
@@ -191,11 +193,11 @@ const App: React.FC = () => {
               element={<RequestWorkflowSettingsPage />}
             />
             <Route
-              path="administration/requests/workflow/:typeCode/new"
+              path="administration/requests/workflow/:typeId/new"
               element={<RequestWorkflowTransitionCardPage />}
             />
             <Route
-              path="administration/requests/workflow/:typeCode/:id"
+              path="administration/requests/workflow/:typeId/:id"
               element={<RequestWorkflowTransitionCardPage />}
             />
             <Route

@@ -27,6 +27,7 @@ public class AuthService : IAuthService
         // For now login comparison is a simple case-sensitive equality.
         // Login comparison policy (case sensitivity, normalization) can be adjusted later if needed.
         var user = await _dbContext.Users
+            .Include(u => u.Employee)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .SingleOrDefaultAsync(u => u.Login == login, cancellationToken);
@@ -53,12 +54,14 @@ public class AuthService : IAuthService
             .Distinct()
             .ToArray();
 
-        return AuthResult.SuccessResult(user.Id, user.Login, user.FullName, roles);
+        var displayName = user.Employee?.ShortName ?? user.FullName;
+        return AuthResult.SuccessResult(user.Id, user.Login, displayName, roles);
     }
 
     public async Task<AuthResult?> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users
+            .Include(u => u.Employee)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
@@ -79,6 +82,7 @@ public class AuthService : IAuthService
             .Distinct()
             .ToArray();
 
-        return AuthResult.SuccessResult(user.Id, user.Login, user.FullName, roles);
+        var displayName = user.Employee?.ShortName ?? user.FullName;
+        return AuthResult.SuccessResult(user.Id, user.Login, displayName, roles);
     }
 }

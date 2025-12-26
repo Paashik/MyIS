@@ -6,6 +6,7 @@ public sealed class EmployeeDto
 {
     public Guid Id { get; init; }
     public string FullName { get; init; } = null!;
+    public string ShortName { get; init; } = null!;
     public string? Email { get; init; }
     public string? Phone { get; init; }
     public string? Notes { get; init; }

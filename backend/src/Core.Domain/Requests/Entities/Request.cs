@@ -21,7 +21,11 @@ public class Request
     public Guid InitiatorId { get; private set; }
     public string? RelatedEntityType { get; private set; }
     public Guid? RelatedEntityId { get; private set; }
+    public string? RelatedEntityName { get; private set; }
     public string? ExternalReferenceId { get; private set; }
+    public string? TargetEntityType { get; private set; }
+    public Guid? TargetEntityId { get; private set; }
+    public string? TargetEntityName { get; private set; }
 
     // Audit / timeline
     public DateTimeOffset CreatedAt { get; private set; }
@@ -54,7 +58,11 @@ public class Request
         DateTimeOffset? dueDate,
         string? relatedEntityType,
         Guid? relatedEntityId,
-        string? externalReferenceId)
+        string? relatedEntityName,
+        string? externalReferenceId,
+        string? targetEntityType,
+        Guid? targetEntityId,
+        string? targetEntityName)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -77,7 +85,11 @@ public class Request
         DueDate = dueDate;
         RelatedEntityType = string.IsNullOrWhiteSpace(relatedEntityType) ? null : relatedEntityType.Trim();
         RelatedEntityId = relatedEntityId;
+        RelatedEntityName = string.IsNullOrWhiteSpace(relatedEntityName) ? null : relatedEntityName.Trim();
         ExternalReferenceId = string.IsNullOrWhiteSpace(externalReferenceId) ? null : externalReferenceId.Trim();
+        TargetEntityType = string.IsNullOrWhiteSpace(targetEntityType) ? null : targetEntityType.Trim();
+        TargetEntityId = targetEntityId;
+        TargetEntityName = string.IsNullOrWhiteSpace(targetEntityName) ? null : targetEntityName.Trim();
     }
 
     public static Request Create(
@@ -90,7 +102,11 @@ public class Request
         DateTimeOffset? dueDate = null,
         string? relatedEntityType = null,
         Guid? relatedEntityId = null,
-        string? externalReferenceId = null)
+        string? relatedEntityName = null,
+        string? externalReferenceId = null,
+        string? targetEntityType = null,
+        Guid? targetEntityId = null,
+        string? targetEntityName = null)
     {
         if (type == null) throw new ArgumentNullException(nameof(type));
         if (initialStatus == null) throw new ArgumentNullException(nameof(initialStatus));
@@ -106,7 +122,11 @@ public class Request
             dueDate,
             relatedEntityType,
             relatedEntityId,
-            externalReferenceId);
+            relatedEntityName,
+            externalReferenceId,
+            targetEntityType,
+            targetEntityId,
+            targetEntityName);
 
         return request;
     }
@@ -117,7 +137,11 @@ public class Request
         DateTimeOffset? dueDate,
         string? relatedEntityType,
         Guid? relatedEntityId,
+        string? relatedEntityName,
         string? externalReferenceId,
+        string? targetEntityType,
+        Guid? targetEntityId,
+        string? targetEntityName,
         DateTimeOffset updatedAt,
         bool isCurrentStatusFinal)
     {
@@ -136,7 +160,11 @@ public class Request
         DueDate = dueDate;
         RelatedEntityType = string.IsNullOrWhiteSpace(relatedEntityType) ? null : relatedEntityType.Trim();
         RelatedEntityId = relatedEntityId;
+        RelatedEntityName = string.IsNullOrWhiteSpace(relatedEntityName) ? null : relatedEntityName.Trim();
         ExternalReferenceId = string.IsNullOrWhiteSpace(externalReferenceId) ? null : externalReferenceId.Trim();
+        TargetEntityType = string.IsNullOrWhiteSpace(targetEntityType) ? null : targetEntityType.Trim();
+        TargetEntityId = targetEntityId;
+        TargetEntityName = string.IsNullOrWhiteSpace(targetEntityName) ? null : targetEntityName.Trim();
         UpdatedAt = updatedAt;
     }
 
@@ -211,9 +239,9 @@ public class Request
     /// Валидация тела заявки для выхода из Draft по действию Submit.
     /// Для SupplyRequest требуется заполнить либо Lines, либо Description.
     /// </summary>
-    public void EnsureBodyIsValidForSubmit(string requestTypeCode)
+    public void EnsureBodyIsValidForSubmit(RequestTypeId requestTypeId)
     {
-        if (string.Equals(requestTypeCode, "SupplyRequest", StringComparison.OrdinalIgnoreCase))
+        if (requestTypeId == RequestTypeIds.SupplyRequest)
         {
             var hasLines = Lines.Count > 0;
             var hasText = !string.IsNullOrWhiteSpace(Description);

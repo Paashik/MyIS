@@ -1,5 +1,4 @@
 using System;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MyIS.Core.Application.Requests.Abstractions;
@@ -12,7 +11,6 @@ namespace MyIS.Core.Application.Requests.Handlers.Admin;
 
 public sealed class CreateAdminRequestTypeHandler
 {
-    private static readonly Regex CodeRegex = new("^[A-Za-z0-9._-]+$", RegexOptions.Compiled);
 
     private readonly IRequestTypeRepository _requestTypeRepository;
 
@@ -26,17 +24,9 @@ public sealed class CreateAdminRequestTypeHandler
         if (command is null) throw new ArgumentNullException(nameof(command));
         if (command.CurrentUserId == Guid.Empty) throw new ArgumentException("CurrentUserId is required.", nameof(command));
 
-        var code = (command.Code ?? string.Empty).Trim();
         var name = (command.Name ?? string.Empty).Trim();
 
-        if (string.IsNullOrWhiteSpace(code)) throw new InvalidOperationException("Code is required.");
-        if (!CodeRegex.IsMatch(code)) throw new InvalidOperationException("Code must match A-Za-z0-9._- (no spaces).");
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("Name is required.");
-
-        if (await _requestTypeRepository.ExistsByCodeAsync(code, cancellationToken))
-        {
-            throw new InvalidOperationException($"RequestType with code '{code}' already exists.");
-        }
 
         if (!Enum.TryParse<RequestDirection>(command.Direction, ignoreCase: true, out var direction))
         {
@@ -45,7 +35,6 @@ public sealed class CreateAdminRequestTypeHandler
 
         var type = new RequestType(
             RequestTypeId.New(),
-            code,
             name,
             direction,
             command.Description,
@@ -56,7 +45,6 @@ public sealed class CreateAdminRequestTypeHandler
         return new RequestTypeDto
         {
             Id = type.Id.Value,
-            Code = type.Code,
             Name = type.Name,
             Direction = type.Direction.ToString(),
             Description = type.Description,

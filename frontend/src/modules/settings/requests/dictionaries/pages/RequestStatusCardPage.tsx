@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Form, Input, Typography, message } from "antd";
 import Switch from "antd/es/switch";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -131,7 +131,7 @@ export const RequestStatusCardPage: React.FC = () => {
           <>
             {mode === "edit" && (
               <Button danger onClick={() => void onArchive()} disabled={!canEdit || !entity?.isActive}>
-                Архивировать
+                {t("common.actions.archive")}
               </Button>
             )}
             <Button onClick={onCancel}>{t("common.actions.cancel")}</Button>
@@ -153,7 +153,7 @@ export const RequestStatusCardPage: React.FC = () => {
           <Form.Item
             label={t("settings.requests.form.code")}
             name="code"
-            rules={[{ required: true, message: "Введите код" }]}
+            rules={[{ required: true, message: t("settings.requests.form.code.required") }]}
           >
             <Input disabled={mode === "edit"} />
           </Form.Item>
@@ -161,7 +161,7 @@ export const RequestStatusCardPage: React.FC = () => {
           <Form.Item
             label={t("settings.requests.form.name")}
             name="name"
-            rules={[{ required: true, message: "Введите название" }]}
+            rules={[{ required: true, message: t("settings.requests.form.name.required") }]}
           >
             <Input />
           </Form.Item>

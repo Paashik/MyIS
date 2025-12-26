@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace MyIS.Core.WebApi.Contracts.Requests;
@@ -38,8 +38,16 @@ public sealed class UpdateRequestRequest
     /// </summary>
     public Guid? RelatedEntityId { get; init; }
 
+    public string? RelatedEntityName { get; init; }
+
     /// <summary>
     /// Внешняя ссылка (например, идентификатор объекта в Компонент‑2020).
     /// </summary>
     public string? ExternalReferenceId { get; init; }
+
+    public string? TargetEntityType { get; init; }
+
+    public Guid? TargetEntityId { get; init; }
+
+    public string? TargetEntityName { get; init; }
 }

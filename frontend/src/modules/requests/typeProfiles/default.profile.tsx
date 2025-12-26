@@ -7,7 +7,7 @@ import { t } from "../../../core/i18n/t";
 const { Text } = Typography;
 
 export const defaultRequestTypeProfile: RequestTypeProfile = {
-  code: "__default__",
+  id: "__default__",
   title: t("requests.typeProfile.default.title"),
   renderDetails: ({ request }) => {
     const description = request.description ?? request.bodyText ?? "";

@@ -23,7 +23,7 @@ export const RequestWorkflowSettingsPage: React.FC = () => {
 
   const [types, setTypes] = useState<AdminRequestTypeDto[]>([]);
   const [statuses, setStatuses] = useState<AdminRequestStatusDto[]>([]);
-  const [typeCode, setTypeCode] = useState<string>("");
+  const [typeId, setTypeId] = useState<string>("");
 
   const [items, setItems] = useState<AdminRequestWorkflowTransitionDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -40,28 +40,28 @@ export const RequestWorkflowSettingsPage: React.FC = () => {
       setStatuses(sts);
 
       const firstActive = tps.find((x) => x.isActive) ?? tps[0];
-      if (firstActive && !typeCode) {
-        setTypeCode(firstActive.code);
+      if (firstActive && !typeId) {
+        setTypeId(firstActive.id);
       }
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [typeCode]);
+  }, [typeId]);
 
   const loadTransitions = useCallback(async () => {
-    if (!typeCode) return;
+    if (!typeId) return;
 
     setLoading(true);
     setError(null);
     try {
-      const data = await getAdminWorkflowTransitions(typeCode);
+      const data = await getAdminWorkflowTransitions(typeId);
       setItems(data);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [typeCode]);
+  }, [typeId]);
 
   useEffect(() => {
     void loadLookups();
@@ -116,17 +116,17 @@ export const RequestWorkflowSettingsPage: React.FC = () => {
             size="small"
             onClick={() =>
               navigate(
-                `/administration/requests/workflow/${encodeURIComponent(typeCode)}/${encodeURIComponent(record.id)}`
+                `/administration/requests/workflow/${encodeURIComponent(typeId)}/${encodeURIComponent(record.id)}`
               )
             }
-            disabled={!canEdit || !typeCode}
+            disabled={!canEdit || !typeId}
           >
             {t("common.actions.edit")}
           </Button>
         ),
       },
     ],
-    [canEdit, navigate, statusCodeById, typeCode]
+    [canEdit, navigate, statusCodeById, typeId]
   );
 
   return (
@@ -140,26 +140,26 @@ export const RequestWorkflowSettingsPage: React.FC = () => {
         right={
           <>
             <Select
-              value={typeCode || undefined}
-              onChange={(v: string) => setTypeCode(v)}
+              value={typeId || undefined}
+              onChange={(v: string) => setTypeId(v)}
               style={{ width: 320 }}
               options={types.map((x) => ({
-                value: x.code,
-                label: `${x.code} — ${x.name}${x.isActive ? "" : " (архив)"}`,
+                value: x.id,
+                label: `${x.name}${x.isActive ? "" : " (inactive)"}`,
               }))}
               data-testid="administration-requests-workflow-type"
             />
 
-            <Button onClick={() => void loadTransitions()} disabled={!typeCode}>
+            <Button onClick={() => void loadTransitions()} disabled={!typeId}>
               {t("common.actions.refresh")}
             </Button>
 
             <Button
               type="primary"
               onClick={() =>
-                navigate(`/administration/requests/workflow/${encodeURIComponent(typeCode)}/new`)
+                navigate(`/administration/requests/workflow/${encodeURIComponent(typeId)}/new`)
               }
-              disabled={!canEdit || !typeCode}
+              disabled={!canEdit || !typeId}
             >
               {t("common.actions.add")}
             </Button>
@@ -184,4 +184,3 @@ export const RequestWorkflowSettingsPage: React.FC = () => {
     </div>
   );
 };
-

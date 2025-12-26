@@ -33,21 +33,24 @@ public sealed class GetAdminRequestWorkflowTransitionsHandler
         if (query is null) throw new ArgumentNullException(nameof(query));
         if (query.CurrentUserId == Guid.Empty) throw new ArgumentException("CurrentUserId is required.", nameof(query));
 
-        var types = await _requestTypeRepository.GetAllAsync(includeInactive: true, cancellationToken);
         var statuses = await _requestStatusRepository.GetAllAsync(includeInactive: true, cancellationToken);
-
-        var typeById = types.ToDictionary(t => t.Id.Value, t => t.Code);
-        var typeIdByCode = types.ToDictionary(t => t.Code, t => t.Id, StringComparer.OrdinalIgnoreCase);
 
         var statusIdByCode = statuses.ToDictionary(s => s.Code.Value, s => s.Id.Value, StringComparer.OrdinalIgnoreCase);
 
         IReadOnlyList<MyIS.Core.Domain.Requests.Entities.RequestTransition> transitions;
 
-        if (!string.IsNullOrWhiteSpace(query.TypeCode))
+        if (query.TypeId.HasValue)
         {
-            if (!typeIdByCode.TryGetValue(query.TypeCode.Trim(), out var typeId))
+            if (query.TypeId.Value == Guid.Empty)
             {
-                throw new InvalidOperationException($"RequestType with code '{query.TypeCode}' was not found.");
+                throw new InvalidOperationException("TypeId is required.");
+            }
+
+            var typeId = new RequestTypeId(query.TypeId.Value);
+            var type = await _requestTypeRepository.GetByIdAsync(typeId, cancellationToken);
+            if (type is null)
+            {
+                throw new InvalidOperationException($"RequestType with id '{query.TypeId}' was not found.");
             }
 
             transitions = await _transitionRepository.GetAllByTypeAsync(typeId, includeDisabled: true, cancellationToken);
@@ -61,12 +64,6 @@ public sealed class GetAdminRequestWorkflowTransitionsHandler
 
         foreach (var t in transitions)
         {
-            if (!typeById.TryGetValue(t.RequestTypeId.Value, out var typeCode))
-            {
-                // Unknown type in transitions -> skip (should not happen)
-                continue;
-            }
-
             if (!statusIdByCode.TryGetValue(t.FromStatusCode.Value, out var fromStatusId))
             {
                 continue;
@@ -81,7 +78,6 @@ public sealed class GetAdminRequestWorkflowTransitionsHandler
             {
                 Id = t.Id,
                 RequestTypeId = t.RequestTypeId.Value,
-                RequestTypeCode = typeCode,
                 FromStatusId = fromStatusId,
                 FromStatusCode = t.FromStatusCode.Value,
                 ToStatusId = toStatusId,
@@ -93,7 +89,7 @@ public sealed class GetAdminRequestWorkflowTransitionsHandler
         }
 
         return result
-            .OrderBy(x => x.RequestTypeCode)
+            .OrderBy(x => x.RequestTypeId)
             .ThenBy(x => x.FromStatusCode)
             .ThenBy(x => x.ActionCode)
             .ThenBy(x => x.ToStatusCode)

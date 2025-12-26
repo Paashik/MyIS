@@ -46,7 +46,6 @@ public sealed class UpdateAdminRequestTypeHandler
         return new RequestTypeDto
         {
             Id = type.Id.Value,
-            Code = type.Code,
             Name = type.Name,
             Direction = type.Direction.ToString(),
             Description = type.Description,

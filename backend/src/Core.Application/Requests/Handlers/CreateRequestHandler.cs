@@ -1,9 +1,12 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using MyIS.Core.Application.Common;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Commands;
 using MyIS.Core.Application.Requests.Dto;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
 using MyIS.Core.Domain.Mdm.ValueObjects;
@@ -16,17 +19,20 @@ public class CreateRequestHandler
     private readonly IRequestTypeRepository _requestTypeRepository;
     private readonly IRequestStatusRepository _requestStatusRepository;
     private readonly IRequestsAccessChecker _accessChecker;
+    private readonly IUserRepository _userRepository;
 
     public CreateRequestHandler(
         IRequestRepository requestRepository,
         IRequestTypeRepository requestTypeRepository,
         IRequestStatusRepository requestStatusRepository,
-        IRequestsAccessChecker accessChecker)
+        IRequestsAccessChecker accessChecker,
+        IUserRepository userRepository)
     {
         _requestRepository = requestRepository ?? throw new ArgumentNullException(nameof(requestRepository));
         _requestTypeRepository = requestTypeRepository ?? throw new ArgumentNullException(nameof(requestTypeRepository));
         _requestStatusRepository = requestStatusRepository ?? throw new ArgumentNullException(nameof(requestStatusRepository));
         _accessChecker = accessChecker ?? throw new ArgumentNullException(nameof(accessChecker));
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
     }
 
     public async Task<RequestDto> Handle(CreateRequestCommand command, CancellationToken cancellationToken)
@@ -63,17 +69,25 @@ public class CreateRequestHandler
         // 4. Создание доменной сущности
         var now = DateTimeOffset.UtcNow;
 
+        var number = await _requestRepository.GetNextRequestNumberAsync(cancellationToken);
+        var yearSuffix = (now.Year % 100).ToString("00", CultureInfo.InvariantCulture);
+        var requestNumber = string.Concat(number.ToString("0000", CultureInfo.InvariantCulture), "-", yearSuffix);
+
         var request = Request.Create(
             requestType,
             draftStatus,
             command.InitiatorId,
-            command.Title,
+            requestNumber,
             command.Description,
             now,
             command.DueDate,
             command.RelatedEntityType,
             command.RelatedEntityId,
-            command.ExternalReferenceId);
+            command.RelatedEntityName,
+            command.ExternalReferenceId,
+            command.TargetEntityType,
+            command.TargetEntityId,
+            command.TargetEntityName);
 
         // 4.1. Позиционное тело (v0.1: replace-all)
         if (command.Lines is not null)
@@ -86,7 +100,11 @@ public class CreateRequestHandler
         await _requestRepository.AddAsync(request, cancellationToken);
 
         // 6. Маппинг в DTO
-        var dto = MapToDto(request, requestType, draftStatus, initiatorFullName: null);
+        var initiator = await _userRepository.GetByIdAsync(request.InitiatorId, cancellationToken);
+        var initiatorBaseName = initiator?.Employee?.ShortName ?? initiator?.Employee?.FullName ?? initiator?.FullName ?? initiator?.Login;
+        var initiatorFullName = PersonNameFormatter.ToShortName(initiatorBaseName) ?? initiatorBaseName;
+
+        var dto = MapToDto(request, requestType, draftStatus, initiatorFullName);
 
         return dto;
     }
@@ -104,7 +122,6 @@ public class CreateRequestHandler
             Description = request.Description,
             BodyText = request.Description,
             RequestTypeId = requestType.Id.Value,
-            RequestTypeCode = requestType.Code,
             RequestTypeName = requestType.Name,
             RequestStatusId = status.Id.Value,
             RequestStatusCode = status.Code.Value,
@@ -113,7 +130,11 @@ public class CreateRequestHandler
             InitiatorFullName = initiatorFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
+            RelatedEntityName = request.RelatedEntityName,
             ExternalReferenceId = request.ExternalReferenceId,
+            TargetEntityType = request.TargetEntityType,
+            TargetEntityId = request.TargetEntityId,
+            TargetEntityName = request.TargetEntityName,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
             DueDate = request.DueDate,
