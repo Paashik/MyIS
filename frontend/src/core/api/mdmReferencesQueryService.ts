@@ -7,6 +7,7 @@ export interface ItemListItemDto {
   name: string;
   designation?: string;
   unitOfMeasureName?: string;
+  itemGroupId?: string | null;
   itemGroupName?: string;
 }
 

@@ -1,0 +1,8 @@
+.item-details__card {
+  height: 100%;
+}
+
+.item-details__state {
+  text-align: center;
+  padding: 24px 0;
+}

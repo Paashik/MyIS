@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Card, Typography, Alert } from "antd";
 import { ItemGroupTreeFilter } from "../components/ItemGroupTreeFilter";
 import { t } from "../../../../core/i18n/t";
+import "./ItemGroupFilterDemoPage.css";
 
 const { Title, Text } = Typography;
 
@@ -15,11 +16,11 @@ export const ItemGroupFilterDemoPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="item-group-filter-demo">
       <Card>
         <Title level={3}>{t("references.mdm.itemGroups.title")}</Title>
         
-        <div style={{ marginBottom: 16 }}>
+        <div className="item-group-filter-demo__selected">
           <Text strong>Выбранная группа: </Text>
           {selectedGroupId ? (
             <Text code>{selectedGroupName} (ID: {selectedGroupId})</Text>
@@ -33,7 +34,7 @@ export const ItemGroupFilterDemoPage: React.FC = () => {
             type="info"
             message={`Фильтрация по группе: ${selectedGroupName}`}
             description={`ID группы: ${selectedGroupId}`}
-            style={{ marginBottom: 16 }}
+            className="item-group-filter-demo__alert"
           />
         )}
 
@@ -43,7 +44,7 @@ export const ItemGroupFilterDemoPage: React.FC = () => {
           placeholder="Поиск групп номенклатуры..."
         />
 
-        <div style={{ marginTop: 16 }}>
+        <div className="item-group-filter-demo__note">
           <Text type="secondary">
             Этот компонент демонстрирует использование ItemGroupTreeFilter для фильтрации номенклатуры по группам.
             Выбранная группа может быть использована для фильтрации списка номенклатуры.

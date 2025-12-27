@@ -6,7 +6,7 @@ public class Component2020SyncCursor
 {
     public Guid ConnectionId { get; private set; }
 
-    public string SourceEntity { get; private set; }
+    public string SourceEntity { get; private set; } = string.Empty;
 
     public string? LastProcessedKey { get; private set; }
 

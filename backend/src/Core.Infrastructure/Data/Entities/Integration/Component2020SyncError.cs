@@ -8,13 +8,13 @@ public class Component2020SyncError
 
     public Guid SyncRunId { get; private set; }
 
-    public string EntityType { get; private set; }
+    public string EntityType { get; private set; } = string.Empty;
 
     public string? ExternalEntity { get; private set; }
 
     public string? ExternalKey { get; private set; }
 
-    public string Message { get; private set; }
+    public string Message { get; private set; } = string.Empty;
 
     public string? Details { get; private set; }
 

@@ -76,12 +76,20 @@ export const SupplyLinesEditor: React.FC<SupplyLinesEditorProps> = ({ name, form
     }
   };
 
-  const handleItemSelect = (index: number, value: string) => {
+  const handleItemSelect = (index: number, value?: string) => {
+    if (!value) {
+      handleChange(index, "itemId", undefined);
+      handleChange(index, "externalItemCode", undefined);
+      return;
+    }
     const item = currentItems.find(i => i.code === value);
     if (item) {
       handleChange(index, "itemId", item.id);
       handleChange(index, "externalItemCode", value);
+      return;
     }
+    handleChange(index, "itemId", undefined);
+    handleChange(index, "externalItemCode", value);
   };
 
   const columns: ColumnsType<RequestLineInputDto> = [
@@ -101,7 +109,7 @@ export const SupplyLinesEditor: React.FC<SupplyLinesEditorProps> = ({ name, form
           filterOption={false}
           onSearch={handleItemSearch}
           onSelect={(val: string) => handleItemSelect(index, val)}
-          onChange={(val: string) => handleChange(index, "externalItemCode", val)}
+          onChange={(val?: string) => handleItemSelect(index, val)}
           placeholder="Search and select item"
           style={{ width: "100%" }}
           allowClear

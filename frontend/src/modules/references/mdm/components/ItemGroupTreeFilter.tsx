@@ -6,6 +6,7 @@ import type { DataNode } from "antd/es/tree";
 import { t } from "../../../../core/i18n/t";
 import { getMdmDictionaryList } from "../api/adminMdmReferencesApi";
 import type { MdmItemGroupReferenceDto } from "../api/adminMdmReferencesApi";
+import "./ItemGroupTreeFilter.css";
 
 const { Search } = Input;
 
@@ -142,7 +143,9 @@ export const ItemGroupTreeFilter: React.FC<ItemGroupTreeFilterProps> = ({
         title: (
           <span>
             {group.name}
-            {group.abbreviation && <span style={{ color: "#999", marginLeft: 8 }}>({group.abbreviation})</span>}
+            {group.abbreviation && (
+              <span className="item-group-tree-filter__abbr">({group.abbreviation})</span>
+            )}
           </span>
         ),
         children: undefined,
@@ -202,36 +205,41 @@ export const ItemGroupTreeFilter: React.FC<ItemGroupTreeFilterProps> = ({
 
   const onSelect = (selectedKeys: React.Key[], info: any) => {
     if (selectedKeys.length === 0) {
-      onGroupSelect?.(null, null);
-    } else {
-      const selectedKey = selectedKeys[0] as string;
-      const group = itemGroups.find(g => String(g.id) === selectedKey);
-      if (group) {
-        onGroupSelect?.(group.id, group.name);
+      const clickedKey = info?.node?.key ? String(info.node.key) : null;
+      if (clickedKey && selectedGroupId === clickedKey) {
+        return;
       }
+      onGroupSelect?.(null, null);
+      return;
+    }
+
+    const selectedKey = selectedKeys[0] as string;
+    const group = itemGroups.find(g => String(g.id) === selectedKey);
+    if (group) {
+      onGroupSelect?.(group.id, group.name);
     }
   };
 
   return (
-    <div style={{ padding: "8px 0" }}>
+    <div className="item-group-tree-filter">
       <Search
         placeholder={placeholder}
         allowClear
         onSearch={onSearch}
         onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-        style={{ marginBottom: 8 }}
+        className="item-group-tree-filter__search"
       />
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: "24px 0" }}>
+        <div className="item-group-tree-filter__loading">
           <Spin />
         </div>
       ) : error ? (
-        <div style={{ padding: "12px 0" }}>
+        <div className="item-group-tree-filter__empty">
           <Empty description={error} />
         </div>
       ) : treeData.length === 0 ? (
-        <div style={{ padding: "12px 0" }}>
+        <div className="item-group-tree-filter__empty">
           <Empty description={t("references.mdm.itemGroups.noGroups")} />
         </div>
       ) : (
@@ -244,7 +252,7 @@ export const ItemGroupTreeFilter: React.FC<ItemGroupTreeFilterProps> = ({
           selectedKeys={selectedGroupId ? [selectedGroupId] : []}
           onSelect={onSelect}
           treeData={treeData}
-          style={{ height: 400, overflow: "auto", border: "1px solid #f0f0f0", borderRadius: 4, padding: 8 }}
+          className="item-group-tree-filter__tree"
         />
       )}
     </div>

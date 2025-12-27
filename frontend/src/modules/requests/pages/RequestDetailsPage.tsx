@@ -20,6 +20,7 @@ import { RequestBodyRenderer } from "../components/RequestBodyRenderer";
 import { useCan } from "../../../core/auth/permissions";
 import { t } from "../../../core/i18n/t";
 import { CommandBar } from "../../../components/ui/CommandBar";
+import "./RequestDetailsPage.css";
 
 const { Title, Text } = Typography;
 
@@ -238,15 +239,7 @@ export const RequestDetailsPage: React.FC = () => {
 
   if (state.kind === "loading") {
     return (
-      <div
-        data-testid="request-details-loading"
-        style={{
-          minHeight: "40vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div data-testid="request-details-loading" className="request-details__loading">
         <Spin tip={t("requests.details.loading")} />
       </div>
     );
@@ -261,7 +254,7 @@ export const RequestDetailsPage: React.FC = () => {
           message={t("requests.details.error.load.title")}
           description={state.message}
           showIcon
-          style={{ marginBottom: 16 }}
+          className="request-details__alert"
         />
         <Button data-testid="request-details-retry-button" onClick={handleReload}>
           {t("common.actions.retry")}
@@ -282,11 +275,11 @@ export const RequestDetailsPage: React.FC = () => {
     <div data-testid="request-details-page">
       <CommandBar
         left={
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <Title level={3} style={{ margin: 0 }}>
+          <div className="request-details__header">
+            <div className="request-details__heading">
+              <Title level={3} className="request-details__title">
                 {request.requestTypeName}{" "}
-                <Text type="secondary" style={{ fontSize: 14 }}>
+                <Text type="secondary" className="request-details__subtitle">
                   <Text code>{request.id}</Text>
                 </Text>
               </Title>
@@ -295,7 +288,7 @@ export const RequestDetailsPage: React.FC = () => {
                 statusName={request.requestStatusName}
               />
             </div>
-            <Text style={{ fontSize: 16 }}>{request.title}</Text>
+            <Text className="request-details__request-title">{request.title}</Text>
           </div>
         }
         right={
@@ -325,7 +318,7 @@ export const RequestDetailsPage: React.FC = () => {
         }
       />
 
-      <div style={{ marginBottom: 24 }}>
+      <div className="request-details__summary">
         <Descriptions column={2} bordered size="small">
           <Descriptions.Item label={t("requests.details.fields.id")} span={2}>
             <Text code>{request.id}</Text>
@@ -467,7 +460,7 @@ export const RequestDetailsPage: React.FC = () => {
                     message={t("requests.details.history.error.title")}
                     description={historyError}
                     showIcon
-                    style={{ marginBottom: 16 }}
+                    className="request-details__alert"
                   />
                 )}
                 <RequestHistoryTimeline items={history} loading={historyLoading} />

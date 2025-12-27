@@ -59,6 +59,7 @@ public class RequestTests
         const string description = "  Description  ";
         const string relatedEntityType = "  Order  ";
         var relatedEntityId = Guid.NewGuid();
+        const string relatedEntityName = "  Order 123  ";
         const string externalReferenceId = "  EXT-123  ";
 
         // Act
@@ -72,6 +73,7 @@ public class RequestTests
             dueDate,
             relatedEntityType,
             relatedEntityId,
+            relatedEntityName,
             externalReferenceId);
 
         // Assert
@@ -86,6 +88,7 @@ public class RequestTests
 
         request.RelatedEntityType.Should().Be("Order");
         request.RelatedEntityId.Should().Be(relatedEntityId);
+        request.RelatedEntityName.Should().Be("Order 123");
         request.ExternalReferenceId.Should().Be("EXT-123");
 
         request.CreatedAt.Should().Be(createdAt);
@@ -180,7 +183,11 @@ public class RequestTests
             newDueDate,
             "  Contract  ",
             relatedEntityId: null,
+            relatedEntityName: "  Contract X  ",
             externalReferenceId: "  EXT-2  ",
+            targetEntityType: null,
+            targetEntityId: null,
+            targetEntityName: null,
             updatedAt: updatedAt,
             isCurrentStatusFinal: false);
 
@@ -190,6 +197,7 @@ public class RequestTests
         request.DueDate.Should().Be(newDueDate);
         request.RelatedEntityType.Should().Be("Contract");
         request.RelatedEntityId.Should().BeNull();
+        request.RelatedEntityName.Should().Be("Contract X");
         request.ExternalReferenceId.Should().Be("EXT-2");
         request.UpdatedAt.Should().Be(updatedAt);
     }
@@ -217,7 +225,11 @@ public class RequestTests
             dueDate: null,
             relatedEntityType: null,
             relatedEntityId: null,
+            relatedEntityName: null,
             externalReferenceId: null,
+            targetEntityType: null,
+            targetEntityId: null,
+            targetEntityName: null,
             updatedAt: DateTimeOffset.UtcNow,
             isCurrentStatusFinal: true);
 

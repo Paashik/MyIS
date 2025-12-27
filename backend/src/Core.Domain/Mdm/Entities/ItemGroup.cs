@@ -7,7 +7,7 @@ public class ItemGroup : IDeactivatable
 {
     public Guid Id { get; private set; }
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
     public string? Abbreviation { get; private set; }
 

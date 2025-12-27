@@ -13,11 +13,11 @@ public class Component2020SyncRun
 
     public Guid? StartedByUserId { get; private set; }
 
-    public string Scope { get; private set; }
+    public string Scope { get; private set; } = string.Empty;
 
-    public string Mode { get; private set; }
+    public string Mode { get; private set; } = string.Empty;
 
-    public string Status { get; private set; }
+    public string Status { get; private set; } = string.Empty;
 
     public int ProcessedCount { get; private set; }
 

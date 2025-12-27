@@ -1,0 +1,50 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-shell__logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.app-shell__header {
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ant-color-bg-container, #fff);
+}
+
+.app-shell__title {
+  margin: 0;
+}
+
+.app-shell__search {
+  width: 360px;
+  max-width: 40vw;
+  margin-top: 8px;
+}
+
+.app-shell__user-trigger {
+  cursor: pointer;
+}
+
+.app-shell__user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__user-roles {
+  font-size: 12px;
+}
+
+.app-shell__content {
+  margin: 16px;
+  padding: 24px;
+  background: var(--ant-color-bg-container, #fff);
+}

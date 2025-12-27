@@ -27,9 +27,12 @@ export interface RequestFormValues {
   targetEntityName?: string;
 }
 
+export type RequestFormInitialValues =
+  Omit<RequestFormValues, "requestTypeId"> & { requestTypeId?: string };
+
 export interface RequestFormProps {
   mode: "create" | "edit";
-  initialValues?: RequestFormValues;
+  initialValues?: RequestFormInitialValues;
   requestTypes: RequestTypeDto[];
   form?: FormInstance;
   showActions?: boolean;
@@ -158,11 +161,15 @@ export const RequestForm: React.FC<RequestFormProps> = ({
     const lines: RequestLineInputDto[] | undefined = rawLines
       ? rawLines.map((l, idx) => ({
           lineNo: idx + 1,
+          itemId: l?.itemId || undefined,
+          externalItemCode: l?.externalItemCode || undefined,
           description: l?.description || undefined,
           quantity: typeof l?.quantity === "number" ? l.quantity : Number(l?.quantity ?? 0),
+          unitOfMeasureId: l?.unitOfMeasureId || undefined,
           needByDate: toIso(l?.needByDate),
           supplierName: l?.supplierName || undefined,
           supplierContact: l?.supplierContact || undefined,
+          externalRowReferenceId: l?.externalRowReferenceId || undefined,
         }))
       : undefined;
 

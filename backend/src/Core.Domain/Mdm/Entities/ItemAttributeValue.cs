@@ -8,7 +8,7 @@ public class ItemAttributeValue
 
     public Guid AttributeId { get; private set; }
 
-    public string Value { get; private set; }
+    public string Value { get; private set; } = string.Empty;
 
     public DateTimeOffset CreatedAt { get; private set; }
 

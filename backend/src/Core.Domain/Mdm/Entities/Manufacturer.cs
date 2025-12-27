@@ -7,7 +7,7 @@ public class Manufacturer : IDeactivatable
 {
     public Guid Id { get; private set; }
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
     public string? FullName { get; private set; }
 

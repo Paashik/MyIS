@@ -128,12 +128,19 @@ public sealed class RequestRepository : IRequestRepository
 
     public async Task<long> GetNextRequestNumberAsync(CancellationToken cancellationToken)
     {
+        if (string.Equals(_dbContext.Database.ProviderName, "Microsoft.EntityFrameworkCore.InMemory", StringComparison.Ordinal))
+        {
+            var currentCount = await _dbContext.Requests.LongCountAsync(cancellationToken);
+            return currentCount + 1;
+        }
+
         await using var command = _dbContext.Database.GetDbConnection().CreateCommand();
         command.CommandText = "SELECT nextval('requests.request_number_seq')";
 
-        if (command.Connection.State != ConnectionState.Open)
+        var connection = command.Connection ?? throw new InvalidOperationException("Database connection is not initialized.");
+        if (connection.State != ConnectionState.Open)
         {
-            await command.Connection.OpenAsync(cancellationToken);
+            await connection.OpenAsync(cancellationToken);
         }
 
         var result = await command.ExecuteScalarAsync(cancellationToken);

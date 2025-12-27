@@ -1,0 +1,29 @@
+.item-group-tree-filter {
+  padding: 8px 0;
+}
+
+.item-group-tree-filter__abbr {
+  color: #999;
+  margin-left: 8px;
+}
+
+.item-group-tree-filter__search {
+  margin-bottom: 8px;
+}
+
+.item-group-tree-filter__loading {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.item-group-tree-filter__empty {
+  padding: 12px 0;
+}
+
+.item-group-tree-filter__tree {
+  height: 400px;
+  overflow: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  padding: 8px;
+}

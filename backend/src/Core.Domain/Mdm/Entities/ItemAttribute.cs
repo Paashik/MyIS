@@ -7,11 +7,11 @@ public class ItemAttribute : IDeactivatable
 {
     public Guid Id { get; private set; }
 
-    public string Code { get; private set; }
+    public string Code { get; private set; } = string.Empty;
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
-    public string Type { get; private set; } // e.g., "string", "number", "boolean"
+    public string Type { get; private set; } = string.Empty; // e.g., "string", "number", "boolean"
 
     public bool IsActive { get; private set; }
 

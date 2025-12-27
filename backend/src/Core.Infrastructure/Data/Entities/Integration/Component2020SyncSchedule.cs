@@ -6,11 +6,11 @@ public class Component2020SyncSchedule
 {
     public Guid Id { get; private set; }
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
-    public string CronExpression { get; private set; }
+    public string CronExpression { get; private set; } = string.Empty;
 
-    public string Scope { get; private set; }
+    public string Scope { get; private set; } = string.Empty;
 
     public bool IsActive { get; private set; }
 

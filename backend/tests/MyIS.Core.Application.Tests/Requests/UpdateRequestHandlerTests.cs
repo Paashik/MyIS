@@ -7,8 +7,10 @@ using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Commands;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Handlers;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Users;
 using Xunit;
 
 namespace MyIS.Core.Application.Tests.Requests;
@@ -19,6 +21,7 @@ public class UpdateRequestHandlerTests
     private readonly Mock<IRequestTypeRepository> _requestTypeRepositoryMock = new();
     private readonly Mock<IRequestStatusRepository> _requestStatusRepositoryMock = new();
     private readonly Mock<IRequestsAccessChecker> _accessCheckerMock = new();
+    private readonly Mock<IUserRepository> _userRepositoryMock = new();
 
     private UpdateRequestHandler CreateHandler()
     {
@@ -26,7 +29,8 @@ public class UpdateRequestHandlerTests
             _requestRepositoryMock.Object,
             _requestTypeRepositoryMock.Object,
             _requestStatusRepositoryMock.Object,
-            _accessCheckerMock.Object);
+            _accessCheckerMock.Object,
+            _userRepositoryMock.Object);
     }
 
     private static RequestType CreateRequestType(Guid? id = null, string name = "Type 1")
@@ -46,6 +50,18 @@ public class UpdateRequestHandlerTests
             name,
             isFinal,
             description: "Test status");
+    }
+
+    private static User CreateUser(Guid id, string fullName = "Test User")
+    {
+        return User.Create(
+            id: id,
+            login: $"user-{id:N}",
+            passwordHash: "hash",
+            isActive: true,
+            employeeId: null,
+            now: DateTimeOffset.UtcNow,
+            fullName: fullName);
     }
 
     private static Request CreateRequest(RequestType type, RequestStatus status, Guid initiatorId, string title = "Original title")
@@ -100,6 +116,10 @@ public class UpdateRequestHandlerTests
             .Setup(a => a.EnsureCanUpdateAsync(currentUserId, request, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(request.InitiatorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateUser(request.InitiatorId));
+
         Request? savedRequest = null;
         _requestRepositoryMock
             .Setup(r => r.UpdateAsync(It.IsAny<Request>(), It.IsAny<CancellationToken>()))
@@ -134,7 +154,7 @@ public class UpdateRequestHandlerTests
             Times.Once);
 
         savedRequest.Should().NotBeNull();
-        savedRequest!.Title.Should().Be(command.Title);
+        savedRequest!.Title.Should().Be(request.Title);
         savedRequest.Description.Should().Be(command.Description);
         savedRequest.DueDate.Should().Be(newDueDate);
         savedRequest.RelatedEntityType.Should().Be(command.RelatedEntityType);
@@ -145,7 +165,7 @@ public class UpdateRequestHandlerTests
         // Assert: DTO маппится корректно
         dto.Should().NotBeNull();
         dto.Id.Should().Be(savedRequest.Id.Value);
-        dto.Title.Should().Be(savedRequest.Title);
+        dto.Title.Should().Be(request.Title);
         dto.Description.Should().Be(savedRequest.Description);
         dto.RequestTypeId.Should().Be(type.Id.Value);
         dto.RequestTypeName.Should().Be(type.Name);

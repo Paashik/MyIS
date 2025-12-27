@@ -42,7 +42,7 @@ public enum Component2020SyncScope
 public class RunComponent2020SyncResponse
 {
     public Guid RunId { get; set; }
-    public string Status { get; set; } // e.g., "Started", "Completed", "Failed"
+    public string Status { get; set; } = string.Empty; // e.g., "Started", "Completed", "Failed"
     public string? ErrorMessage { get; set; }
     public int ProcessedCount { get; set; }
 }

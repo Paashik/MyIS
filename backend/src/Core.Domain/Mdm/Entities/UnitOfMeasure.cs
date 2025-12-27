@@ -9,9 +9,9 @@ public class UnitOfMeasure : IDeactivatable
 
     public string? Code { get; private set; }
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
-    public string Symbol { get; private set; }
+    public string Symbol { get; private set; } = string.Empty;
 
     public bool IsActive { get; private set; }
 

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ namespace MyIS.Core.WebApi.Controllers;
 
 [ApiController]
 [Route("api/admin/integrations/component2020")]
+[SupportedOSPlatform("windows")]
 public class Component2020IntegrationController : ControllerBase
 {
     private static Guid? TryGetUserId(ClaimsPrincipal user)

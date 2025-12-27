@@ -1,0 +1,28 @@
+.items-page {
+  padding: 24px;
+}
+
+.items-page__title {
+  margin-bottom: 16px;
+}
+
+.items-page__row {
+  height: calc(100vh - 120px);
+}
+
+.items-page__panel {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  height: 100%;
+  padding: 16px;
+}
+
+.items-page__panel-title {
+  margin-bottom: 16px;
+}
+
+.items-page__panel-content {
+  height: calc(100% - 60px);
+  overflow: auto;
+}

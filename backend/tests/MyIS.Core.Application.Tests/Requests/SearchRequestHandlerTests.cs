@@ -9,8 +9,10 @@ using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Handlers;
 using MyIS.Core.Application.Requests.Queries;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Users;
 using Xunit;
 
 namespace MyIS.Core.Application.Tests.Requests;
@@ -19,12 +21,14 @@ public class SearchRequestsHandlerTests
 {
     private readonly Mock<IRequestRepository> _requestRepositoryMock = new();
     private readonly Mock<IRequestsAccessChecker> _accessCheckerMock = new();
+    private readonly Mock<IUserRepository> _userRepositoryMock = new();
 
     private SearchRequestsHandler CreateHandler()
     {
         return new SearchRequestsHandler(
             _requestRepositoryMock.Object,
-            _accessCheckerMock.Object);
+            _accessCheckerMock.Object,
+            _userRepositoryMock.Object);
     }
 
     private static RequestType CreateRequestType(Guid? id = null, string name = "Type 1")
@@ -44,6 +48,18 @@ public class SearchRequestsHandlerTests
             name,
             isFinal,
             description: "Test status");
+    }
+
+    private static User CreateUser(Guid id, string fullName = "Test User")
+    {
+        return User.Create(
+            id: id,
+            login: $"user-{id:N}",
+            passwordHash: "hash",
+            isActive: true,
+            employeeId: null,
+            now: DateTimeOffset.UtcNow,
+            fullName: fullName);
     }
 
     private static Request CreateRequest(RequestType type, RequestStatus status, Guid initiatorId, string title)
@@ -105,6 +121,10 @@ public class SearchRequestsHandlerTests
         _accessCheckerMock
             .Setup(a => a.EnsureCanViewAsync(currentUserId, It.IsAny<Request>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User> { CreateUser(request1.InitiatorId) });
 
         var query = new SearchRequestsQuery
         {
@@ -180,6 +200,10 @@ public class SearchRequestsHandlerTests
             .Setup(a => a.EnsureCanViewAsync(currentUserId, request, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException("no view"));
 
+        _userRepositoryMock
+            .Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User> { CreateUser(request.InitiatorId) });
+
         var query = new SearchRequestsQuery
         {
             RequestTypeId = null,
@@ -246,6 +270,10 @@ public class SearchRequestsHandlerTests
         _accessCheckerMock
             .Setup(a => a.EnsureCanViewAsync(currentUserId, request, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User> { CreateUser(request.InitiatorId) });
 
         var query = new SearchRequestsQuery
         {

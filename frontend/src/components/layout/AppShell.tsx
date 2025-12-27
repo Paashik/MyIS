@@ -9,7 +9,6 @@ import {
   Button,
   Input,
   Badge,
-  theme,
 } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -32,13 +31,13 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { t } from "../../core/i18n/t";
 import { useCan } from "../../core/auth/permissions";
+import "./AppShell.css";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 
 const AppShell: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { token } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -262,19 +261,9 @@ const AppShell: React.FC = () => {
   const userRoles = user?.roles?.length ? user.roles.join(", ") : t("nav.roles.none");
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
+    <Layout className="app-shell">
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
-        <div
-          style={{
-            height: 64,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: 18,
-          }}
-        >
+        <div className="app-shell__logo">
           MyIS
         </div>
         <Menu
@@ -288,22 +277,14 @@ const AppShell: React.FC = () => {
         />
       </Sider>
       <Layout>
-        <Header
-          style={{
-            padding: "0 24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: token.colorBgContainer,
-          }}
-        >
+        <Header className="app-shell__header">
           <Space align="center">
             <Button
               type="text"
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
               onClick={() => setCollapsed((prev) => !prev)}
             />
-            <Title level={4} style={{ margin: 0 }}>
+            <Title level={4} className="app-shell__title">
               MyIS
             </Title>
           </Space>
@@ -312,7 +293,7 @@ const AppShell: React.FC = () => {
             <Input.Search
               placeholder={t("nav.search.placeholder")}
               allowClear
-              style={{ width: 360, maxWidth: "40vw", marginTop: 8 }}
+              className="app-shell__search"
               onSearch={() => {
                 // Global search is not implemented yet.
               }}
@@ -327,11 +308,11 @@ const AppShell: React.FC = () => {
             </Badge>
 
             <Dropdown menu={{ items: userMenuItems }} trigger={["click"]}>
-              <Space align="center" style={{ cursor: "pointer" }}>
+              <Space align="center" className="app-shell__user-trigger">
                 <Avatar icon={<UserOutlined />} />
-                <div style={{ display: "flex", flexDirection: "column" }}>
+                <div className="app-shell__user-info">
                   <Text strong>{userName}</Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text type="secondary" className="app-shell__user-roles">
                     {userRoles}
                   </Text>
                 </div>
@@ -339,13 +320,7 @@ const AppShell: React.FC = () => {
             </Dropdown>
           </Space>
         </Header>
-        <Content
-          style={{
-            margin: 16,
-            padding: 24,
-            background: token.colorBgContainer,
-          }}
-        >
+        <Content className="app-shell__content">
           <Outlet />
         </Content>
       </Layout>

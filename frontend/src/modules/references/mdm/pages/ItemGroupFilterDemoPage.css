@@ -1,0 +1,15 @@
+.item-group-filter-demo {
+  padding: 24px;
+}
+
+.item-group-filter-demo__selected {
+  margin-bottom: 16px;
+}
+
+.item-group-filter-demo__alert {
+  margin-bottom: 16px;
+}
+
+.item-group-filter-demo__note {
+  margin-top: 16px;
+}

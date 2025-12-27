@@ -8,11 +8,11 @@ public class Item : IDeactivatable
 {
     public Guid Id { get; private set; }
 
-    public string Code { get; private set; }
+    public string Code { get; private set; } = string.Empty;
 
-    public string NomenclatureNo { get; private set; }
+    public string NomenclatureNo { get; private set; } = string.Empty;
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
     public ItemKind ItemKind { get; private set; }
 

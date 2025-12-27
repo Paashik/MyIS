@@ -7,9 +7,9 @@ public class BodyType : IDeactivatable
 {
     public Guid Id { get; private set; }
 
-    public string Code { get; private set; }
+    public string Code { get; private set; } = string.Empty;
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
     public string? Description { get; private set; }
 

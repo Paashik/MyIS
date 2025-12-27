@@ -2,6 +2,7 @@ using System;
 using System.Data.OleDb;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.Versioning;
 using Microsoft.EntityFrameworkCore;
 using MyIS.Core.Application.Integration.Component2020.Dto;
 using MyIS.Core.Application.Integration.Component2020.Services;
@@ -10,6 +11,7 @@ using MyIS.Core.Infrastructure.Data.Entities.Integration;
 
 namespace MyIS.Core.Infrastructure.Integration.Component2020.Services;
 
+[SupportedOSPlatform("windows")]
 public class Component2020ConnectionProvider : IComponent2020ConnectionProvider
 {
     private readonly AppDbContext _dbContext;
@@ -41,7 +43,7 @@ public class Component2020ConnectionProvider : IComponent2020ConnectionProvider
 
         return new Component2020ConnectionDto
         {
-            MdbPath = connection.MdbPath,
+            MdbPath = connection.MdbPath ?? string.Empty,
             Login = connection.Login,
             Password = connection.EncryptedPassword,
             IsActive = connection.IsActive

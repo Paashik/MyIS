@@ -8,8 +8,10 @@ using MyIS.Core.Application.Requests.Commands;
 using MyIS.Core.Application.Requests.Dto;
 using MyIS.Core.Application.Requests.Handlers;
 using MyIS.Core.Application.Requests.Queries;
+using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
+using MyIS.Core.Domain.Users;
 using Xunit;
 
 namespace MyIS.Core.Application.Tests.Requests;
@@ -20,6 +22,7 @@ public class GetRequestByIdHandlerTests
     private readonly Mock<IRequestTypeRepository> _requestTypeRepositoryMock = new();
     private readonly Mock<IRequestStatusRepository> _requestStatusRepositoryMock = new();
     private readonly Mock<IRequestsAccessChecker> _accessCheckerMock = new();
+    private readonly Mock<IUserRepository> _userRepositoryMock = new();
 
     private GetRequestByIdHandler CreateHandler()
     {
@@ -27,7 +30,8 @@ public class GetRequestByIdHandlerTests
             _requestRepositoryMock.Object,
             _requestTypeRepositoryMock.Object,
             _requestStatusRepositoryMock.Object,
-            _accessCheckerMock.Object);
+            _accessCheckerMock.Object,
+            _userRepositoryMock.Object);
     }
 
     private static RequestType CreateRequestType(Guid? id = null, string name = "Type 1")
@@ -47,6 +51,18 @@ public class GetRequestByIdHandlerTests
             name,
             isFinal,
             description: "Test status");
+    }
+
+    private static User CreateUser(Guid id, string fullName = "Test User")
+    {
+        return User.Create(
+            id: id,
+            login: $"user-{id:N}",
+            passwordHash: "hash",
+            isActive: true,
+            employeeId: null,
+            now: DateTimeOffset.UtcNow,
+            fullName: fullName);
     }
 
     private static Request CreateRequest(RequestType type, RequestStatus status, Guid initiatorId, string title = "Title")
@@ -96,6 +112,10 @@ public class GetRequestByIdHandlerTests
         _requestStatusRepositoryMock
             .Setup(r => r.GetByIdAsync(request.RequestStatusId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(status);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(request.InitiatorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateUser(request.InitiatorId));
 
         var query = new GetRequestByIdQuery
         {
@@ -290,12 +310,14 @@ public class AddRequestCommentHandlerTests
 {
     private readonly Mock<IRequestRepository> _requestRepositoryMock = new();
     private readonly Mock<IRequestsAccessChecker> _accessCheckerMock = new();
+    private readonly Mock<IUserRepository> _userRepositoryMock = new();
 
     private AddRequestCommentHandler CreateHandler()
     {
         return new AddRequestCommentHandler(
             _requestRepositoryMock.Object,
-            _accessCheckerMock.Object);
+            _accessCheckerMock.Object,
+            _userRepositoryMock.Object);
     }
 
     private static RequestType CreateRequestType()
@@ -338,6 +360,18 @@ public class AddRequestCommentHandlerTests
         return request;
     }
 
+    private static User CreateUser(Guid id, string fullName = "Test User")
+    {
+        return User.Create(
+            id: id,
+            login: $"user-{id:N}",
+            passwordHash: "hash",
+            isActive: true,
+            employeeId: null,
+            now: DateTimeOffset.UtcNow,
+            fullName: fullName);
+    }
+
     [Fact]
     public async Task Handle_ValidCommand_AddsCommentAndReturnsDto()
     {
@@ -357,6 +391,10 @@ public class AddRequestCommentHandlerTests
         _accessCheckerMock
             .Setup(a => a.EnsureCanAddCommentAsync(authorId, It.IsAny<RequestId>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateUser(authorId));
 
         Request? savedAggregate = null;
 

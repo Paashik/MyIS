@@ -7,9 +7,9 @@ public class ParameterSet : IDeactivatable
 {
     public Guid Id { get; private set; }
 
-    public string Code { get; private set; }
+    public string Code { get; private set; } = string.Empty;
 
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
     public int? P0Id { get; private set; }
 

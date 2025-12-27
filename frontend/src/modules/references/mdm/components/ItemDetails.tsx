@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Descriptions, Spin } from 'antd';
 import Empty from 'antd/es/empty';
+import "./ItemDetails.css";
 
 interface ItemDetailsDto {
   id: string;
@@ -52,8 +53,8 @@ export const ItemDetails: React.FC<ItemDetailsProps> = ({ itemId }) => {
 
   if (loading) {
     return (
-      <Card title="Детали номенклатуры" style={{ height: '100%' }}>
-        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+      <Card title="Детали номенклатуры" className="item-details__card">
+        <div className="item-details__state">
           <Spin size="large" />
         </div>
       </Card>
@@ -62,14 +63,14 @@ export const ItemDetails: React.FC<ItemDetailsProps> = ({ itemId }) => {
 
   if (!item) {
     return (
-      <Card title="Детали номенклатуры" style={{ height: '100%' }}>
+      <Card title="Детали номенклатуры" className="item-details__card">
         <Empty description="Выберите номенклатуру для просмотра деталей" />
       </Card>
     );
   }
 
   return (
-    <Card title="Детали номенклатуры" style={{ height: '100%' }}>
+    <Card title="Детали номенклатуры" className="item-details__card">
       <Descriptions column={1} bordered>
         <Descriptions.Item label="Код">{item.code}</Descriptions.Item>
         <Descriptions.Item label="Номенклатурный номер">{item.nomenclatureNo}</Descriptions.Item>

@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Data.OleDb;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using MyIS.Core.Application.Integration.Component2020.Dto;
 using MyIS.Core.Application.Integration.Component2020.Services;
 
 namespace MyIS.Core.Infrastructure.Integration.Component2020.Services;
 
+[SupportedOSPlatform("windows")]
 public class Component2020SnapshotReader : IComponent2020SnapshotReader
 {
     private readonly IComponent2020ConnectionProvider _connectionProvider;

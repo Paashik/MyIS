@@ -13,7 +13,7 @@ public class ScheduleComponent2020SyncCommand
 public class ScheduleComponent2020SyncResponse
 {
     public Guid ScheduleId { get; set; }
-    public string Status { get; set; } // e.g., "Scheduled", "Updated"
+    public string Status { get; set; } = string.Empty; // e.g., "Scheduled", "Updated"
 }
 
 public class Component2020SyncScheduleDto

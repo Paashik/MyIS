@@ -1,0 +1,38 @@
+.request-details__loading {
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.request-details__alert {
+  margin-bottom: 16px;
+}
+
+.request-details__header {
+  display: flex;
+  flex-direction: column;
+}
+
+.request-details__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.request-details__title {
+  margin: 0;
+}
+
+.request-details__subtitle {
+  font-size: 14px;
+}
+
+.request-details__request-title {
+  font-size: 16px;
+}
+
+.request-details__summary {
+  margin-bottom: 24px;
+}

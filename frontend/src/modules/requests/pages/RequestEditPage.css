@@ -1,0 +1,14 @@
+.request-edit__loading {
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.request-edit__alert {
+  margin-bottom: 16px;
+}
+
+.request-edit__title {
+  margin: 0;
+}

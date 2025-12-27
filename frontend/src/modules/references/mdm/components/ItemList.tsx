@@ -30,9 +30,10 @@ export const ItemList: React.FC<ItemListProps> = ({ selectedGroupId, onItemSelec
   const fetchItems = async () => {
     setLoading(true);
     try {
+      const trimmedSearch = searchText.trim();
       const result = await mdmReferencesQueryService.getItems({
-        groupId: selectedGroupId,
-        searchText: searchText,
+        groupId: trimmedSearch.length > 0 ? null : selectedGroupId,
+        searchText: trimmedSearch,
         pageNumber: currentPage,
         pageSize: pageSize,
       });

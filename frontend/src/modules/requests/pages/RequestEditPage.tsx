@@ -18,6 +18,7 @@ import {
 import { RequestForm, RequestFormValues } from "../components/RequestForm";
 import { t } from "../../../core/i18n/t";
 import { CommandBar } from "../../../components/ui/CommandBar";
+import "./RequestEditPage.css";
 
 const { Title } = Typography;
 
@@ -186,15 +187,7 @@ export const RequestEditPage: React.FC = () => {
 
   if (state.kind === "loading") {
     return (
-      <div
-        data-testid="request-edit-loading"
-        style={{
-          minHeight: "40vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div data-testid="request-edit-loading" className="request-edit__loading">
         <Spin
           tip={
             isEdit ? t("requests.edit.loading.edit") : t("requests.edit.loading.create")
@@ -217,7 +210,7 @@ export const RequestEditPage: React.FC = () => {
           }
           description={state.message}
           showIcon
-          style={{ marginBottom: 16 }}
+          className="request-edit__alert"
         />
         <Button data-testid="request-edit-back-button" onClick={handleCancel}>
           {t("common.actions.back")}
@@ -247,11 +240,15 @@ export const RequestEditPage: React.FC = () => {
           lines: (request.lines ?? []).map(
             (l, idx): RequestLineInputDto => ({
               lineNo: idx + 1,
+              itemId: l.itemId ?? undefined,
+              externalItemCode: l.externalItemCode ?? undefined,
               description: l.description ?? undefined,
               quantity: l.quantity,
+              unitOfMeasureId: l.unitOfMeasureId ?? undefined,
               needByDate: l.needByDate ?? undefined,
               supplierName: l.supplierName ?? undefined,
               supplierContact: l.supplierContact ?? undefined,
+              externalRowReferenceId: l.externalRowReferenceId ?? undefined,
             })
           ),
           dueDate: request.dueDate ?? undefined,
@@ -284,7 +281,7 @@ export const RequestEditPage: React.FC = () => {
     <div data-testid="request-edit-page">
       <CommandBar
         left={
-          <Title level={2} style={{ margin: 0 }}>
+          <Title level={2} className="request-edit__title">
             {isEdit ? t("requests.edit.title.edit") : t("requests.edit.title.create")}
           </Title>
         }
@@ -312,7 +309,7 @@ export const RequestEditPage: React.FC = () => {
           message={t("requests.edit.error.save")}
           description={saveError}
           showIcon
-          style={{ marginBottom: 16 }}
+          className="request-edit__alert"
         />
       )}
 

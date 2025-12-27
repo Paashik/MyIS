@@ -5,6 +5,7 @@ import { ItemList } from '../../../modules/references/mdm/components/ItemList';
 import { ItemDetails } from '../../../modules/references/mdm/components/ItemDetails';
 import { ItemListItemDto } from '../../../core/api/mdmReferencesQueryService';
 import { t } from '../../../core/i18n/t';
+import "./ItemsPage.css";
 
 const { Title } = Typography;
 
@@ -19,21 +20,24 @@ export const ItemsPage: React.FC = () => {
 
   const handleItemSelect = (item: ItemListItemDto) => {
     setSelectedItemId(item.id);
+    if (item.itemGroupId) {
+      setSelectedGroupId(item.itemGroupId);
+    }
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <Title level={2} style={{ marginBottom: 16 }}>
+    <div className="items-page">
+      <Title level={2} className="items-page__title">
         {t("references.mdm.items.title")}
       </Title>
       <Divider />
-      <Row gutter={24} style={{ height: 'calc(100vh - 120px)' }}>
+      <Row gutter={24} className="items-page__row">
         <Col span={6}>
-          <div style={{ background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, height: '100%', padding: '16px' }}>
-            <Title level={4} style={{ marginBottom: 16 }}>
+          <div className="items-page__panel">
+            <Title level={4} className="items-page__panel-title">
               Группы номенклатуры
             </Title>
-            <div style={{ height: 'calc(100% - 60px)', overflow: 'auto' }}>
+            <div className="items-page__panel-content">
               <ItemGroupTreeFilter
                 onGroupSelect={handleGroupSelect}
                 selectedGroupId={selectedGroupId}
@@ -43,11 +47,11 @@ export const ItemsPage: React.FC = () => {
           </div>
         </Col>
         <Col span={9}>
-          <div style={{ background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, height: '100%', padding: '16px' }}>
-            <Title level={4} style={{ marginBottom: 16 }}>
+          <div className="items-page__panel">
+            <Title level={4} className="items-page__panel-title">
               Номенклатура
             </Title>
-            <div style={{ height: 'calc(100% - 60px)', overflow: 'auto' }}>
+            <div className="items-page__panel-content">
               <ItemList
                 selectedGroupId={selectedGroupId}
                 onItemSelect={handleItemSelect}
@@ -56,11 +60,11 @@ export const ItemsPage: React.FC = () => {
           </div>
         </Col>
         <Col span={9}>
-          <div style={{ background: '#fff', border: '1px solid #d9d9d9', borderRadius: 6, height: '100%', padding: '16px' }}>
-            <Title level={4} style={{ marginBottom: 16 }}>
+          <div className="items-page__panel">
+            <Title level={4} className="items-page__panel-title">
               Детали номенклатуры
             </Title>
-            <div style={{ height: 'calc(100% - 60px)', overflow: 'auto' }}>
+            <div className="items-page__panel-content">
               <ItemDetails
                 itemId={selectedItemId}
               />

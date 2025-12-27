@@ -8,7 +8,7 @@ public class ItemSequence
 
     public ItemKind ItemKind { get; private set; }
 
-    public string Prefix { get; private set; }
+    public string Prefix { get; private set; } = string.Empty;
 
     public int NextNumber { get; private set; }
 

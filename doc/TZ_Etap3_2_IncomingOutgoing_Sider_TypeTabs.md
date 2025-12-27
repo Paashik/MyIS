@@ -2,7 +2,7 @@
 
 Версия: v0.1  
 Домен: `Requests`  
-Фокус: навигация и создание заявок без выбора типа в форме (тип задаётся контекстом вкладки).
+Фокус: навигация и создание заявок с выбором типа в форме (предвыбор из контекста списка при наличии).
 
 ---
 
@@ -12,7 +12,7 @@
 
 **Заявки → Входящие/Исходящие → (вкладка) Тип заявки → Создать**
 
-и при создании заявки **не требовалось** отдельного выбора типа в форме, т.к. тип уже определён выбранной вкладкой.
+и при создании заявки **тип можно выбирать в форме**, а контекст списка может предзадать значение.
 
 ---
 
@@ -21,19 +21,21 @@
 ### 2.1. Маршруты
 Ввести (или закрепить) маршруты:
 
-- `/requests/incoming`
-- `/requests/outgoing`
+- `/requests/incoming` → redirect на `/requests/journal?direction=incoming&type=all`
+- `/requests/outgoing` → redirect на `/requests/journal?direction=outgoing&type=all`
+- `/requests/journal?direction=incoming&type=all`
+- `/requests/journal?direction=outgoing&type=all`
 
-Тип заявки выбирается вкладкой на странице и фиксируется в URL (query), например:
+Тип заявки фиксируется в URL (query) как `type=all|<requestTypeId>`, например:
 
-- `/requests/incoming?type=all`
-- `/requests/incoming?type=SupplyRequest`
-- `/requests/outgoing?type=SupplyRequest`
+- `/requests/journal?direction=incoming&type=all`
+- `/requests/journal?direction=incoming&type=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+- `/requests/journal?direction=outgoing&type=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
 
-Создание заявки в контексте типа:
+Создание заявки:
 
-- `/requests/incoming/new?type=SupplyRequest`
-- `/requests/outgoing/new?type=SupplyRequest`
+- `/requests/new?direction=incoming&type=all`
+- `/requests/new?direction=outgoing&type=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
 
 Редактирование/просмотр остаются как есть (по id):
 
@@ -70,49 +72,41 @@
 - Первая вкладка: **All**
 - Далее: вкладки для типов, которые относятся к выбранному направлению.
 
-Ключ вкладки: `type.code` (например `SupplyRequest`).
+Ключ вкладки: `type.id` (Guid).
 
 Заголовок вкладки: `type.name`.
 
 Выбранная вкладка синхронизируется с URL:
-- query `type=all|<typeCode>`
+- query `type=all|<requestTypeId>`
 
 ### 4.3. Фильтрация списка
 - Если выбран `type=all`:
   - показывать заявки всех типов текущего направления.
-- Если выбран конкретный `typeCode`:
+- Если выбран конкретный `requestTypeId`:
   - показывать заявки только этого типа.
 
 Реализация фильтра:
-- Предпочтительно: backend умеет фильтровать по `direction` и `requestTypeId`.
-- Минимально: фронт маппит `typeCode -> requestTypeId` и использует существующий параметр `requestTypeId` в `GET /api/requests`.
+- backend умеет фильтровать по `direction` и `requestTypeId`.
 
 ---
 
-## 5. Создание заявки (без выбора типа)
+## 5. Создание заявки (тип выбирается в форме)
 
 ### 5.1. Общий принцип
-Кнопка «Создать заявку» отображается **только когда выбран конкретный тип**, а не `All`.
-
-То есть:
-- `/requests/incoming?type=all` → кнопки нет (или disabled с подсказкой «Выберите тип заявки»)
-- `/requests/incoming?type=SupplyRequest` → кнопка есть
+Кнопка «Создать заявку» отображается, если у пользователя есть права `Requests.Create`.  
+Тип можно выбрать в форме; контекст `type` из URL, если есть, предзадаёт выбор.
 
 ### 5.2. Путь создания
 При нажатии «Создать заявку» выполняется переход на:
 
-- `/requests/{direction}/new?type={typeCode}`
+- `/requests/new?direction={incoming|outgoing}&type={all|requestTypeId}`
 
 ### 5.3. Форма создания
 `RequestEditPage` в режиме `new`:
 
-- **не показывает** поле выбора типа;
-- устанавливает тип заявки из query `type`:
-  - маппит `typeCode -> requestTypeId` по справочнику типов;
-- отправляет `CreateRequest` с заполненным `requestTypeId`.
-
-Если `type` отсутствует или равен `all` — показать ошибку/redirect на список с сообщением:
-- «Для создания заявки выберите тип».
+- показывает поле выбора типа;
+- если в query `type` передан `requestTypeId`, предвыбирает его;
+- отправляет `CreateRequest` с выбранным `requestTypeId`.
 
 ---
 
@@ -134,7 +128,6 @@ Iteration 3.2 использует слой `Type Profiles` из Iteration 3:
 ### 7.1. DTO типов
 `RequestTypeDto` должен содержать:
 - `id: Guid`
-- `code: string`
 - `name: string`
 
 Желательно (для чистой фильтрации):
@@ -142,7 +135,7 @@ Iteration 3.2 использует слой `Type Profiles` из Iteration 3:
 
 ### 7.2. CreateRequest API
 `POST /api/requests` должен продолжать требовать `requestTypeId`.  
-Тип определяется на фронте по `typeCode`, затем маппится в `requestTypeId`.
+Тип выбирается в форме; query `type` используется как предвыбор (Guid) при наличии.
 
 ---
 
@@ -151,10 +144,10 @@ Iteration 3.2 использует слой `Type Profiles` из Iteration 3:
 ### 8.1. Ручной чек-лист
 1) В меню Requests видны Incoming/Outgoing и они ведут на соответствующие страницы.
 2) На `/requests/incoming` видны вкладки типов входящих заявок.
-3) Выбор вкладки меняет query `type=...`.
-4) На `type=all` кнопка создания отсутствует/disabled.
-5) На конкретном типе кнопка создания ведёт на `/requests/{direction}/new?type=TypeCode`.
-6) В форме создания нет выбора типа, тип проставляется автоматически.
+3) Выбор вкладки меняет query `type=all|<requestTypeId>`.
+4) Кнопка создания видна при наличии прав `Requests.Create`.
+5) На нажатие кнопки переход на `/requests/new?direction=...&type=...`.
+6) В форме создания тип выбирается вручную; при наличии query `type` предвыбор отрабатывает.
 7) Созданная заявка появляется в списке выбранного типа.
 
 ---
@@ -163,8 +156,7 @@ Iteration 3.2 использует слой `Type Profiles` из Iteration 3:
 
 - Incoming/Outgoing вынесены в Sider меню как под-пункты Requests.
 - На странице списка есть вкладки по типам (All + типы направления).
-- Создание заявки возможно только из контекста конкретного типа.
-- В форме создания отсутствует выбор типа; тип берётся из контекста вкладки.
+- Создание заявки возможно с выбором типа в форме; query `type` используется как предвыбор.
 - URL отражает выбранное направление и тип (можно скопировать ссылку).
 
 ---
@@ -173,14 +165,17 @@ Iteration 3.2 использует слой `Type Profiles` из Iteration 3:
 
 ```mermaid
 flowchart LR
-  A[AppShell / Sider] -->|Requests: Incoming| I[/requests/incoming?type=all/]
-  A -->|Requests: Outgoing| O[/requests/outgoing?type=all/]
+  A[AppShell / Sider] -->|Requests: Incoming| I[/requests/incoming/]
+  A -->|Requests: Outgoing| O[/requests/outgoing/]
 
-  I -->|Type tab click| I2[/requests/incoming?type=SupplyRequest/]
-  O -->|Type tab click| O2[/requests/outgoing?type=SupplyRequest/]
+  I -->|Redirect| IJ[/requests/journal?direction=incoming&type=all/]
+  O -->|Redirect| OJ[/requests/journal?direction=outgoing&type=all/]
 
-  I2 -->|Create| IN[/requests/incoming/new?type=SupplyRequest/]
-  O2 -->|Create| ON[/requests/outgoing/new?type=SupplyRequest/]
+  IJ -->|Type tab click| I2[/requests/journal?direction=incoming&type=<requestTypeId>/]
+  OJ -->|Type tab click| O2[/requests/journal?direction=outgoing&type=<requestTypeId>/]
+
+  I2 -->|Create| IN[/requests/new?direction=incoming&type=<requestTypeId>/]
+  O2 -->|Create| ON[/requests/new?direction=outgoing&type=<requestTypeId>/]
 
   IN -->|POST create| API[(POST /api/requests)]
   ON -->|POST create| API
@@ -196,53 +191,24 @@ flowchart LR
 ## 11. Mermaid — диаграмма компонентов (список + создание)
 
 ```mermaid
-flowchart TB
-  subgraph Shell[AppShell]
-    SID[Sider Menu: Requests > Incoming/Outgoing]
-    OUTLET[Outlet]
-  end
+flowchart LR
+  A[AppShell / Sider] -->|Requests: Incoming| I[/requests/incoming/]
+  A -->|Requests: Outgoing| O[/requests/outgoing/]
 
-  subgraph Pages[Pages]
-    LIST[RequestsListPage(direction)]
-    NEW[RequestEditPage(new)]
-    CARD[RequestDetailsPage]
-  end
+  I -->|Redirect| IJ[/requests/journal?direction=incoming&type=all/]
+  O -->|Redirect| OJ[/requests/journal?direction=outgoing&type=all/]
 
-  subgraph UI[UI Components]
-    TABS[TypeTabs: All + Type tabs]
-    TABLE[RequestListTable]
-    BTN[Create button (enabled only if type != all)]
-    BODY[RequestBodyRenderer (Type Profiles)]
-    SUP[SupplyLinesEditor]
-    DESC[DescriptionEditor]
-  end
+  IJ -->|Type tab click| I2[/requests/journal?direction=incoming&type=<requestTypeId>/]
+  OJ -->|Type tab click| O2[/requests/journal?direction=outgoing&type=<requestTypeId>/]
 
-  subgraph API[API]
-    TYPES[getRequestTypes()]
-    REQS[getRequests(filters)]
-    CREATE[createRequest(payload)]
-    GETONE[getRequest(id)]
-  end
+  I2 -->|Create| IN[/requests/new?direction=incoming&type=<requestTypeId>/]
+  O2 -->|Create| ON[/requests/new?direction=outgoing&type=<requestTypeId>/]
 
-  SID --> OUTLET
-  OUTLET --> LIST
-  OUTLET --> NEW
-  OUTLET --> CARD
+  IN -->|POST create| API[(POST /api/requests)]
+  ON -->|POST create| API
 
-  LIST --> TYPES
-  LIST --> TABS
-  LIST --> REQS
-  LIST --> TABLE
-  LIST --> BTN
+  I2 -->|Open card| D[/requests/:id/]
+  O2 -->|Open card| D
 
-  BTN --> NEW
-  NEW --> TYPES
-  NEW --> BODY
-  BODY --> SUP
-  BODY --> DESC
-  NEW --> CREATE
-
-  TABLE --> CARD
-  CARD --> GETONE
-  CARD --> BODY
+  D -->|Edit| E[/requests/:id/edit/]
 ```
