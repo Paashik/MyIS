@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Button,
-  Checkbox,
   Form,
   Input,
   InputNumber,
@@ -51,13 +50,27 @@ export interface DbApplyResponse {
   safeConnectionInfo?: string | null;
 }
 
+export interface DbMigrationsResponse {
+  canConnect: boolean;
+  lastError?: string | null;
+  allMigrations?: string[] | null;
+  appliedMigrations?: string[] | null;
+  pendingMigrations?: string[] | null;
+}
+
+export interface DbMigrationsApplyResponse {
+  applied: boolean;
+  lastError?: string | null;
+  appliedMigrations?: string[] | null;
+  pendingMigrations?: string[] | null;
+}
+
 export interface DbSetupFormValues {
   host: string;
   port: number;
   database: string;
   username: string;
   password: string;
-  runMigrations: boolean;
 }
 
 const LOCAL_STORAGE_KEY = "myis:lastSuccessfulDbConfig";
@@ -153,7 +166,7 @@ const parseConfigFromRawDescription = (
   if (port) result.port = port;
   if (database) result.database = database;
   if (username) result.username = username;
-  // password и runMigrations не трогаем, оставляем как есть
+  // password не трогаем, оставляем как есть
   return result;
 };
 
@@ -163,11 +176,21 @@ type StatusState =
   | { kind: "loaded"; status: DbStatusResponse }
   | { kind: "error"; message: string };
 
+type MigrationsState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "loaded"; status: DbMigrationsResponse }
+  | { kind: "error"; message: string };
+
 const DbSetupPage: React.FC = () => {
   const [form] = Form.useForm();
   const [statusState, setStatusState] = useState<StatusState>({ kind: "idle" });
+  const [migrationsState, setMigrationsState] = useState<MigrationsState>({
+    kind: "idle",
+  });
   const [testing, setTesting] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [applyingMigrations, setApplyingMigrations] = useState(false);
   const [hasLocalConfig, setHasLocalConfig] = useState(false);
   const prefillFromStatusRef = useRef(false);
   const navigate = useNavigate();
@@ -212,7 +235,7 @@ const DbSetupPage: React.FC = () => {
         database: fromStatus.database ?? currentValues.database ?? "",
         username: fromStatus.username ?? currentValues.username ?? "",
         // password оставляем как есть (из текущих значений формы)
-        // runMigrations также оставляем без изменений
+        // runMigrations не используется
       });
     }
 
@@ -262,6 +285,55 @@ const DbSetupPage: React.FC = () => {
     };
 
     void loadStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMigrations = async () => {
+      setMigrationsState({ kind: "loading" });
+
+      try {
+        const response = await fetch("/api/admin/db-migrations", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          if (!cancelled) {
+            setMigrationsState({
+              kind: "error",
+              message:
+                text ||
+                t("db.setup.migrations.errors.load", { status: response.status }),
+            });
+          }
+          return;
+        }
+
+        const data = (await response.json()) as DbMigrationsResponse;
+        if (!cancelled) {
+          setMigrationsState({ kind: "loaded", status: data });
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        const msg =
+          error instanceof Error ? error.message : t("common.error.unknownNetwork");
+
+        setMigrationsState({
+          kind: "error",
+          message: t("db.setup.migrations.errors.loadUnexpected", { message: msg }),
+        });
+      }
+    };
+
+    void loadMigrations();
 
     return () => {
       cancelled = true;
@@ -378,14 +450,6 @@ const DbSetupPage: React.FC = () => {
               })
             : t("db.setup.warnings.appliedButCannotConnect")
         );
-      } else if (!data.migrationsApplied) {
-        message.warning(
-          data.lastError
-            ? t("db.setup.warnings.connectOkMigrationsNotAppliedWithDetails", {
-                lastError: data.lastError,
-              })
-            : t("db.setup.warnings.connectOkMigrationsNotApplied")
-        );
       } else {
         message.success(t("db.setup.success.applyOk"));
 
@@ -405,6 +469,55 @@ const DbSetupPage: React.FC = () => {
 
   const handleCancel = () => {
     navigate("/login", { replace: true });
+  };
+
+  const handleApplyMigrations = async () => {
+    setApplyingMigrations(true);
+    try {
+      const response = await fetch("/api/admin/db-migrations/apply", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (response.status === 403) {
+        message.error(t("db.setup.migrations.applyForbidden"));
+        return;
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        message.error(
+          text || t("db.setup.migrations.errors.applyHttp", { status: response.status })
+        );
+        return;
+      }
+
+      const data = (await response.json()) as DbMigrationsApplyResponse;
+      if (!data.applied) {
+        message.error(
+          data.lastError
+            ? t("db.setup.migrations.errors.applyFailedWithDetails", { lastError: data.lastError })
+            : t("db.setup.migrations.errors.applyFailed")
+        );
+        return;
+      }
+
+      message.success(t("db.setup.migrations.applyOk"));
+      setMigrationsState({
+        kind: "loaded",
+        status: {
+          canConnect: true,
+          appliedMigrations: data.appliedMigrations ?? [],
+          pendingMigrations: data.pendingMigrations ?? [],
+        },
+      });
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : t("common.error.unknownNetwork");
+      message.error(t("db.setup.migrations.errors.applyUnexpected", { message: msg }));
+    } finally {
+      setApplyingMigrations(false);
+    }
   };
 
   const currentStatusAlert = () => {
@@ -476,6 +589,100 @@ const DbSetupPage: React.FC = () => {
     );
   };
 
+  const migrationsAlert = () => {
+    if (migrationsState.kind === "loading" || migrationsState.kind === "idle") {
+      return (
+        <Alert
+          type="info"
+          message={t("db.setup.migrations.loading")}
+          showIcon
+        />
+      );
+    }
+
+    if (migrationsState.kind === "error") {
+      return (
+        <Alert
+          type="error"
+          message={t("db.setup.migrations.errors.title")}
+          description={migrationsState.message}
+          showIcon
+        />
+      );
+    }
+
+    const status = migrationsState.status;
+
+    if (!status.canConnect) {
+      return (
+        <Alert
+          type="warning"
+          message={t("db.setup.migrations.cannotConnect")}
+          description={status.lastError || t("db.setup.migrations.cannotConnectFallback")}
+          showIcon
+        />
+      );
+    }
+
+    const all = status.allMigrations ?? [];
+    const applied = status.appliedMigrations ?? [];
+    const pending = status.pendingMigrations ?? [];
+    const lastApplied = applied.length > 0 ? applied[applied.length - 1] : null;
+    const lastAvailable = all.length > 0 ? all[all.length - 1] : null;
+
+    return (
+      <Alert
+        type={pending.length > 0 ? "warning" : "success"}
+        message={t("db.setup.migrations.title")}
+        description={
+          <div>
+            <div>
+              {t("db.setup.migrations.totalCount", { count: all.length })}
+            </div>
+            <div>
+              {t("db.setup.migrations.appliedCount", { count: applied.length })}
+            </div>
+            <div>
+              {t("db.setup.migrations.pendingCount", { count: pending.length })}
+            </div>
+            {lastAvailable && (
+              <div>
+                {t("db.setup.migrations.latestAvailable", { id: lastAvailable })}
+              </div>
+            )}
+            {lastApplied && (
+              <div>
+                {t("db.setup.migrations.latestApplied", { id: lastApplied })}
+              </div>
+            )}
+            {pending.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div>{t("db.setup.migrations.pendingList")}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {pending.map((item) => (
+                    <Text key={item} code>
+                      {item}
+                    </Text>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ marginTop: 12 }}>
+              <Button
+                type="primary"
+                onClick={handleApplyMigrations}
+                loading={applyingMigrations}
+              >
+                {t("db.setup.migrations.apply")}
+              </Button>
+            </div>
+          </div>
+        }
+        showIcon
+      />
+    );
+  };
+
   return (
     <AuthPageLayout
       title={t("db.setup.title")}
@@ -488,6 +695,7 @@ const DbSetupPage: React.FC = () => {
       cardWidth={720}
     >
       <div style={{ marginBottom: 16 }}>{currentStatusAlert()}</div>
+      <div style={{ marginBottom: 16 }}>{migrationsAlert()}</div>
 
       <Form
         data-testid="db-setup-form"
@@ -499,7 +707,6 @@ const DbSetupPage: React.FC = () => {
           database: "",
           username: "",
           password: "",
-          runMigrations: true,
         }}
         onFinish={handleApply}
       >
@@ -552,12 +759,6 @@ const DbSetupPage: React.FC = () => {
           rules={[{ required: true, message: t("db.setup.form.password.required") }]}
         >
           <Input.Password data-testid="db-setup-password-input" />
-        </Form.Item>
-
-        <Form.Item name="runMigrations" valuePropName="checked">
-          <Checkbox data-testid="db-setup-run-migrations-checkbox">
-            {t("db.setup.form.runMigrations")}
-          </Checkbox>
         </Form.Item>
 
         <Form.Item>

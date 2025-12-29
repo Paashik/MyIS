@@ -6,6 +6,11 @@ namespace MyIS.Core.WebApi.Contracts.Requests;
 public sealed class UpdateRequestRequest
 {
     /// <summary>
+    /// Новый тип заявки (если нужно сменить тип).
+    /// </summary>
+    public Guid? RequestTypeId { get; init; }
+
+    /// <summary>
     /// Заголовок заявки.
     /// </summary>
     [Required]
@@ -40,14 +45,29 @@ public sealed class UpdateRequestRequest
 
     public string? RelatedEntityName { get; init; }
 
-    /// <summary>
-    /// Внешняя ссылка (например, идентификатор объекта в Компонент‑2020).
-    /// </summary>
-    public string? ExternalReferenceId { get; init; }
-
     public string? TargetEntityType { get; init; }
 
     public Guid? TargetEntityId { get; init; }
 
     public string? TargetEntityName { get; init; }
+
+    /// <summary>
+    /// Тип основания заявки.
+    /// </summary>
+    public string? BasisType { get; init; }
+
+    /// <summary>
+    /// Основание: ссылка на входящую заявку.
+    /// </summary>
+    public Guid? BasisRequestId { get; init; }
+
+    /// <summary>
+    /// Основание: ссылка на заказ клиента.
+    /// </summary>
+    public Guid? BasisCustomerOrderId { get; init; }
+
+    /// <summary>
+    /// Основание: описание (включая произвольный ввод).
+    /// </summary>
+    public string? BasisDescription { get; init; }
 }

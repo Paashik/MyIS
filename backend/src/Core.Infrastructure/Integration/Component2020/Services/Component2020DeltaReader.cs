@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Data.OleDb;
 using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Runtime.Versioning;
 using MyIS.Core.Application.Integration.Component2020.Dto;
@@ -104,7 +106,7 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         var whereClause = hasLast ? " WHERE ID > ?" : string.Empty;
 
         var command = new OleDbCommand(
-            $"SELECT ID, Code, Name, Description, [Group], UnitID, PartNumber FROM Component{whereClause} ORDER BY ID",
+            $"SELECT ID, Code, Name, Description, [Group], UnitID, PartNumber, Manufact, DataSheet, CanMeans, BOMSection, Photo FROM Component{whereClause} ORDER BY ID",
             connection);
         if (hasLast)
         {
@@ -124,7 +126,12 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
                 Description = reader.IsDBNull(3) ? null : reader.GetString(3),
                 GroupId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
                 UnitId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                PartNumber = reader.IsDBNull(6) ? null : reader.GetString(6)
+                PartNumber = reader.IsDBNull(6) ? null : reader.GetString(6),
+                ManufacturerId = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                DataSheet = reader.IsDBNull(8) ? null : reader.GetString(8),
+                CanMeans = reader.IsDBNull(9) ? null : reader.GetBoolean(9),
+                BomSection = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                Photo = ReadPhoto(reader, 11)
             };
             Console.WriteLine($"Read Component Item: Id={item.Id}, Code={item.Code}, Name={item.Name}");
             items.Add(item);
@@ -143,7 +150,7 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         await connection.OpenAsync(cancellationToken);
 
         var whereClause = string.IsNullOrEmpty(lastProcessedKey) ? "" : $"WHERE ID > {lastProcessedKey}";
-        var command = new OleDbCommand($"SELECT ID, Name, Description, Parent, Project, GroupID, Kind, Goods, Own, Blank, MaterialID, MaterialQty, DetailID, Warranty, ProviderID, QRCode, NeedSN, Hidden, PartNumber, Prices, MinQty, DT, UserID, DeptID FROM Product {whereClause} ORDER BY ID", connection);
+        var command = new OleDbCommand($"SELECT ID, Name, Description, Parent, Project, GroupID, Kind, Goods, Own, Blank, MaterialID, MaterialQty, DetailID, Warranty, ProviderID, QRCode, NeedSN, Hidden, PartNumber, Prices, MinQty, DT, UserID, DeptID, Photo FROM Product {whereClause} ORDER BY ID", connection);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var products = new List<Component2020Product>();
@@ -174,7 +181,8 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
                 MinQty = reader.IsDBNull(20) ? null : reader.GetInt32(20),
                 Dt = reader.IsDBNull(21) ? null : reader.GetDateTime(21),
                 UserId = reader.IsDBNull(22) ? null : reader.GetInt32(22),
-                DeptId = reader.IsDBNull(23) ? null : reader.GetInt32(23)
+                DeptId = reader.IsDBNull(23) ? null : reader.GetInt32(23),
+                Photo = ReadPhoto(reader, 24)
             });
         }
 
@@ -593,5 +601,26 @@ public class Component2020DeltaReader : IComponent2020DeltaReader
         }
 
         return builder.ConnectionString;
+    }
+
+    private static byte[]? ReadPhoto(DbDataReader reader, int index)
+    {
+        if (reader.IsDBNull(index))
+        {
+            return null;
+        }
+
+        var value = reader.GetValue(index);
+        if (value is byte[] bytes)
+        {
+            return bytes.Length == 0 ? null : bytes;
+        }
+
+        if (value is Array array && array.GetType().GetElementType() == typeof(byte))
+        {
+            return array.Cast<byte>().ToArray();
+        }
+
+        return null;
     }
 }

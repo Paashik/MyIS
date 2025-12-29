@@ -43,7 +43,8 @@ public abstract class Component2020ItemSyncHandlerBase
     protected sealed record ItemGroupMappings(
         Dictionary<int, Guid> ItemGroupIdByExternalId,
         Dictionary<int, int> RootGroupIdByExternalId,
-        Dictionary<int, string?> RootAbbreviationByExternalId);
+        Dictionary<int, string?> RootAbbreviationByExternalId,
+        Dictionary<int, string> GroupNameByExternalId);
 
     protected static readonly IReadOnlyDictionary<int, string> DefaultRootGroupAbbreviationById =
         new Dictionary<int, string>
@@ -262,12 +263,12 @@ public abstract class Component2020ItemSyncHandlerBase
     protected static ItemKind MapRootGroupToItemKind(int rootGroupId) =>
         rootGroupId switch
         {
-            221 => ItemKind.Component, // Покупные комплектующие
+            221 => ItemKind.PurchasedComponent, // Покупные комплектующие
             224 => ItemKind.Material,  // Сырье и материалы
             225 => ItemKind.Product,   // Готовая продукция
-            226 => ItemKind.Service,   // Работы и услуги
+            226 => ItemKind.ServiceWork,   // Работы и услуги
             184 => ItemKind.Assembly,  // Полуфабрикаты
-            _ => ItemKind.Component
+            _ => ItemKind.PurchasedComponent
         };
 
     protected static ItemKind ResolveItemKindByGroupRoot(int? groupId, Dictionary<int, int> rootGroupIdByExternalId, ItemKind fallback)
@@ -287,6 +288,260 @@ public abstract class Component2020ItemSyncHandlerBase
 
     protected static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    protected static string? ResolveExpectedRootAbbreviation(ItemKind itemKind) =>
+        itemKind switch
+        {
+            ItemKind.PurchasedComponent => "CMP",
+            ItemKind.Material => "MAT",
+            ItemKind.Product => "PRD",
+            ItemKind.ServiceWork => "SRV",
+            ItemKind.Assembly => "ASM",
+            ItemKind.ManufacturedPart => "PRT",
+            ItemKind.StandardPart => "CMP",
+            _ => null
+        };
+
+    protected enum AssemblySubgroup
+    {
+        Modules,
+        Nodes,
+        Assemblies
+    }
+
+    protected static AssemblySubgroup? ResolveAssemblySubgroup(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        if (name.IndexOf("модул", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return AssemblySubgroup.Modules;
+        }
+
+        if (name.IndexOf("узл", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return AssemblySubgroup.Nodes;
+        }
+
+        if (name.IndexOf("плата", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return AssemblySubgroup.Nodes;
+        }
+
+        if (name.IndexOf("корпус", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return AssemblySubgroup.Assemblies;
+        }
+
+        return null;
+    }
+
+    protected static Guid? ResolveAssemblySubgroupId(string? name, Dictionary<AssemblySubgroup, Guid> subgroupIds)
+    {
+        var subgroup = ResolveAssemblySubgroup(name);
+        if (subgroup.HasValue && subgroupIds.TryGetValue(subgroup.Value, out var id))
+        {
+            return id;
+        }
+
+        return null;
+    }
+
+    protected async Task<Dictionary<AssemblySubgroup, Guid>> LoadAssemblySubgroupIdsAsync(
+        Dictionary<ItemKind, Guid?> defaultGroupIds,
+        CancellationToken cancellationToken)
+    {
+        if (!defaultGroupIds.TryGetValue(ItemKind.Assembly, out var asmRootId) || !asmRootId.HasValue)
+        {
+            return new Dictionary<AssemblySubgroup, Guid>();
+        }
+
+        var groups = await DbContext.ItemGroups
+            .AsNoTracking()
+            .Select(g => new { g.Id, g.ParentId, g.Name })
+            .ToListAsync(cancellationToken);
+
+        var childrenByParent = groups
+            .Where(g => g.ParentId.HasValue)
+            .GroupBy(g => g.ParentId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var queue = new Queue<(Guid id, int depth)>();
+        queue.Enqueue((asmRootId.Value, 0));
+
+        var visited = new HashSet<Guid>();
+        var descendants = new List<(Guid id, int depth, string name)>();
+
+        while (queue.Count > 0)
+        {
+            var (currentId, depth) = queue.Dequeue();
+            if (!visited.Add(currentId))
+            {
+                continue;
+            }
+
+            if (childrenByParent.TryGetValue(currentId, out var children))
+            {
+                foreach (var child in children)
+                {
+                    var childName = child.Name ?? string.Empty;
+                    descendants.Add((child.Id, depth + 1, childName));
+                    queue.Enqueue((child.Id, depth + 1));
+                }
+            }
+        }
+
+        var result = new Dictionary<AssemblySubgroup, Guid>();
+        foreach (var group in descendants.OrderBy(g => g.depth).ThenBy(g => g.name))
+        {
+            var name = group.name ?? string.Empty;
+            if (!result.ContainsKey(AssemblySubgroup.Modules)
+                && name.IndexOf("модул", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                result[AssemblySubgroup.Modules] = group.id;
+                continue;
+            }
+
+            if (!result.ContainsKey(AssemblySubgroup.Nodes)
+                && name.IndexOf("узл", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                result[AssemblySubgroup.Nodes] = group.id;
+                continue;
+            }
+
+            if (!result.ContainsKey(AssemblySubgroup.Assemblies)
+                && name.IndexOf("сборк", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                result[AssemblySubgroup.Assemblies] = group.id;
+            }
+        }
+
+        return result;
+    }
+
+    protected static Guid? ResolveItemGroupIdForKind(
+        Guid? itemGroupId,
+        ItemKind itemKind,
+        Dictionary<Guid, string?> rootAbbreviationByGroupId,
+        Dictionary<ItemKind, Guid?> defaultGroupIds)
+    {
+        if (!itemGroupId.HasValue)
+        {
+            return defaultGroupIds.TryGetValue(itemKind, out var fallback) ? fallback : null;
+        }
+
+        var expectedRoot = ResolveExpectedRootAbbreviation(itemKind);
+        if (string.IsNullOrWhiteSpace(expectedRoot))
+        {
+            return itemGroupId;
+        }
+
+        if (!rootAbbreviationByGroupId.TryGetValue(itemGroupId.Value, out var rootAbbreviation)
+            || string.IsNullOrWhiteSpace(rootAbbreviation))
+        {
+            return itemGroupId;
+        }
+
+        if (!string.Equals(rootAbbreviation, expectedRoot, StringComparison.OrdinalIgnoreCase)
+            && defaultGroupIds.TryGetValue(itemKind, out var fallbackId)
+            && fallbackId.HasValue)
+        {
+            return fallbackId.Value;
+        }
+
+        return itemGroupId;
+    }
+
+    protected async Task<Dictionary<ItemKind, Guid?>> LoadDefaultItemGroupIdsAsync(CancellationToken cancellationToken)
+    {
+        var abbreviations = new[] { "CMP", "MAT", "PRD", "SRV", "ASM", "PRT", "STD" };
+        var groups = await DbContext.ItemGroups
+            .AsNoTracking()
+            .Where(g => g.Abbreviation != null && abbreviations.Contains(g.Abbreviation))
+            .ToListAsync(cancellationToken);
+
+        Guid? ResolveByAbbreviation(string abbreviation, bool requireRoot)
+        {
+            var matches = groups
+                .Where(g => string.Equals(g.Abbreviation, abbreviation, StringComparison.OrdinalIgnoreCase));
+
+            if (requireRoot)
+            {
+                var root = matches.FirstOrDefault(g => g.ParentId == null);
+                if (root != null)
+                {
+                    return root.Id;
+                }
+            }
+
+            return matches.FirstOrDefault()?.Id;
+        }
+
+        return new Dictionary<ItemKind, Guid?>
+        {
+            [ItemKind.PurchasedComponent] = ResolveByAbbreviation("CMP", requireRoot: true),
+            [ItemKind.Material] = ResolveByAbbreviation("MAT", requireRoot: true),
+            [ItemKind.Product] = ResolveByAbbreviation("PRD", requireRoot: true),
+            [ItemKind.ServiceWork] = ResolveByAbbreviation("SRV", requireRoot: true),
+            [ItemKind.Assembly] = ResolveByAbbreviation("ASM", requireRoot: true),
+            [ItemKind.ManufacturedPart] = ResolveByAbbreviation("PRT", requireRoot: true),
+            [ItemKind.StandardPart] = ResolveByAbbreviation("STD", requireRoot: false)
+        };
+    }
+
+    protected async Task<Dictionary<Guid, string?>> LoadGroupRootAbbreviationsAsync(CancellationToken cancellationToken)
+    {
+        var groups = await DbContext.ItemGroups
+            .AsNoTracking()
+            .Select(g => new { g.Id, g.ParentId, g.Abbreviation })
+            .ToListAsync(cancellationToken);
+
+        var byId = groups.ToDictionary(g => g.Id);
+        var cache = new Dictionary<Guid, string?>();
+
+        string? ResolveRootAbbreviation(Guid id)
+        {
+            if (cache.TryGetValue(id, out var cached))
+            {
+                return cached;
+            }
+
+            var visited = new HashSet<Guid>();
+            var current = id;
+            while (true)
+            {
+                if (!visited.Add(current))
+                {
+                    cache[id] = null;
+                    return null;
+                }
+
+                if (!byId.TryGetValue(current, out var entry))
+                {
+                    cache[id] = null;
+                    return null;
+                }
+
+                if (!entry.ParentId.HasValue)
+                {
+                    cache[id] = entry.Abbreviation;
+                    return entry.Abbreviation;
+                }
+
+                current = entry.ParentId.Value;
+            }
+        }
+
+        foreach (var group in byId.Keys)
+        {
+            _ = ResolveRootAbbreviation(group);
+        }
+
+        return cache;
+    }
+
     protected async Task<ItemGroupMappings> EnsureItemGroupsAsync(Guid connectionId, bool dryRun, CancellationToken cancellationToken)
     {
         const string externalSystem = "Component2020";
@@ -301,7 +556,11 @@ public abstract class Component2020ItemSyncHandlerBase
         if (groups.Count == 0)
         {
             Logger.LogWarning("No groups found in Component2020 - returning empty mappings");
-            return new ItemGroupMappings(new Dictionary<int, Guid>(), new Dictionary<int, int>(), new Dictionary<int, string?>());
+            return new ItemGroupMappings(
+                new Dictionary<int, Guid>(),
+                new Dictionary<int, int>(),
+                new Dictionary<int, string?>(),
+                new Dictionary<int, string>());
         }
 
         // Check for duplicates
@@ -556,7 +815,13 @@ public abstract class Component2020ItemSyncHandlerBase
             }
         }
 
-        return new ItemGroupMappings(itemGroupIdByExternalId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
+        var groupNameByExternalId = groups.ToDictionary(g => g.Id, g => g.Name ?? string.Empty);
+
+        return new ItemGroupMappings(
+            itemGroupIdByExternalId,
+            rootGroupIdByExternalId,
+            rootAbbreviationByExternalId,
+            groupNameByExternalId);
     }
 
     protected async Task<UnitOfMeasure> FindDefaultUnitOfMeasureAsync(CancellationToken cancellationToken)

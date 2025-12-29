@@ -1,0 +1,55 @@
+.mdm-dict-plain-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mdm-dict-plain-header + .ant-alert {
+  margin-top: 12px;
+}
+
+.mdm-dict-plain-controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.mdm-dict-controls__search,
+.mdm-dict-controls__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mdm-dict-controls__search {
+  flex: 1 1 360px;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.mdm-dict-controls__actions {
+  justify-content: flex-end;
+  margin-left: auto;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.mdm-dict-plain-controls--multi {
+  justify-content: flex-start;
+}
+
+.mdm-dict-plain-controls--multi .mdm-dict-controls__actions {
+  justify-content: flex-start;
+  margin-left: 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.mdm-dict-controls__actions-group {
+  display: inline-flex;
+  gap: 8px;
+}

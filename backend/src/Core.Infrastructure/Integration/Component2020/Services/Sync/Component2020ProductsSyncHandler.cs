@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using MyIS.Core.Application.Integration.Component2020.Services;
 using MyIS.Core.Application.Integration.Component2020.Commands;
 using MyIS.Core.Domain.Mdm.Entities;
+using MyIS.Core.Domain.Mdm.Services;
 using MyIS.Core.Infrastructure.Data;
 using MyIS.Core.Infrastructure.Data.Entities.Integration;
 using MyIS.Core.Application.Integration.Component2020.Abstractions;
@@ -37,6 +39,55 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
 
     public Component2020SyncScope Scope => Component2020SyncScope.Products;
 
+    private static readonly Regex DesignationPattern =
+        new(@"\b[А-ЯA-Z0-9]{2,10}\.\d{6}\.\d{3}\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static IReadOnlyList<string> ExtractDesignationCandidates(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return Array.Empty<string>();
+        }
+
+        var matches = DesignationPattern.Matches(source);
+        if (matches.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return matches
+            .Select(m => m.Value.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string? ResolveProductDesignationKey(Component2020Product product)
+    {
+        var candidates = ExtractDesignationCandidates(product.Name);
+        if (candidates.Count == 1)
+        {
+            return candidates[0];
+        }
+
+        candidates = ExtractDesignationCandidates(product.Description);
+        if (candidates.Count == 1)
+        {
+            return candidates[0];
+        }
+
+        return product.Name?.Trim();
+    }
+
+    private static ItemKind ResolveProductItemKind(Component2020Product product)
+    {
+        if (product.Kind == 1)
+        {
+            return ItemKind.ManufacturedPart;
+        }
+
+        return ItemKind.Assembly;
+    }
+
     public async Task<(int processed, List<Component2020SyncError> errors)> SyncAsync(
         Guid connectionId,
         bool dryRun,
@@ -62,9 +113,10 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
 
         var groupMappings = await EnsureItemGroupsAsync(connectionId, dryRun, cancellationToken);
         var itemGroupIdByExternalId = groupMappings.ItemGroupIdByExternalId;
-        var rootGroupIdByExternalId = groupMappings.RootGroupIdByExternalId;
-        var rootAbbreviationByExternalId = groupMappings.RootAbbreviationByExternalId;
         var defaultUoM = await FindDefaultUnitOfMeasureAsync(cancellationToken);
+        var defaultGroupIds = await LoadDefaultItemGroupIdsAsync(cancellationToken);
+        var rootAbbreviationByGroupId = await LoadGroupRootAbbreviationsAsync(cancellationToken);
+        var assemblySubgroupIds = await LoadAssemblySubgroupIdsAsync(defaultGroupIds, cancellationToken);
 
         var sequences = new Dictionary<ItemKind, ItemSequence>();
         var dryRunSequences = new Dictionary<ItemKind, DryRunSequenceState>();
@@ -75,6 +127,7 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
 
         Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
         Dictionary<Guid, Item> existingItemsById;
+        Dictionary<string, List<Item>> existingItemsByDesignation;
 
         if (!dryRun && products.Count > 0)
         {
@@ -96,11 +149,27 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
                 .ToListAsync(cancellationToken);
 
             existingItemsById = existingEntities.ToDictionary(x => x.Id);
+
+            var designations = products
+                .Select(ResolveProductDesignationKey)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name!.ToUpperInvariant())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            existingItemsByDesignation = designations.Count > 0
+                ? (await DbContext.Items
+                        .Where(i => i.Designation != null && designations.Contains(i.Designation.ToUpper()))
+                        .ToListAsync(cancellationToken))
+                    .GroupBy(i => i.Designation!.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, List<Item>>(StringComparer.OrdinalIgnoreCase);
         }
         else
         {
             existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
             existingItemsById = new Dictionary<Guid, Item>();
+            existingItemsByDesignation = new Dictionary<string, List<Item>>(StringComparer.OrdinalIgnoreCase);
         }
 
         foreach (var product in products)
@@ -112,14 +181,18 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
 
                 var name = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description;
                 var designation = product.Name;
+                var itemKind = ResolveProductItemKind(product);
+                var isFinishedProduct = product.Goods == 1;
 
-                Guid? itemGroupId = null;
-                if (product.GroupId.HasValue && itemGroupIdByExternalId.TryGetValue(product.GroupId.Value, out var mappedGroupId))
+                var itemGroupId = ResolveItemGroupIdForKind(null, itemKind, rootAbbreviationByGroupId, defaultGroupIds);
+                if (itemKind == ItemKind.Assembly)
                 {
-                    itemGroupId = mappedGroupId;
+                    var assemblyGroupId = ResolveAssemblySubgroupId(name, assemblySubgroupIds);
+                    if (assemblyGroupId.HasValue)
+                    {
+                        itemGroupId = assemblyGroupId;
+                    }
                 }
-
-                var itemKind = ResolveItemKindByGroupRoot(product.GroupId, rootGroupIdByExternalId, ItemKind.Product);
 
                 Item? existing = null;
 
@@ -127,8 +200,27 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
                 {
                     existingItemsById.TryGetValue(existingLink.EntityId, out existing);
                 }
+                else
+                {
+                    var designationKey = ResolveProductDesignationKey(product);
+                    if (!string.IsNullOrWhiteSpace(designationKey)
+                        && existingItemsByDesignation.TryGetValue(designationKey, out var candidates))
+                    {
+                        if (candidates.Count == 1)
+                        {
+                            existing = candidates[0];
+                        }
+                        else if (candidates.Count > 1)
+                        {
+                            var message = $"Review required: Multiple Product candidates. ProductId={product.Id}.";
+                            var details = $"Designation='{designationKey}', ItemIds=[{string.Join(",", candidates.Select(c => c.Id))}]";
+                            errors.Add(new Component2020SyncError(runId, "ItemMatchReview", "Product", product.Id.ToString(CultureInfo.InvariantCulture), message, details));
+                            continue;
+                        }
+                    }
+                }
 
-                var prefix = ResolveNomenclaturePrefix(itemKind, product.GroupId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
+                var prefix = ItemNomenclature.GetDefaultPrefix(itemKind);
 
                 var nomenclatureNo = existing != null && IsValidNomenclatureNo(existing.NomenclatureNo)
                     ? existing.NomenclatureNo
@@ -139,7 +231,8 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
                     if (!dryRun)
                     {
                         var newItem = new Item(nomenclatureNo, nomenclatureNo, name, itemKind, defaultUoM.Id, itemGroupId);
-                        newItem.Update(nomenclatureNo, name, defaultUoM.Id, itemGroupId, newItem.IsEskd, newItem.IsEskdDocument, designation, newItem.ManufacturerPartNumber);
+                        newItem.Update(nomenclatureNo, name, defaultUoM.Id, itemGroupId, newItem.IsEskd, newItem.IsEskdDocument, designation, newItem.ManufacturerPartNumber, newItem.IsTooling, isFinishedProduct);
+                        newItem.SetPhoto(product.Photo);
                         var now = DateTimeOffset.UtcNow;
                         DbContext.Items.Add(newItem);
                         ExternalLinkHelper.EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, newItem.Id, externalSystem, externalEntity, externalId, null, now);
@@ -153,7 +246,8 @@ public sealed class Component2020ProductsSyncHandler : Component2020ItemSyncHand
                         existing.SetItemKind(itemKind);
 
                         var targetNomenclatureNo = IsValidNomenclatureNo(existing.NomenclatureNo) ? existing.NomenclatureNo : nomenclatureNo;
-                        existing.Update(targetNomenclatureNo, name, defaultUoM.Id, itemGroupId, existing.IsEskd, existing.IsEskdDocument, designation, existing.ManufacturerPartNumber);
+                        existing.Update(targetNomenclatureNo, name, defaultUoM.Id, itemGroupId, existing.IsEskd, existing.IsEskdDocument, designation, existing.ManufacturerPartNumber, existing.IsTooling, isFinishedProduct);
+                        existing.SetPhoto(product.Photo);
                         var now = DateTimeOffset.UtcNow;
                         ExternalLinkHelper.EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
                     }

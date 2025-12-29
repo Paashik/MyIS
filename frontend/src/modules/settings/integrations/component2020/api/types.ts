@@ -141,3 +141,57 @@ export interface ScheduleComponent2020SyncResponse {
   scheduleId: string;
   status: string;
 }
+
+export interface Component2020ImportPreviewRequest {
+  connectionId: string;
+  syncMode?: Component2020SyncMode;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface Component2020ImportPreviewSummary {
+  total: number;
+  products: number;
+  components: number;
+  create: number;
+  update: number;
+  merge: number;
+  review: number;
+}
+
+export interface Component2020ImportPreviewItem {
+  source: string;
+  externalId: number;
+  externalGroupId?: string | null;
+  externalGroupName?: string | null;
+  code?: string | null;
+  partNumber?: string | null;
+  designation?: string | null;
+  designationSource?: string | null;
+  designationCandidates: string[];
+  name: string;
+  description?: string | null;
+  unitName?: string | null;
+  unitSymbol?: string | null;
+  itemKind: string;
+  itemGroupId?: string | null;
+  itemGroupName?: string | null;
+  rootGroupAbbreviation?: string | null;
+  action: string;
+  reasons: string[];
+  existingItemId?: string | null;
+  existingItemKind?: string | null;
+  existingItemGroup?: string | null;
+  matchedItemId?: string | null;
+  matchedItemKind?: string | null;
+  matchedItemGroup?: string | null;
+  isTooling: boolean;
+}
+
+export interface Component2020ImportPreviewResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  summary: Component2020ImportPreviewSummary;
+  items: Component2020ImportPreviewItem[];
+}

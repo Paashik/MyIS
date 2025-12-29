@@ -10,13 +10,15 @@ public static class ItemNomenclature
     private static readonly IReadOnlyDictionary<ItemKind, string> DefaultPrefixByKind =
         new Dictionary<ItemKind, string>
         {
-            [ItemKind.Component] = "CMP",
+            [ItemKind.PurchasedComponent] = "CMP",
             [ItemKind.Material] = "MAT",
             [ItemKind.Assembly] = "ASM",
             [ItemKind.Product] = "PRD",
-            [ItemKind.Service] = "SRV",
+            [ItemKind.ServiceWork] = "SRV",
             [ItemKind.Tool] = "TOL",
-            [ItemKind.Equipment] = "EQP"
+            [ItemKind.Equipment] = "EQP",
+            [ItemKind.StandardPart] = "STD",
+            [ItemKind.ManufacturedPart] = "PRT"
         };
 
     public static string GetDefaultPrefix(ItemKind itemKind) =>
@@ -54,4 +56,3 @@ public static class ItemNomenclature
         return int.TryParse(raw.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out number);
     }
 }
-

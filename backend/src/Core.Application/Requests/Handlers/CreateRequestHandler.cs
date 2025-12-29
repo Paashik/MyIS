@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,9 +38,9 @@ public class CreateRequestHandler
     public async Task<RequestDto> Handle(CreateRequestCommand command, CancellationToken cancellationToken)
     {
         if (command is null) throw new ArgumentNullException(nameof(command));
-        if (command.InitiatorId == Guid.Empty)
+        if (command.ManagerId == Guid.Empty)
         {
-            throw new ArgumentException("InitiatorId is required.", nameof(command));
+            throw new ArgumentException("ManagerId is required.", nameof(command));
         }
 
         if (command.RequestTypeId == Guid.Empty)
@@ -48,7 +48,7 @@ public class CreateRequestHandler
             throw new ArgumentException("RequestTypeId is required.", nameof(command));
         }
 
-        // 1. Загрузка типа заявки
+        // 1. Р—Р°РіСЂСѓР·РєР° С‚РёРїР° Р·Р°СЏРІРєРё
         var typeId = new RequestTypeId(command.RequestTypeId);
         var requestType = await _requestTypeRepository.GetByIdAsync(typeId, cancellationToken);
         if (requestType is null)
@@ -56,27 +56,31 @@ public class CreateRequestHandler
             throw new InvalidOperationException($"RequestType with id '{command.RequestTypeId}' was not found.");
         }
 
-        // 2. Загрузка стартового статуса (Draft)
+        // 2. Р—Р°РіСЂСѓР·РєР° СЃС‚Р°СЂС‚РѕРІРѕРіРѕ СЃС‚Р°С‚СѓСЃР° (Draft)
         var draftStatus = await _requestStatusRepository.GetByCodeAsync(RequestStatusCode.Draft, cancellationToken);
         if (draftStatus is null)
         {
             throw new InvalidOperationException("Initial RequestStatus 'Draft' is not configured.");
         }
 
-        // 3. Проверка прав
-        await _accessChecker.EnsureCanCreateAsync(command.InitiatorId, requestType, cancellationToken);
+        // 3. РџСЂРѕРІРµСЂРєР° РїСЂР°РІ
+        await _accessChecker.EnsureCanCreateAsync(command.ManagerId, requestType, cancellationToken);
 
-        // 4. Создание доменной сущности
+        // 4. РЎРѕР·РґР°РЅРёРµ РґРѕРјРµРЅРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё
         var now = DateTimeOffset.UtcNow;
 
-        var number = await _requestRepository.GetNextRequestNumberAsync(cancellationToken);
+        var number = await _requestRepository.GetNextRequestNumberAsync(
+            requestType.Direction,
+            now.Year,
+            cancellationToken);
         var yearSuffix = (now.Year % 100).ToString("00", CultureInfo.InvariantCulture);
-        var requestNumber = string.Concat(number.ToString("0000", CultureInfo.InvariantCulture), "-", yearSuffix);
+        var prefix = requestType.Direction == RequestDirection.Incoming ? "ВХ-" : "ИСХ-";
+        var requestNumber = string.Concat(prefix, number.ToString("0000", CultureInfo.InvariantCulture), "-", yearSuffix);
 
         var request = Request.Create(
             requestType,
             draftStatus,
-            command.InitiatorId,
+            command.ManagerId,
             requestNumber,
             command.Description,
             now,
@@ -84,27 +88,30 @@ public class CreateRequestHandler
             command.RelatedEntityType,
             command.RelatedEntityId,
             command.RelatedEntityName,
-            command.ExternalReferenceId,
             command.TargetEntityType,
             command.TargetEntityId,
-            command.TargetEntityName);
+            command.TargetEntityName,
+            command.BasisType,
+            command.BasisRequestId,
+            command.BasisCustomerOrderId,
+            command.BasisDescription);
 
-        // 4.1. Позиционное тело (v0.1: replace-all)
+        // 4.1. РџРѕР·РёС†РёРѕРЅРЅРѕРµ С‚РµР»Рѕ (v0.1: replace-all)
         if (command.Lines is not null)
         {
             var lines = MapToDomainLines(request.Id, command.Lines);
             request.ReplaceLines(lines, now, isCurrentStatusFinal: false);
         }
 
-        // 5. Сохранение в репозиторий
+        // 5. РЎРѕС…СЂР°РЅРµРЅРёРµ РІ СЂРµРїРѕР·РёС‚РѕСЂРёР№
         await _requestRepository.AddAsync(request, cancellationToken);
 
-        // 6. Маппинг в DTO
-        var initiator = await _userRepository.GetByIdAsync(request.InitiatorId, cancellationToken);
-        var initiatorBaseName = initiator?.Employee?.ShortName ?? initiator?.Employee?.FullName ?? initiator?.FullName ?? initiator?.Login;
-        var initiatorFullName = PersonNameFormatter.ToShortName(initiatorBaseName) ?? initiatorBaseName;
+        // 6. РњР°РїРїРёРЅРі РІ DTO
+        var manager = await _userRepository.GetByIdAsync(request.ManagerId, cancellationToken);
+        var managerBaseName = manager?.Employee?.ShortName ?? manager?.Employee?.FullName ?? manager?.FullName ?? manager?.Login;
+        var managerFullName = PersonNameFormatter.ToShortName(managerBaseName) ?? managerBaseName;
 
-        var dto = MapToDto(request, requestType, draftStatus, initiatorFullName);
+        var dto = MapToDto(request, requestType, draftStatus, managerFullName);
 
         return dto;
     }
@@ -113,7 +120,7 @@ public class CreateRequestHandler
         Request request,
         RequestType requestType,
         RequestStatus status,
-        string? initiatorFullName)
+        string? managerFullName)
     {
         return new RequestDto
         {
@@ -126,15 +133,18 @@ public class CreateRequestHandler
             RequestStatusId = status.Id.Value,
             RequestStatusCode = status.Code.Value,
             RequestStatusName = status.Name,
-            InitiatorId = request.InitiatorId,
-            InitiatorFullName = initiatorFullName,
+            ManagerId = request.ManagerId,
+            ManagerFullName = managerFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
-            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,
+            BasisType = request.BasisType,
+            BasisRequestId = request.BasisRequestId,
+            BasisCustomerOrderId = request.BasisCustomerOrderId,
+            BasisDescription = request.BasisDescription,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
             DueDate = request.DueDate,
@@ -193,3 +203,8 @@ public class CreateRequestHandler
         return result;
     }
 }
+
+
+
+
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Descriptions, Space, Tabs, Tag, Typography } from "antd";
 import Tooltip from "antd/es/tooltip";
 import { useNavigate, useParams } from "react-router-dom";
@@ -8,10 +8,42 @@ import { useCan } from "../../../../core/auth/permissions";
 import { t } from "../../../../core/i18n/t";
 import type { MdmItemReferenceDto } from "../api/adminMdmReferencesApi";
 import { getMdmDictionaryById } from "../api/adminMdmReferencesApi";
+import "./MdmItemCardPage.css";
 
 const { Title, Text } = Typography;
 
 type Params = { id?: string };
+
+type ItemTypeMeta = {
+  code: string;
+  label: string;
+};
+
+const normalizeText = (value?: string | null) => (value ?? "").trim().toLowerCase();
+
+const resolveItemType = (itemKind?: string | null): ItemTypeMeta => {
+  const kind = normalizeText(itemKind);
+  if (kind.includes("component") || kind.includes("компонент") || kind.includes("электро")) {
+    return { code: "CMP", label: t("references.mdm.items.type.component") };
+  }
+  if (kind.includes("material") || kind.includes("материал")) {
+    return { code: "MAT", label: t("references.mdm.items.type.material") };
+  }
+  if (kind.includes("detail") || kind.includes("part") || kind.includes("детал")) {
+    return { code: "PRT", label: t("references.mdm.items.type.part") };
+  }
+  if (kind.includes("assembly") || kind.includes("сборк")) {
+    return { code: "ASM", label: t("references.mdm.items.type.assembly") };
+  }
+  if (kind.includes("product") || kind.includes("готов") || kind.includes("издел")) {
+    return { code: "PRD", label: t("references.mdm.items.type.product") };
+  }
+  const fallback = (itemKind ?? "").trim();
+  return {
+    code: fallback ? fallback.slice(0, 3).toUpperCase() : "MDM",
+    label: fallback || t("references.mdm.items.type.unknown"),
+  };
+};
 
 function formatGroupLabel(groupName?: string | null, groupCode?: string | null): string {
   const name = (groupName ?? "").trim();
@@ -81,21 +113,25 @@ export const MdmItemCardPage: React.FC = () => {
     return <Alert type="error" showIcon message={t("common.error.notFound")} />;
   }
 
-  const titleCode = entity?.nomenclatureNo ? ` ${entity.nomenclatureNo}` : "";
+  const itemType = resolveItemType(entity?.itemKind ?? entity?.categoryName ?? null);
+  const statusLabel = entity?.isActive
+    ? t("references.mdm.items.status.active")
+    : t("references.mdm.items.status.archived");
+  const headerMeta = entity
+    ? `${itemType.label} · ${entity.nomenclatureNo} · ${statusLabel}`
+    : t("references.mdm.items.card.loadingName");
   const isRootGroup = Boolean(entity?.itemGroupId && entity?.categoryId && entity.itemGroupId === entity.categoryId);
+  const photoUrl = entity?.hasPhoto ? `/api/admin/references/mdm/items/${entity.id}/photo` : null;
 
   return (
-    <div data-testid="mdm-item-card-page">
+    <div data-testid="mdm-item-card-page" className="mdm-item-card">
       <CommandBar
         left={
-          <Space direction="vertical" size={0}>
+          <Space direction="vertical" size={2} className="mdm-item-card__header">
             <Title level={2} style={{ margin: 0 }}>
-              {t("references.mdm.items.title")}
-              {titleCode}
-            </Title>
-            <Text type="secondary">
               {entity?.name ?? t("references.mdm.items.card.loadingName")}
-            </Text>
+            </Title>
+            <Text type="secondary">{headerMeta}</Text>
           </Space>
         }
         right={
@@ -110,7 +146,22 @@ export const MdmItemCardPage: React.FC = () => {
                 </Button>
               </Tooltip>
             )}
-            <Button onClick={() => navigate("/references/mdm/items")} data-testid="mdm-item-card-back">
+            <Tooltip title={isReadOnly ? t("references.mdm.actions.disabledExternalMaster") : undefined}>
+              <Button disabled={isReadOnly} data-testid="mdm-item-card-status">
+                {t("references.mdm.items.actions.changeStatus")}
+              </Button>
+            </Tooltip>
+            <Tooltip title={isReadOnly ? t("references.mdm.actions.disabledExternalMaster") : undefined}>
+              <Button disabled={isReadOnly} data-testid="mdm-item-card-create-related">
+                {t("references.mdm.items.actions.createRelated")}
+              </Button>
+            </Tooltip>
+            <Tooltip title={isReadOnly ? t("references.mdm.actions.disabledExternalMaster") : undefined}>
+              <Button danger disabled={isReadOnly} data-testid="mdm-item-card-archive">
+                {t("references.mdm.items.actions.archive")}
+              </Button>
+            </Tooltip>
+            <Button onClick={() => navigate(-1)} data-testid="mdm-item-card-back">
               {t("common.actions.back")}
             </Button>
           </Space>
@@ -128,127 +179,89 @@ export const MdmItemCardPage: React.FC = () => {
 
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
 
-      <Card loading={loading} style={{ marginBottom: 12 }}>
-        <Descriptions bordered size="small" column={2}>
-          <Descriptions.Item label={t("references.mdm.items.fields.nomenclatureNo")}>
-            {entity?.nomenclatureNo ? <Text code>{entity.nomenclatureNo}</Text> : "-"}
-          </Descriptions.Item>
-          <Descriptions.Item label={t("references.columns.name")}>{entity?.name ?? "-"}</Descriptions.Item>
-
-          <Descriptions.Item label={t("references.mdm.items.fields.itemType")}>
-            {formatGroupLabel(entity?.categoryName ?? null, null)}
-          </Descriptions.Item>
-
-          <Descriptions.Item label={t("references.mdm.items.fields.designation")}>
-            {entity?.designation ?? "-"}
-          </Descriptions.Item>
-          <Descriptions.Item label={t("references.mdm.items.fields.group")}>
-            {entity && !isRootGroup ? formatGroupLabel(entity.itemGroupName ?? null, null) : "-"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label={t("references.mdm.items.columns.uom")}>
-            {entity?.unitOfMeasureName
-              ? formatGroupLabel(entity.unitOfMeasureName, entity.unitOfMeasureSymbol ?? entity.unitOfMeasureCode ?? null)
-              : (entity?.unitOfMeasureId ? <Text code>{entity.unitOfMeasureId}</Text> : "-")}
-          </Descriptions.Item>
-
-          <Descriptions.Item label={t("references.mdm.items.fields.lifecycleStatus")}>
-            {entity
-              ? (
-                <Space size={8}>
-                  {entity.isActive
-                    ? <Tag color="green">{t("references.mdm.items.lifecycle.active")}</Tag>
-                    : <Tag>{t("references.mdm.items.lifecycle.archived")}</Tag>}
-                  <Text type="secondary">{t("references.mdm.items.fields.lifecycleStatus.hint")}</Text>
-                </Space>
-              )
-              : "-"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label={t("references.mdm.items.fields.preferredSupplier")}>-</Descriptions.Item>
-          <Descriptions.Item label={t("references.mdm.items.fields.preferredManufacturer")}>-</Descriptions.Item>
-
-          <Descriptions.Item label={t("references.mdm.items.fields.flags")} span={2}>
-            {flags.length
-              ? (
-                <Space size={4} wrap>
-                  {flags.map((x) => (
-                    <Tag key={x.key} color={x.color}>
-                      {x.label}
-                    </Tag>
-                  ))}
-                </Space>
-              )
-              : "-"}
-          </Descriptions.Item>
-        </Descriptions>
-      </Card>
-
       <Tabs
         data-testid="mdm-item-card-tabs"
-        defaultActiveKey="procurement"
+        defaultActiveKey="general"
         items={[
           {
-            key: "ecad",
-            label: t("references.mdm.items.tabs.ecad"),
+            key: "general",
+            label: t("references.mdm.items.tabs.general"),
             children: (
-              <Card>
-                <Typography.Text type="secondary">{t("references.mdm.items.tabs.ecad.empty")}</Typography.Text>
-              </Card>
-            ),
-          },
-          {
-            key: "mcad",
-            label: t("references.mdm.items.tabs.mcad"),
-            children: (
-              <Card>
-                <Typography.Text type="secondary">{t("references.mdm.items.tabs.mcad.empty")}</Typography.Text>
-              </Card>
-            ),
-          },
-          {
-            key: "procurement",
-            label: t("references.mdm.items.tabs.procurement"),
-            children: (
-              <Card>
+              <Card loading={loading} className="mdm-item-card__panel">
+                {photoUrl && (
+                  <div className="mdm-item-card__photo">
+                    <img
+                      src={photoUrl}
+                      alt={entity?.name ?? "item"}
+                      loading="lazy"
+                      onError={(event) => { event.currentTarget.style.display = "none"; }}
+                    />
+                  </div>
+                )}
                 <Descriptions bordered size="small" column={2}>
-                  <Descriptions.Item label={t("references.mdm.items.columns.mpn")}>
-                    {entity?.manufacturerPartNumber ?? "-"}
+                  <Descriptions.Item label={t("references.mdm.items.fields.itemType")}>
+                    <Space size={8}>
+                      <Tag color="blue">{itemType.code}</Tag>
+                      <Text>{itemType.label}</Text>
+                    </Space>
                   </Descriptions.Item>
-                  <Descriptions.Item label={t("references.mdm.items.fields.preferredManufacturer")}>
-                    -
+                  <Descriptions.Item label={t("references.columns.name")}>{entity?.name ?? "-"}</Descriptions.Item>
+
+                  <Descriptions.Item label={t("references.mdm.items.fields.nomenclatureNo")}>
+                    {entity?.nomenclatureNo ? <Text code>{entity.nomenclatureNo}</Text> : "-"}
                   </Descriptions.Item>
-                  <Descriptions.Item label={t("references.mdm.items.fields.preferredSupplier")} span={2}>
-                    -
+                  <Descriptions.Item label={t("references.columns.code")}>
+                    {entity?.code ? <Text code>{entity.code}</Text> : "-"}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label={t("references.mdm.items.fields.group")}>
+                    {entity && !isRootGroup ? formatGroupLabel(entity.itemGroupName ?? null, null) : "-"}
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t("references.mdm.items.columns.uom")}>
+                    {entity?.unitOfMeasureName
+                      ? formatGroupLabel(entity.unitOfMeasureName, entity.unitOfMeasureSymbol ?? entity.unitOfMeasureCode ?? null)
+                      : (entity?.unitOfMeasureId ? <Text code>{entity.unitOfMeasureId}</Text> : "-")}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label={t("references.mdm.items.fields.lifecycleStatus")}>
+                    {entity ? (
+                      <Tag color={entity.isActive ? "green" : "default"}>{statusLabel}</Tag>
+                    ) : "-"}
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t("references.mdm.items.columns.eskd")}>
+                    {entity ? (entity.isEskd ? t("common.yes") : t("common.no")) : "-"}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label={t("references.mdm.items.fields.designation")}>
+                    {entity?.designation ?? "-"}
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t("references.columns.description")}>
+                    {"-"}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label={t("references.mdm.items.fields.flags")} span={2}>
+                    {flags.length
+                      ? (
+                        <Space size={4} wrap>
+                          {flags.map((x) => (
+                            <Tag key={x.key} color={x.color}>
+                              {x.label}
+                            </Tag>
+                          ))}
+                        </Space>
+                      )
+                      : "-"}
                   </Descriptions.Item>
                 </Descriptions>
               </Card>
             ),
           },
           {
-            key: "storage",
-            label: t("references.mdm.items.tabs.storage"),
+            key: "composition",
+            label: t("references.mdm.items.tabs.composition"),
             children: (
-              <Card>
-                <Typography.Text type="secondary">{t("references.mdm.items.tabs.storage.empty")}</Typography.Text>
-              </Card>
-            ),
-          },
-          {
-            key: "accounting",
-            label: t("references.mdm.items.tabs.accounting"),
-            children: (
-              <Card>
-                <Typography.Text type="secondary">{t("references.mdm.items.tabs.accounting.empty")}</Typography.Text>
-              </Card>
-            ),
-          },
-          {
-            key: "substitutes",
-            label: t("references.mdm.items.tabs.substitutes"),
-            children: (
-              <Card>
-                <Typography.Text type="secondary">{t("references.mdm.items.tabs.substitutes.empty")}</Typography.Text>
+              <Card className="mdm-item-card__panel">
+                <Text type="secondary">{t("references.mdm.items.tabs.composition.empty")}</Text>
               </Card>
             ),
           },
@@ -256,8 +269,8 @@ export const MdmItemCardPage: React.FC = () => {
             key: "documents",
             label: t("references.mdm.items.tabs.documents"),
             children: (
-              <Card>
-                <Typography.Text type="secondary">{t("references.mdm.items.tabs.documents.empty")}</Typography.Text>
+              <Card className="mdm-item-card__panel">
+                <Text type="secondary">{t("references.mdm.items.tabs.documents.empty")}</Text>
               </Card>
             ),
           },
@@ -265,7 +278,7 @@ export const MdmItemCardPage: React.FC = () => {
             key: "history",
             label: t("references.mdm.items.tabs.history"),
             children: (
-              <Card>
+              <Card className="mdm-item-card__panel">
                 <Descriptions bordered size="small" column={2}>
                   <Descriptions.Item label={t("references.mdm.items.fields.createdAt")}>
                     {entity?.createdAt ?? "-"}
@@ -273,6 +286,25 @@ export const MdmItemCardPage: React.FC = () => {
                   <Descriptions.Item label={t("references.mdm.items.fields.updatedAt")}>
                     {entity?.updatedAt ?? "-"}
                   </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            ),
+          },
+          {
+            key: "tasks",
+            label: t("references.mdm.items.tabs.tasks"),
+            children: (
+              <Card className="mdm-item-card__panel">
+                <Text type="secondary">{t("references.mdm.items.tabs.tasks.empty")}</Text>
+              </Card>
+            ),
+          },
+          {
+            key: "integrations",
+            label: t("references.mdm.items.tabs.integrations"),
+            children: (
+              <Card className="mdm-item-card__panel">
+                <Descriptions bordered size="small" column={2}>
                   <Descriptions.Item label={t("references.mdm.items.fields.syncedAt")}>
                     {entity?.syncedAt ?? "-"}
                   </Descriptions.Item>
@@ -282,12 +314,6 @@ export const MdmItemCardPage: React.FC = () => {
                         <Text code>{`${entity.externalSystem ?? ""}:${entity.externalId ?? ""}`}</Text>
                       )
                       : "-"}
-                  </Descriptions.Item>
-                  <Descriptions.Item label={t("references.columns.code")}>
-                    {entity?.code ? <Text code>{entity.code}</Text> : "-"}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Id" span={2}>
-                    {entity?.id ? <Text code>{entity.id}</Text> : "-"}
                   </Descriptions.Item>
                 </Descriptions>
               </Card>

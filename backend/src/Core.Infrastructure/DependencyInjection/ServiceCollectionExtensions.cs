@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<IComponent2020SyncHandler, Component2020UsersSyncHandler>();
             services.AddScoped<IComponent2020SyncHandler, Component2020StatusesSyncHandler>();
             services.AddScoped<IComponent2020SyncService, Component2020SyncService>();
+            services.AddScoped<IComponent2020ImportPreviewService, Component2020ImportPreviewService>();
             services.AddScoped<IComponent2020SyncRunRepository, Component2020SyncRunRepository>();
             services.AddScoped<IComponent2020SyncCursorRepository, Component2020SyncCursorRepository>();
             services.AddScoped<IComponent2020SyncScheduleRepository, Component2020SyncScheduleRepository>();

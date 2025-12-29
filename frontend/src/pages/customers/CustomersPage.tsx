@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Dropdown, Input, Modal, Select, Space, Table, Typography, message } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { Alert, Button, Checkbox, Dropdown, Empty, Input, Modal, Pagination, Select, Space, Spin, Tag, Typography, message } from "antd";
 import type { MenuProps } from "antd";
 import { useNavigate } from "react-router-dom";
 
@@ -16,6 +15,7 @@ import {
   runComponent2020Sync,
 } from "../../modules/settings/integrations/component2020/api/adminComponent2020Api";
 import { Component2020SyncMode, Component2020SyncScope } from "../../modules/settings/integrations/component2020/api/types";
+import "./CustomersPage.css";
 
 const CustomersPage: React.FC = () => {
   const canExecuteImport = useCan("Admin.Integration.Execute");
@@ -33,6 +33,7 @@ const CustomersPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+  const [listView, setListView] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -166,58 +167,10 @@ const CustomersPage: React.FC = () => {
     }
   };
 
-  const columns: ColumnsType<CustomerOrderListItemDto> = useMemo(
-    () => [
-      {
-        title: t("customers.orders.columns.number"),
-        dataIndex: "number",
-        key: "number",
-      },
-      {
-        title: t("customers.orders.columns.customer"),
-        dataIndex: "customerName",
-        key: "customerName",
-      },
-      {
-        title: t("customers.orders.columns.createdAt"),
-        dataIndex: "orderDate",
-        key: "orderDate",
-        render: (v?: string | null) => (v ? new Date(v).toLocaleDateString() : "-"),
-      },
-      {
-        title: t("customers.orders.columns.contract"),
-        dataIndex: "contract",
-        key: "contract",
-      },
-      {
-        title: t("customers.orders.columns.note"),
-        dataIndex: "note",
-        key: "note",
-      },
-      {
-        title: t("customers.orders.columns.deliveryDate"),
-        dataIndex: "deliveryDate",
-        key: "deliveryDate",
-        render: (v?: string | null) => (v ? new Date(v).toLocaleDateString() : "-"),
-      },
-      {
-        title: t("customers.orders.columns.state"),
-        dataIndex: "state",
-        key: "state",
-        render: (_v?: number | null, r?: CustomerOrderListItemDto) =>
-          r?.statusName ? r.statusName : r?.state ?? "-",
-      },
-      {
-        title: t("customers.orders.columns.person"),
-        dataIndex: "personName",
-        key: "personName",
-      },
-    ],
-    []
-  );
+  const formatDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString() : "-");
 
   return (
-    <div>
+    <div className="customers-orders-page">
       <CommandBar
         left={
           <Typography.Title level={2} style={{ margin: 0 }}>
@@ -270,6 +223,9 @@ const CustomersPage: React.FC = () => {
               }))}
               data-testid="customers-orders-customer-filter"
             />
+            <Checkbox checked={listView} onChange={(event) => setListView(event.target.checked)}>
+              {t("references.mdm.items.view.list")}
+            </Checkbox>
             <Button onClick={() => void load()} data-testid="customers-orders-refresh">
               {t("common.actions.refresh")}
             </Button>
@@ -279,23 +235,84 @@ const CustomersPage: React.FC = () => {
 
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
 
-      <Table
-        data-testid="customers-orders-table"
-        rowKey={(r: CustomerOrderListItemDto) => r.id}
-        loading={loading}
-        columns={columns}
-        dataSource={items}
-        pagination={{
-          current: pageNumber,
-          pageSize,
-          total: totalCount,
-          showSizeChanger: true,
-        }}
-        onChange={(pagination) => {
-          setPageNumber(pagination.current ?? 1);
-          setPageSize(pagination.pageSize ?? 20);
-        }}
-      />
+      <div className="customers-orders__scroll">
+        {loading ? (
+        <div className="customers-orders__state">
+          <Spin size="large" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="customers-orders__state">
+          <Empty description={t("references.mdm.items.empty")} />
+        </div>
+      ) : listView ? (
+        <div className="customers-orders__list" data-testid="customers-orders-table">
+          {items.map((order) => {
+            const statusLabel = order.statusName ?? (order.state != null ? String(order.state) : "-");
+            return (
+              <div key={order.id} className="customers-orders__row">
+                <div className="customers-orders__row-top">
+                  <div className="customers-orders__row-title">{order.number ?? "-"}</div>
+                  <Tag color="blue">{statusLabel}</Tag>
+                </div>
+                <div className="customers-orders__row-line">{order.customerName ?? "-"}</div>
+                <div className="customers-orders__row-line">
+                  {t("customers.orders.columns.createdAt")}: {formatDate(order.orderDate)} · {t("customers.orders.columns.deliveryDate")}: {formatDate(order.deliveryDate)}
+                </div>
+                <div className="customers-orders__row-line">
+                  {t("customers.orders.columns.contract")}: {order.contract ?? "-"} · {t("customers.orders.columns.person")}: {order.personName ?? "-"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="customers-orders__grid" data-testid="customers-orders-table">
+          {items.map((order) => {
+            const statusLabel = order.statusName ?? (order.state != null ? String(order.state) : "-");
+            return (
+              <div key={order.id} className="customers-orders__card">
+                <div className="customers-orders__card-header">
+                  <div>
+                    <div className="customers-orders__card-title">{order.number ?? "-"}</div>
+                    <div className="customers-orders__card-subtitle">{order.customerName ?? "-"}</div>
+                  </div>
+                  <Tag color="blue">{statusLabel}</Tag>
+                </div>
+                <div className="customers-orders__card-meta">
+                  <span>{t("customers.orders.columns.createdAt")}: {formatDate(order.orderDate)}</span>
+                  <span>{t("customers.orders.columns.deliveryDate")}: {formatDate(order.deliveryDate)}</span>
+                </div>
+                <div className="customers-orders__card-row">
+                  <span className="customers-orders__card-label">{t("customers.orders.columns.contract")}</span>
+                  <span>{order.contract ?? "-"}</span>
+                </div>
+                <div className="customers-orders__card-row">
+                  <span className="customers-orders__card-label">{t("customers.orders.columns.person")}</span>
+                  <span>{order.personName ?? "-"}</span>
+                </div>
+                <div className="customers-orders__card-row customers-orders__card-row--note">
+                  <span className="customers-orders__card-label">{t("customers.orders.columns.note")}</span>
+                  <span>{order.note ?? "-"}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      </div>
+
+      <div className="customers-orders__pagination">
+        <Pagination
+          current={pageNumber}
+          pageSize={pageSize}
+          total={totalCount}
+          showSizeChanger
+          onChange={(page, size) => {
+            setPageNumber(page);
+            setPageSize(size);
+          }}
+        />
+      </div>
     </div>
   );
 };

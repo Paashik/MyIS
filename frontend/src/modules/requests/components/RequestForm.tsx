@@ -1,10 +1,24 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Button, DatePicker, Form, Input, Select, Space, Tabs, Typography } from "antd";
+import { Button, Col, DatePicker, Form, Input, Row, Select, Space, Tabs, Typography } from "antd";
 import type { FormInstance } from "rc-field-form";
 import dayjs from "dayjs";
 
-import type { RequestCounterpartyLookupDto, RequestLineInputDto, RequestTypeDto } from "../api/types";
-import { getRequestCounterparties } from "../api/requestsApi";
+import type {
+  RequestCounterpartyLookupDto,
+  RequestLineInputDto,
+  RequestOrgUnitLookupDto,
+  RequestBasisCustomerOrderLookupDto,
+  RequestBasisIncomingRequestLookupDto,
+  RequestBasisType,
+  RequestTypeDto,
+} from "../api/types";
+import {
+  getCustomerOrders,
+  getIncomingRequests,
+  getRequestCounterparties,
+  getRequestOrgUnits,
+} from "../api/requestsApi";
+import { getOrgUnit } from "../../organization/api/orgUnitsApi";
 import { RequestBodyRenderer } from "./RequestBodyRenderer";
 import { SupplyLinesEditor } from "./SupplyLinesEditor";
 import { getRequestTypeProfile } from "../typeProfiles/registry";
@@ -21,10 +35,13 @@ export interface RequestFormValues {
   relatedEntityType?: string;
   relatedEntityId?: string;
   relatedEntityName?: string;
-  externalReferenceId?: string;
   targetEntityType?: string;
   targetEntityId?: string;
   targetEntityName?: string;
+  basisType?: RequestBasisType;
+  basisRequestId?: string;
+  basisCustomerOrderId?: string;
+  basisDescription?: string;
 }
 
 export type RequestFormInitialValues =
@@ -41,6 +58,8 @@ export interface RequestFormProps {
   onCancel?: () => void;
 }
 
+type RecipientKind = "counterparty" | "department";
+
 export const RequestForm: React.FC<RequestFormProps> = ({
   mode,
   initialValues,
@@ -54,27 +73,33 @@ export const RequestForm: React.FC<RequestFormProps> = ({
   const [innerForm] = Form.useForm();
   const form = (externalForm ?? innerForm) as any;
 
-  const isGuid = (value: string): boolean => {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value
-    );
-  };
-
   const [selectedTypeId, setSelectedTypeId] = useState<string | undefined>(
     initialValues?.requestTypeId
   );
   const [counterpartySearch, setCounterpartySearch] = useState("");
   const [counterpartyLoading, setCounterpartyLoading] = useState(false);
   const [counterpartyOptions, setCounterpartyOptions] = useState<RequestCounterpartyLookupDto[]>([]);
+  const [recipientKind, setRecipientKind] = useState<RecipientKind>("counterparty");
+  const [orgUnitSearch, setOrgUnitSearch] = useState("");
+  const [orgUnitLoading, setOrgUnitLoading] = useState(false);
+  const [orgUnitOptions, setOrgUnitOptions] = useState<RequestOrgUnitLookupDto[]>([]);
+  const [basisType, setBasisType] = useState<RequestBasisType | undefined>(
+    initialValues?.basisType
+  );
+  const [incomingSearch, setIncomingSearch] = useState("");
+  const [incomingLoading, setIncomingLoading] = useState(false);
+  const [incomingOptions, setIncomingOptions] =
+    useState<RequestBasisIncomingRequestLookupDto[]>([]);
+  const [customerOrderSearch, setCustomerOrderSearch] = useState("");
+  const [customerOrderLoading, setCustomerOrderLoading] = useState(false);
+  const [customerOrderOptions, setCustomerOrderOptions] =
+    useState<RequestBasisCustomerOrderLookupDto[]>([]);
 
 
-  const selectedTypeIdValue = useMemo(() => {
-    if (mode === "edit" && initialValues?.requestTypeId) {
-      return initialValues.requestTypeId;
-    }
-
-    return selectedTypeId;
-  }, [initialValues?.requestTypeId, mode, selectedTypeId]);
+  const selectedTypeIdValue = useMemo(
+    () => selectedTypeId ?? initialValues?.requestTypeId,
+    [initialValues?.requestTypeId, selectedTypeId]
+  );
 
   const selectedType = useMemo(
     () => requestTypes.find((t) => t.id === selectedTypeIdValue),
@@ -82,6 +107,52 @@ export const RequestForm: React.FC<RequestFormProps> = ({
   );
 
   const isOutgoing = selectedType?.direction === "Outgoing";
+  const isIncoming = selectedType?.direction === "Incoming";
+  const recipientFieldPrefix = isOutgoing ? "target" : "related";
+  const recipientLabel = isOutgoing
+    ? t("requests.form.recipient.outgoing")
+    : t("requests.form.recipient.incoming");
+
+  const resolveRecipientKind = (
+    entityType?: string,
+    entityId?: string,
+    entityName?: string
+  ): RecipientKind => {
+    const normalizedType = (entityType ?? "").trim().toLowerCase();
+    if (normalizedType === "department") return "department";
+    if (normalizedType === "counterparty") return "counterparty";
+    if (!!entityId) return "counterparty";
+    if (!!entityName) return "department";
+    return "counterparty";
+  };
+
+  const counterpartySelectOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const unique = counterpartyOptions.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+
+    return unique.map((c) => ({
+      value: c.id,
+      label: c.fullName || c.name,
+    }));
+  }, [counterpartyOptions]);
+
+  const orgUnitSelectOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const unique = orgUnitOptions.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+
+    return unique.map((u) => ({
+      value: u.id,
+      label: u.code ? `${u.code} — ${u.name}` : u.name,
+    }));
+  }, [orgUnitOptions]);
 
   useEffect(() => {
     if (!initialValues) return;
@@ -92,26 +163,135 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       lines: initialValues.lines ?? [],
     });
     setSelectedTypeId(initialValues.requestTypeId);
+    setBasisType(initialValues.basisType ?? undefined);
   }, [initialValues, form]);
 
   useEffect(() => {
-    if (!isOutgoing) {
+    if (!initialValues) return;
+
+    const entityId = isOutgoing
+      ? initialValues.targetEntityId
+      : initialValues.relatedEntityId;
+    const entityName = isOutgoing
+      ? initialValues.targetEntityName
+      : initialValues.relatedEntityName;
+    const entityType = (isOutgoing
+      ? initialValues.targetEntityType
+      : initialValues.relatedEntityType) ?? "";
+
+    if (recipientKind === "counterparty") {
+      if (entityId && entityName) {
+        setCounterpartyOptions((prev) => {
+          if (prev.some((item) => item.id === entityId)) return prev;
+          return [...prev, { id: entityId, name: entityName, fullName: entityName }];
+        });
+      }
+      return;
+    }
+
+    if (recipientKind === "department" && entityId && entityType.toLowerCase() === "department") {
+      let cancelled = false;
+      const load = async () => {
+        try {
+          const orgUnit = await getOrgUnit(entityId);
+          if (cancelled) return;
+          setOrgUnitOptions((prev) => {
+            if (prev.some((item) => item.id === orgUnit.id)) return prev;
+            return [
+              ...prev,
+              {
+                id: orgUnit.id,
+                name: orgUnit.name,
+                code: orgUnit.code ?? undefined,
+                parentId: orgUnit.parentId ?? undefined,
+                phone: orgUnit.phone ?? undefined,
+                email: orgUnit.email ?? undefined,
+              },
+            ];
+          });
+        } catch {
+          // ignore lookup errors
+        }
+      };
+      void load();
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [initialValues, isOutgoing, recipientKind]);
+
+  useEffect(() => {
+    if (!initialValues?.basisType) return;
+
+    if (
+      initialValues.basisType === "IncomingRequest" &&
+      initialValues.basisRequestId &&
+      initialValues.basisDescription
+    ) {
+      setIncomingOptions((prev) => {
+        if (prev.some((item) => item.id === initialValues.basisRequestId)) return prev;
+        return [
+          ...prev,
+          {
+            id: initialValues.basisRequestId,
+            title: initialValues.basisDescription,
+            requestTypeName: undefined,
+          },
+        ];
+      });
+    }
+
+    if (
+      initialValues.basisType === "CustomerOrder" &&
+      initialValues.basisCustomerOrderId &&
+      initialValues.basisDescription
+    ) {
+      setCustomerOrderOptions((prev) => {
+        if (prev.some((item) => item.id === initialValues.basisCustomerOrderId)) return prev;
+        return [
+          ...prev,
+          {
+            id: initialValues.basisCustomerOrderId,
+            number: initialValues.basisDescription,
+            customerName: undefined,
+          },
+        ];
+      });
+    }
+  }, [initialValues]);
+
+  useEffect(() => {
+    if (!isOutgoing && !isIncoming) return;
+
+    if (mode === "create") {
       form.setFieldsValue({
+        relatedEntityType: undefined,
+        relatedEntityId: undefined,
+        relatedEntityName: undefined,
         targetEntityType: undefined,
         targetEntityId: undefined,
         targetEntityName: undefined,
       });
+      setRecipientKind("counterparty");
       return;
     }
 
-    const currentType = form.getFieldValue("targetEntityType");
-    if (!currentType) {
-      form.setFieldsValue({ targetEntityType: "Counterparty" });
-    }
-  }, [form, isOutgoing]);
+    const entityType = isOutgoing
+      ? initialValues?.targetEntityType
+      : initialValues?.relatedEntityType;
+    const entityId = isOutgoing
+      ? initialValues?.targetEntityId
+      : initialValues?.relatedEntityId;
+    const entityName = isOutgoing
+      ? initialValues?.targetEntityName
+      : initialValues?.relatedEntityName;
+    setRecipientKind(resolveRecipientKind(entityType, entityId, entityName));
+  }, [form, initialValues, isIncoming, isOutgoing, mode]);
+
 
   useEffect(() => {
-    if (!isOutgoing) return;
+    if (!isOutgoing && !isIncoming) return;
+    if (recipientKind !== "counterparty") return;
 
     let cancelled = false;
 
@@ -134,7 +314,86 @@ export const RequestForm: React.FC<RequestFormProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [counterpartySearch, isOutgoing]);
+  }, [counterpartySearch, isIncoming, isOutgoing, recipientKind]);
+
+  useEffect(() => {
+    if (!isOutgoing && !isIncoming) return;
+    if (recipientKind !== "department") return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setOrgUnitLoading(true);
+      try {
+        const items = await getRequestOrgUnits(orgUnitSearch.trim() || undefined);
+        if (!cancelled) {
+          setOrgUnitOptions(items);
+        }
+      } finally {
+        if (!cancelled) {
+          setOrgUnitLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isIncoming, isOutgoing, orgUnitSearch, recipientKind]);
+
+  useEffect(() => {
+    if (basisType !== "IncomingRequest") return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setIncomingLoading(true);
+      try {
+        const items = await getIncomingRequests(incomingSearch.trim() || undefined);
+        if (!cancelled) {
+          setIncomingOptions(items);
+        }
+      } finally {
+        if (!cancelled) {
+          setIncomingLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [basisType, incomingSearch]);
+
+  useEffect(() => {
+    if (basisType !== "CustomerOrder") return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setCustomerOrderLoading(true);
+      try {
+        const items = await getCustomerOrders(customerOrderSearch.trim() || undefined);
+        if (!cancelled) {
+          setCustomerOrderOptions(items);
+        }
+      } finally {
+        if (!cancelled) {
+          setCustomerOrderLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [basisType, customerOrderSearch]);
 
   const handleFinish = async (values: any) => {
     const toIso = (v: any): string | undefined => {
@@ -197,6 +456,13 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       }
     }
 
+    const resolvedBasisType =
+      values.basisType ??
+      basisType ??
+      (typeof values.basisDescription === "string" && values.basisDescription.trim()
+        ? "Other"
+        : undefined);
+
     const payload: RequestFormValues = {
       requestTypeId: typeId,
       title:
@@ -217,10 +483,6 @@ export const RequestForm: React.FC<RequestFormProps> = ({
         typeof values.relatedEntityName === "string" && values.relatedEntityName.trim()
           ? values.relatedEntityName.trim()
           : undefined,
-      externalReferenceId:
-        typeof values.externalReferenceId === "string" && values.externalReferenceId.trim()
-          ? values.externalReferenceId.trim()
-          : undefined,
       targetEntityType:
         typeof values.targetEntityType === "string" && values.targetEntityType.trim()
           ? values.targetEntityType.trim()
@@ -234,6 +496,19 @@ export const RequestForm: React.FC<RequestFormProps> = ({
           ? values.targetEntityName.trim()
           : undefined,
       dueDate,
+      basisType: resolvedBasisType,
+      basisRequestId:
+        typeof values.basisRequestId === "string" && values.basisRequestId.trim()
+          ? values.basisRequestId.trim()
+          : undefined,
+      basisCustomerOrderId:
+        typeof values.basisCustomerOrderId === "string" && values.basisCustomerOrderId.trim()
+          ? values.basisCustomerOrderId.trim()
+          : undefined,
+      basisDescription:
+        typeof values.basisDescription === "string" && values.basisDescription.trim()
+          ? values.basisDescription.trim()
+          : undefined,
     };
 
     await onSubmit(payload);
@@ -252,154 +527,316 @@ export const RequestForm: React.FC<RequestFormProps> = ({
         relatedEntityType: initialValues?.relatedEntityType ?? "",
         relatedEntityId: initialValues?.relatedEntityId ?? "",
         relatedEntityName: initialValues?.relatedEntityName ?? "",
-        externalReferenceId: initialValues?.externalReferenceId ?? "",
         targetEntityType: initialValues?.targetEntityType ?? "",
         targetEntityId: initialValues?.targetEntityId ?? "",
         targetEntityName: initialValues?.targetEntityName ?? "",
+        basisType: initialValues?.basisType ?? undefined,
+        basisRequestId: initialValues?.basisRequestId ?? undefined,
+        basisCustomerOrderId: initialValues?.basisCustomerOrderId ?? undefined,
+        basisDescription: initialValues?.basisDescription ?? "",
       }}
       onFinish={handleFinish}
     >
+      <Row gutter={[16, 0]}>
+        <Col xs={24} md={12}>
+          <Form.Item label={t("requests.form.title.label")} name="title">
+            <Input
+              data-testid="request-form-title-input"
+              disabled
+              placeholder={mode === "create" ? t("requests.form.title.auto") : undefined}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
+          <Form.Item
+            label={t("requests.form.type.label")}
+            name="requestTypeId"
+            rules={[{ required: true, message: t("requests.form.type.required") }]}
+          >
+            <Select
+              data-testid="request-form-type-select"
+              showSearch
+              optionFilterProp="label"
+              options={requestTypes.map((t) => ({
+                value: t.id,
+                label: t.name,
+              }))}
+              onChange={(next: string) => {
+                setSelectedTypeId(next || undefined);
+                form.setFieldValue("requestTypeId", next);
+              }}
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {(isOutgoing || isIncoming) && (
+        <Row gutter={[16, 0]}>
+          <Col xs={24} md={12}>
+            <Form.Item label={t("requests.form.recipient.kind.label")}>
+              <Select
+                data-testid="request-form-recipient-kind"
+                value={recipientKind}
+                onChange={(next: RecipientKind) => {
+                  setRecipientKind(next);
+                  const typeField = `${recipientFieldPrefix}EntityType`;
+                  const idField = `${recipientFieldPrefix}EntityId`;
+                  const nameField = `${recipientFieldPrefix}EntityName`;
+                  if (next === "counterparty") {
+                    form.setFieldsValue({
+                      [typeField]: "Counterparty",
+                      [idField]: undefined,
+                      [nameField]: undefined,
+                    });
+                  } else {
+                    form.setFieldsValue({
+                      [typeField]: "Department",
+                      [idField]: undefined,
+                      [nameField]: undefined,
+                    });
+                  }
+                }}
+                options={[
+                  { label: t("requests.form.recipient.kind.counterparty"), value: "counterparty" },
+                  { label: t("requests.form.recipient.kind.department"), value: "department" },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={12}>
+            {recipientKind === "counterparty" ? (
+              <>
+                <Form.Item label={recipientLabel} name={`${recipientFieldPrefix}EntityId`}>
+                  <Select
+                    data-testid="request-form-recipient-counterparty"
+                    showSearch
+                    allowClear
+                    filterOption={false}
+                    loading={counterpartyLoading}
+                    onSearch={(value: string) => setCounterpartySearch(value)}
+                    onChange={(value: string | null, option: any) => {
+                      const typeField = `${recipientFieldPrefix}EntityType`;
+                      const idField = `${recipientFieldPrefix}EntityId`;
+                      const nameField = `${recipientFieldPrefix}EntityName`;
+                      if (!value) {
+                        form.setFieldsValue({
+                          [idField]: undefined,
+                          [nameField]: undefined,
+                          [typeField]: "Counterparty",
+                        });
+                        return;
+                      }
+                      const label = option?.label as string | undefined;
+                      form.setFieldsValue({
+                        [idField]: value,
+                        [nameField]: label ?? "",
+                        [typeField]: "Counterparty",
+                      });
+                    }}
+                    options={counterpartySelectOptions}
+                  />
+                </Form.Item>
+                <Form.Item name={`${recipientFieldPrefix}EntityName`} hidden>
+                  <Input />
+                </Form.Item>
+                <Form.Item name={`${recipientFieldPrefix}EntityType`} hidden>
+                  <Input />
+                </Form.Item>
+              </>
+            ) : (
+              <>
+                <Form.Item label={recipientLabel} name={`${recipientFieldPrefix}EntityId`}>
+                  <Select
+                    data-testid="request-form-recipient-department"
+                    showSearch
+                    allowClear
+                    filterOption={false}
+                    loading={orgUnitLoading}
+                    onSearch={(value: string) => setOrgUnitSearch(value)}
+                    onChange={(value: string | null, option: any) => {
+                      const typeField = `${recipientFieldPrefix}EntityType`;
+                      const idField = `${recipientFieldPrefix}EntityId`;
+                      const nameField = `${recipientFieldPrefix}EntityName`;
+                      if (!value) {
+                        form.setFieldsValue({
+                          [idField]: undefined,
+                          [nameField]: undefined,
+                          [typeField]: "Department",
+                        });
+                        return;
+                      }
+                      const label = option?.label as string | undefined;
+                      form.setFieldsValue({
+                        [idField]: value,
+                        [nameField]: label ?? "",
+                        [typeField]: "Department",
+                      });
+                    }}
+                    options={orgUnitSelectOptions}
+                  />
+                </Form.Item>
+                <Form.Item name={`${recipientFieldPrefix}EntityName`} hidden>
+                  <Input />
+                </Form.Item>
+                <Form.Item name={`${recipientFieldPrefix}EntityType`} hidden>
+                  <Input />
+                </Form.Item>
+              </>
+            )}
+          </Col>
+        </Row>
+      )}
+
+      <Row gutter={[16, 0]}>
+        <Col xs={24} md={12}>
+          <Form.Item label={t("requests.form.basis.type.label")} name="basisType">
+            <Select
+              data-testid="request-form-basis-type"
+              allowClear
+              value={basisType}
+              onChange={(value: RequestBasisType | undefined) => {
+                setBasisType(value);
+                form.setFieldsValue({
+                  basisType: value,
+                  basisRequestId: undefined,
+                  basisCustomerOrderId: undefined,
+                  basisDescription: undefined,
+                });
+              }}
+              options={[
+                { value: "IncomingRequest", label: t("requests.form.basis.type.incoming") },
+                { value: "CustomerOrder", label: t("requests.form.basis.type.customerOrder") },
+                { value: "ProductionOrder", label: t("requests.form.basis.type.productionOrder") },
+                { value: "Other", label: t("requests.form.basis.type.other") },
+              ]}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
+          {basisType === "IncomingRequest" && (
+            <>
+              <Form.Item label={t("requests.form.basis.incoming.label")} name="basisRequestId">
+                <Select
+                  data-testid="request-form-basis-incoming"
+                  showSearch
+                  allowClear
+                  filterOption={false}
+                  loading={incomingLoading}
+                  onSearch={(value: string) => setIncomingSearch(value)}
+                  onChange={(value: string | null, option: any) => {
+                    if (!value) {
+                      form.setFieldsValue({
+                        basisRequestId: undefined,
+                        basisDescription: undefined,
+                      });
+                      return;
+                    }
+                    const label = option?.label as string | undefined;
+                    form.setFieldsValue({
+                      basisRequestId: value,
+                      basisDescription: label ?? "",
+                    });
+                  }}
+                  options={incomingOptions.map((item) => ({
+                    value: item.id,
+                    label: item.requestTypeName
+                      ? `${item.title} · ${item.requestTypeName}`
+                      : item.title,
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item name="basisDescription" hidden>
+                <Input />
+              </Form.Item>
+            </>
+          )}
+          {basisType === "CustomerOrder" && (
+            <>
+              <Form.Item
+                label={t("requests.form.basis.customerOrder.label")}
+                name="basisCustomerOrderId"
+              >
+                <Select
+                  data-testid="request-form-basis-customer-order"
+                  showSearch
+                  allowClear
+                  filterOption={false}
+                  loading={customerOrderLoading}
+                  onSearch={(value: string) => setCustomerOrderSearch(value)}
+                  onChange={(value: string | null, option: any) => {
+                    if (!value) {
+                      form.setFieldsValue({
+                        basisCustomerOrderId: undefined,
+                        basisDescription: undefined,
+                      });
+                      return;
+                    }
+                    const label = option?.label as string | undefined;
+                    form.setFieldsValue({
+                      basisCustomerOrderId: value,
+                      basisDescription: label ?? "",
+                    });
+                  }}
+                  options={customerOrderOptions.map((item) => {
+                    const number = item.number ?? t("requests.form.basis.customerOrder.unknown");
+                    const label = item.customerName ? `${number} · ${item.customerName}` : number;
+                    return { value: item.id, label };
+                  })}
+                />
+              </Form.Item>
+              <Form.Item name="basisDescription" hidden>
+                <Input />
+              </Form.Item>
+            </>
+          )}
+          {(basisType === "ProductionOrder" || basisType === "Other") && (
+            <Form.Item label={t("requests.form.basis.description.label")} name="basisDescription">
+              <Input
+                data-testid="request-form-basis-description"
+                placeholder={t("requests.form.basis.description.placeholder")}
+              />
+            </Form.Item>
+          )}
+          {!basisType && (
+            <Form.Item label={t("requests.form.basis.description.label")} name="basisDescription">
+              <Input
+                data-testid="request-form-basis-description"
+                placeholder={t("requests.form.basis.description.placeholder")}
+              />
+            </Form.Item>
+          )}
+        </Col>
+      </Row>
+
+      <Form.Item label={t("requests.form.description.label")} name="description">
+        <Input.TextArea data-testid="request-form-description-input" rows={4} />
+      </Form.Item>
+
+      <Form.Item label={t("requests.form.dueDate.label")} name="dueDate">
+        <DatePicker
+          data-testid="request-form-due-date-input"
+          style={{ width: "100%" }}
+          format="DD.MM.YYYY"
+        />
+      </Form.Item>
+
       <Tabs
         items={[
           {
-            key: "general",
-            label: t("requests.card.tabs.general"),
+            key: "composition",
+            label: t("requests.card.tabs.composition"),
             children: (
               <>
-                <Form.Item
-                  label={t("requests.form.type.label")}
-                  name="requestTypeId"
-                  rules={[{ required: true, message: t("requests.form.type.required") }]}
-                >
-                  <Select
-                    data-testid="request-form-type-select"
-                    disabled={mode === "edit"}
-                    showSearch
-                    optionFilterProp="label"
-                    options={requestTypes.map((t) => ({
-                      value: t.id,
-                      label: t.name,
-                    }))}
-                    onChange={(next: string) => {
-                      setSelectedTypeId(next || undefined);
-                      form.setFieldValue("requestTypeId", next);
-                    }}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  label={t("requests.form.title.label")}
-                  name="title"
-                >
-                  <Input
-                    data-testid="request-form-title-input"
-                    disabled
-                    placeholder={mode === "create" ? t("requests.form.title.auto") : undefined}
-                  />
-                </Form.Item>
-
                 <RequestBodyRenderer
                   mode="edit"
                   requestTypeId={selectedTypeIdValue}
                   form={form}
                   editMode={mode}
+                  hideDescription
                 />
-
-                <Form.Item label={t("requests.form.dueDate.label")} name="dueDate">
-                  <DatePicker
-                    data-testid="request-form-due-date-input"
-                    style={{ width: "100%" }}
-                    showTime
-                  />
-                </Form.Item>
-
-                <Form.Item label={t("requests.form.relatedType.label")} name="relatedEntityType">
-                  <Input data-testid="request-form-related-type-input" />
-                </Form.Item>
-
-                <Form.Item label={t("requests.form.relatedName.label")} name="relatedEntityName">
-                  <Input data-testid="request-form-related-name-input" />
-                </Form.Item>
-
-                <Form.Item
-                  label={t("requests.form.relatedId.label")}
-                  name="relatedEntityId"
-                  rules={[
-                    {
-                      validator: async (_rule: any, value: any) => {
-                        if (value === null || value === undefined) return;
-                        if (typeof value !== "string") return;
-
-                        const trimmed = value.trim();
-                        if (!trimmed) return;
-
-                        if (!isGuid(trimmed)) {
-                          throw new Error(t("requests.form.relatedId.invalidGuid"));
-                        }
-                      },
-                    },
-                  ]}
-                >
-                  <Input data-testid="request-form-related-id-input" />
-                </Form.Item>
-
-                <Form.Item label={t("requests.form.externalId.label")} name="externalReferenceId">
-                  <Input data-testid="request-form-external-id-input" />
-                </Form.Item>
-
-                {isOutgoing && (
-                  <>
-                    <Form.Item label={t("requests.form.targetType.label")} name="targetEntityType">
-                      <Select
-                        data-testid="request-form-target-type-select"
-                        options={[
-                          { value: "Counterparty", label: t("requests.form.targetType.option.counterparty") },
-                          { value: "OrgStructure", label: t("requests.form.targetType.option.orgStructure"), disabled: true },
-                        ]}
-                      />
-                    </Form.Item>
-
-                    <Form.Item label={t("requests.form.targetName.label")} name="targetEntityId">
-                      <Select
-                        data-testid="request-form-target-name-select"
-                        showSearch
-                        allowClear
-                        filterOption={false}
-                        loading={counterpartyLoading}
-                        onSearch={(value: string) => setCounterpartySearch(value)}
-                        onChange={(value: string | null, option: any) => {
-                          if (!value) {
-                            form.setFieldsValue({
-                              targetEntityId: undefined,
-                              targetEntityName: undefined,
-                            });
-                            return;
-                          }
-                          const label = option?.label as string | undefined;
-                          form.setFieldsValue({
-                            targetEntityId: value,
-                            targetEntityName: label ?? "",
-                            targetEntityType: "Counterparty",
-                          });
-                        }}
-                        options={counterpartyOptions.map((c) => ({
-                          value: c.id,
-                          label: c.fullName || c.name,
-                        }))}
-                      />
-                    </Form.Item>
-                    <Form.Item name="targetEntityName" hidden>
-                      <Input />
-                    </Form.Item>
-                  </>
-                )}
+                <SupplyLinesEditor name="lines" form={form} />
               </>
             ),
-          },
-          {
-            key: "composition",
-            label: t("requests.card.tabs.composition"),
-            children: <SupplyLinesEditor name="lines" form={form} />,
           },
           {
             key: "documents",
@@ -456,3 +893,5 @@ export const RequestForm: React.FC<RequestFormProps> = ({
     </Form>
   );
 };
+
+

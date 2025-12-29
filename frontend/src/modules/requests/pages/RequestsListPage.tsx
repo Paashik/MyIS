@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Typography } from "antd";
+import { Alert, Button, Typography, message } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { RequestListTable, RequestListTableFilters } from "../components/RequestListTable";
@@ -7,6 +7,7 @@ import {
   RequestListItemDto,
   RequestStatusDto,
   RequestTypeDto,
+  RequestWorkflowTransitionDto,
 } from "../api/types";
 import {
   CHANGE_REQUEST_TYPE_ID,
@@ -18,7 +19,9 @@ import {
 import {
   getRequestStatuses,
   getRequestTypes,
+  getRequestWorkflowTransitions,
   getRequests,
+  deleteRequest,
 } from "../api/requestsApi";
 import { useCan } from "../../../core/auth/permissions";
 import { t } from "../../../core/i18n/t";
@@ -71,12 +74,15 @@ export const RequestsListPage: React.FC = () => {
 
   const [requestTypes, setRequestTypes] = useState<RequestTypeDto[]>([]);
   const [requestStatuses, setRequestStatuses] = useState<RequestStatusDto[]>([]);
+  const [workflowTransitions, setWorkflowTransitions] = useState<RequestWorkflowTransitionDto[]>([]);
 
   const [filters, setFilters] = useState<RequestListTableFilters>({
     requestStatusId: undefined,
     requestTypeId: getTypeFromLocation(),
     onlyMine: getOnlyMineFromLocation(),
   });
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [state, setState] = useState<LoadState>({ kind: "idle" });
 
@@ -135,13 +141,15 @@ export const RequestsListPage: React.FC = () => {
 
     const loadLookups = async () => {
       try {
-        const [types, statuses] = await Promise.all([
+        const [types, statuses, transitions] = await Promise.all([
           getRequestTypes(),
           getRequestStatuses(),
+          getRequestWorkflowTransitions(),
         ]);
         if (cancelled) return;
         setRequestTypes(types);
         setRequestStatuses(statuses);
+        setWorkflowTransitions(transitions);
       } catch {
         // Ignore lookup errors; page will still show general error from main load.
       }
@@ -190,7 +198,15 @@ export const RequestsListPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [direction, filters.requestStatusId, filters.onlyMine, filters.requestTypeId, pageNumber, pageSize]);
+  }, [
+    direction,
+    filters.requestStatusId,
+    filters.onlyMine,
+    filters.requestTypeId,
+    pageNumber,
+    pageSize,
+    reloadToken,
+  ]);
 
   const handleFiltersChange = (next: RequestListTableFilters) => {
     setFilters(next);
@@ -221,6 +237,19 @@ export const RequestsListPage: React.FC = () => {
     );
   };
 
+  const handleDeleteSelected = async () => {
+    if (selectedRowKeys.length === 0) return;
+    try {
+      await Promise.all(selectedRowKeys.map((id) => deleteRequest(id)));
+      setSelectedRowKeys([]);
+      setReloadToken((prev) => prev + 1);
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : t("common.error.unknownNetwork");
+      message.error(msg);
+    }
+  };
+
   const handleCreateClick = () => {
     const typeParam = filters.requestTypeId ?? "all";
     navigate(
@@ -239,15 +268,25 @@ export const RequestsListPage: React.FC = () => {
           </Title>
         }
         right={
-          canCreate ? (
+          <>
             <Button
-              data-testid="requests-create-button"
-              type="primary"
-              onClick={handleCreateClick}
+              data-testid="requests-delete-button"
+              danger
+              disabled={selectedRowKeys.length === 0}
+              onClick={handleDeleteSelected}
             >
-              {t("requests.list.create")}
+              {t("common.actions.delete")}
             </Button>
-          ) : null
+            {canCreate ? (
+              <Button
+                data-testid="requests-create-button"
+                type="primary"
+                onClick={handleCreateClick}
+              >
+                {t("requests.list.create")}
+              </Button>
+            ) : null}
+          </>
         }
       />
 
@@ -270,6 +309,9 @@ export const RequestsListPage: React.FC = () => {
         pageSize={pageSize}
         requestStatuses={requestStatuses}
         requestTypes={requestTypesForDirection}
+        workflowTransitions={workflowTransitions}
+        selectedRowKeys={selectedRowKeys}
+        onSelectionChange={setSelectedRowKeys}
         filters={filters}
         onFiltersChange={handleFiltersChange}
         onPageChange={handlePageChange}
@@ -278,3 +320,5 @@ export const RequestsListPage: React.FC = () => {
     </div>
   );
 };
+
+

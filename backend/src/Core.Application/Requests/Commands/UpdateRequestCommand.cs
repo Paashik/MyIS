@@ -14,6 +14,8 @@ public class UpdateRequestCommand
     /// </summary>
     public Guid CurrentUserId { get; init; }
 
+    public Guid? RequestTypeId { get; init; }
+
     public string Title { get; init; } = null!;
 
     public string? Description { get; init; }
@@ -26,13 +28,19 @@ public class UpdateRequestCommand
 
     public string? RelatedEntityName { get; init; }
 
-    public string? ExternalReferenceId { get; init; }
-
     public string? TargetEntityType { get; init; }
 
     public Guid? TargetEntityId { get; init; }
 
     public string? TargetEntityName { get; init; }
+
+    public string? BasisType { get; init; }
+
+    public Guid? BasisRequestId { get; init; }
+
+    public Guid? BasisCustomerOrderId { get; init; }
+
+    public string? BasisDescription { get; init; }
 
     /// <summary>
     /// Позиционное тело заявки (replace-all стратегия v0.1).

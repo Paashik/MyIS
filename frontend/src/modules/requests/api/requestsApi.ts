@@ -1,4 +1,4 @@
-import {
+﻿import {
   AddRequestCommentPayload,
   CreateRequestPayload,
   GetRequestsParams,
@@ -8,19 +8,23 @@ import {
   RequestHistoryItemDto,
   RequestListItemDto,
   RequestCounterpartyLookupDto,
+  RequestOrgUnitLookupDto,
+  RequestBasisCustomerOrderLookupDto,
+  RequestBasisIncomingRequestLookupDto,
   RequestStatusDto,
   RequestTypeDto,
+  RequestWorkflowTransitionDto,
   UpdateRequestPayload,
 } from "./types";
 
 import { t } from "../../../core/i18n/t";
 
 /**
- * Базовый helper для HTTP-запросов к backend API.
- * Гарантирует:
- * - credentials: "include" для cookie-auth;
- * - разбор JSON-ответа;
- * - генерацию осмысленной Error при неуспешном статусе.
+ * Р‘Р°Р·РѕРІС‹Р№ helper РґР»СЏ HTTP-Р·Р°РїСЂРѕСЃРѕРІ Рє backend API.
+ * Р“Р°СЂР°РЅС‚РёСЂСѓРµС‚:
+ * - credentials: "include" РґР»СЏ cookie-auth;
+ * - СЂР°Р·Р±РѕСЂ JSON-РѕС‚РІРµС‚Р°;
+ * - РіРµРЅРµСЂР°С†РёСЋ РѕСЃРјС‹СЃР»РµРЅРЅРѕР№ Error РїСЂРё РЅРµСѓСЃРїРµС€РЅРѕРј СЃС‚Р°С‚СѓСЃРµ.
  */
 async function httpRequest<TResponse>(
   input: string,
@@ -94,7 +98,7 @@ function buildQueryString(params: GetRequestsParams | undefined): string {
 }
 
 /**
- * Получить постраничный список заявок.
+ * РџРѕР»СѓС‡РёС‚СЊ РїРѕСЃС‚СЂР°РЅРёС‡РЅС‹Р№ СЃРїРёСЃРѕРє Р·Р°СЏРІРѕРє.
  * GET /api/requests
  */
 export async function getRequests(
@@ -110,7 +114,7 @@ export async function getRequests(
 }
 
 /**
- * Получить полные данные по заявке.
+ * РџРѕР»СѓС‡РёС‚СЊ РїРѕР»РЅС‹Рµ РґР°РЅРЅС‹Рµ РїРѕ Р·Р°СЏРІРєРµ.
  * GET /api/requests/{id}
  */
 export async function getRequest(id: string): Promise<RequestDto> {
@@ -120,7 +124,7 @@ export async function getRequest(id: string): Promise<RequestDto> {
 }
 
 /**
- * Создать новую заявку.
+ * РЎРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ Р·Р°СЏРІРєСѓ.
  * POST /api/requests
  */
 export async function createRequest(
@@ -133,7 +137,7 @@ export async function createRequest(
 }
 
 /**
- * Обновить существующую заявку.
+ * РћР±РЅРѕРІРёС‚СЊ СЃСѓС‰РµСЃС‚РІСѓСЋС‰СѓСЋ Р·Р°СЏРІРєСѓ.
  * PUT /api/requests/{id}
  */
 export async function updateRequest(
@@ -147,7 +151,7 @@ export async function updateRequest(
 }
 
 /**
- * Получить историю изменений заявки.
+ * РџРѕР»СѓС‡РёС‚СЊ РёСЃС‚РѕСЂРёСЋ РёР·РјРµРЅРµРЅРёР№ Р·Р°СЏРІРєРё.
  * GET /api/requests/{id}/history
  */
 export async function getRequestHistory(
@@ -162,7 +166,7 @@ export async function getRequestHistory(
 }
 
 /**
- * Получить комментарии по заявке.
+ * РџРѕР»СѓС‡РёС‚СЊ РєРѕРјРјРµРЅС‚Р°СЂРёРё РїРѕ Р·Р°СЏРІРєРµ.
  * GET /api/requests/{id}/comments
  */
 export async function getRequestComments(
@@ -177,7 +181,7 @@ export async function getRequestComments(
 }
 
 /**
- * Добавить комментарий к заявке.
+ * Р”РѕР±Р°РІРёС‚СЊ РєРѕРјРјРµРЅС‚Р°СЂРёР№ Рє Р·Р°СЏРІРєРµ.
  * POST /api/requests/{id}/comments
  */
 export async function addRequestComment(
@@ -194,7 +198,7 @@ export async function addRequestComment(
 }
 
 /**
- * Получить список типов заявок.
+ * РџРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє С‚РёРїРѕРІ Р·Р°СЏРІРѕРє.
  * GET /api/request-types
  */
 export async function getRequestTypes(): Promise<RequestTypeDto[]> {
@@ -219,8 +223,47 @@ export async function getRequestCounterparties(
   );
 }
 
+export async function getRequestOrgUnits(q?: string): Promise<RequestOrgUnitLookupDto[]> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  const query = params.toString();
+
+  return httpRequest<RequestOrgUnitLookupDto[]>(
+    `/api/requests/references/org-units${query ? `?${query}` : ""}`,
+    { method: "GET" }
+  );
+}
+
+export async function getIncomingRequests(
+  q?: string
+): Promise<RequestBasisIncomingRequestLookupDto[]> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("take", "50");
+  const query = params.toString();
+
+  return httpRequest<RequestBasisIncomingRequestLookupDto[]>(
+    `/api/requests/references/incoming-requests${query ? `?${query}` : ""}`,
+    { method: "GET" }
+  );
+}
+
+export async function getCustomerOrders(
+  q?: string
+): Promise<RequestBasisCustomerOrderLookupDto[]> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  params.set("take", "50");
+  const query = params.toString();
+
+  return httpRequest<RequestBasisCustomerOrderLookupDto[]>(
+    `/api/requests/references/customer-orders${query ? `?${query}` : ""}`,
+    { method: "GET" }
+  );
+}
+
 /**
- * Получить список статусов заявок.
+ * РџРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє СЃС‚Р°С‚СѓСЃРѕРІ Р·Р°СЏРІРѕРє.
  * GET /api/request-statuses
  */
 export async function getRequestStatuses(): Promise<RequestStatusDto[]> {
@@ -230,7 +273,24 @@ export async function getRequestStatuses(): Promise<RequestStatusDto[]> {
 }
 
 /**
- * Удалить заявку.
+ * РџРѕР»СѓС‡РёС‚СЊ РїРµСЂРµС…РѕРґС‹ workflow РґР»СЏ Р·Р°СЏРІРѕРє.
+ * GET /api/request-workflow/transitions
+ */
+export async function getRequestWorkflowTransitions(
+  requestTypeId?: string
+): Promise<RequestWorkflowTransitionDto[]> {
+  const params = new URLSearchParams();
+  if (requestTypeId) params.set("typeId", requestTypeId);
+  const query = params.toString();
+
+  return httpRequest<RequestWorkflowTransitionDto[]>(
+    `/api/request-workflow/transitions${query ? `?${query}` : ""}`,
+    { method: "GET" }
+  );
+}
+
+/**
+ * РЈРґР°Р»РёС‚СЊ Р·Р°СЏРІРєСѓ.
  * DELETE /api/requests/{id}
  */
 export async function deleteRequest(id: string): Promise<void> {
@@ -238,3 +298,5 @@ export async function deleteRequest(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+

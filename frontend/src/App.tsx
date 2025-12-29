@@ -19,6 +19,7 @@ import { QualityPage } from "./pages/quality/QualityPage";
 import { ReferencesPage } from "./pages/references/ReferencesPage";
 import { AdministrationPage } from "./pages/administration/AdministrationPage";
 import { MdmOwnershipPage } from "./pages/administration/MdmOwnershipPage";
+import { OrgStructurePage } from "./pages/administration/OrgStructurePage";
 
 // Requests module pages
 import { RequestsListPage } from "./modules/requests/pages/RequestsListPage";
@@ -144,6 +145,7 @@ const App: React.FC = () => {
             {/* Administration */}
             <Route path="administration" element={<AdministrationPage />} />
             <Route path="administration/mdm" element={<MdmOwnershipPage />} />
+            <Route path="administration/org-structure" element={<OrgStructurePage />} />
             <Route
               path="administration/security/employees"
               element={<EmployeesSettingsPage />}

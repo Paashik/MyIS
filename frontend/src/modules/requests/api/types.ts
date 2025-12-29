@@ -1,4 +1,4 @@
-// TypeScript DTOs for Requests module, aligned with backend DTOs in
+﻿// TypeScript DTOs for Requests module, aligned with backend DTOs in
 // MyIS.Core.Application.Requests.Dto and Common.Dto.PagedResultDto
 
 export interface PagedResultDto<T> {
@@ -9,6 +9,11 @@ export interface PagedResultDto<T> {
 }
 
 export type RequestDirection = "Incoming" | "Outgoing";
+export type RequestBasisType =
+  | "IncomingRequest"
+  | "CustomerOrder"
+  | "ProductionOrder"
+  | "Other";
 
 export interface RequestListItemDto {
   id: string;
@@ -18,10 +23,15 @@ export interface RequestListItemDto {
   requestStatusId: string;
   requestStatusCode: string;
   requestStatusName: string;
-  initiatorId: string;
-  initiatorFullName?: string | null;
+  managerId: string;
+  managerFullName?: string | null;
   targetEntityName?: string | null;
   relatedEntityName?: string | null;
+  description?: string | null;
+  basisType?: RequestBasisType | null;
+  basisRequestId?: string | null;
+  basisCustomerOrderId?: string | null;
+  basisDescription?: string | null;
   createdAt: string;
   dueDate?: string | null;
 }
@@ -32,10 +42,13 @@ export interface RequestDto extends RequestListItemDto {
   relatedEntityType?: string | null;
   relatedEntityId?: string | null;
   relatedEntityName?: string | null;
-  externalReferenceId?: string | null;
   targetEntityType?: string | null;
   targetEntityId?: string | null;
   targetEntityName?: string | null;
+  basisType?: RequestBasisType | null;
+  basisRequestId?: string | null;
+  basisCustomerOrderId?: string | null;
+  basisDescription?: string | null;
   updatedAt: string;
 
   lines: RequestLineDto[];
@@ -102,12 +115,45 @@ export interface RequestCounterpartyLookupDto {
   fullName?: string | null;
 }
 
+export interface RequestOrgUnitLookupDto {
+  id: string;
+  name: string;
+  code?: string | null;
+  parentId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+export interface RequestBasisIncomingRequestLookupDto {
+  id: string;
+  title: string;
+  requestTypeName?: string | null;
+}
+
+export interface RequestBasisCustomerOrderLookupDto {
+  id: string;
+  number?: string | null;
+  customerName?: string | null;
+}
+
 export interface RequestStatusDto {
   id: string;
   code: string;
   name: string;
   isFinal: boolean;
   description?: string | null;
+}
+
+export interface RequestWorkflowTransitionDto {
+  id: string;
+  requestTypeId: string;
+  fromStatusId: string;
+  fromStatusCode: string;
+  toStatusId: string;
+  toStatusCode: string;
+  actionCode: string;
+  requiredPermission?: string | null;
+  isEnabled: boolean;
 }
 
 // Query/filter and command payloads
@@ -130,13 +176,17 @@ export interface CreateRequestPayload {
   relatedEntityType?: string;
   relatedEntityId?: string;
   relatedEntityName?: string;
-  externalReferenceId?: string;
   targetEntityType?: string;
   targetEntityId?: string;
   targetEntityName?: string;
+  basisType?: RequestBasisType;
+  basisRequestId?: string;
+  basisCustomerOrderId?: string;
+  basisDescription?: string;
 }
 
 export interface UpdateRequestPayload {
+  requestTypeId?: string;
   title: string;
   description?: string;
   lines?: RequestLineInputDto[];
@@ -144,12 +194,18 @@ export interface UpdateRequestPayload {
   relatedEntityType?: string;
   relatedEntityId?: string;
   relatedEntityName?: string;
-  externalReferenceId?: string;
   targetEntityType?: string;
   targetEntityId?: string;
   targetEntityName?: string;
+  basisType?: RequestBasisType;
+  basisRequestId?: string;
+  basisCustomerOrderId?: string;
+  basisDescription?: string;
 }
 
 export interface AddRequestCommentPayload {
   text: string;
 }
+
+
+

@@ -11,6 +11,8 @@ import {
   RunComponent2020SyncResponse,
   ScheduleComponent2020SyncRequest,
   ScheduleComponent2020SyncResponse,
+  Component2020ImportPreviewRequest,
+  Component2020ImportPreviewResponse,
 } from "./types";
 
 class HttpError extends Error {
@@ -169,6 +171,15 @@ export async function scheduleComponent2020Sync(
   request: ScheduleComponent2020SyncRequest
 ): Promise<ScheduleComponent2020SyncResponse> {
   return httpRequest<ScheduleComponent2020SyncResponse>("/api/admin/integrations/component2020/schedule", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function getComponent2020ImportPreview(
+  request: Component2020ImportPreviewRequest
+): Promise<Component2020ImportPreviewResponse> {
+  return httpRequest<Component2020ImportPreviewResponse>("/api/admin/integrations/component2020/preview", {
     method: "POST",
     body: JSON.stringify(request),
   });

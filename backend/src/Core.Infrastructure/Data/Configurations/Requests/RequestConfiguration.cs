@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MyIS.Core.Domain.Requests.Entities;
 using MyIS.Core.Domain.Requests.ValueObjects;
@@ -46,8 +46,8 @@ public class RequestConfiguration : IEntityTypeConfiguration<Request>
                 id => id.Value,
                 value => new RequestStatusId(value));
 
-        builder.Property(r => r.InitiatorId)
-            .HasColumnName("initiator_id")
+        builder.Property(r => r.ManagerId)
+            .HasColumnName("manager_id")
             .HasColumnType("uuid")
             .IsRequired();
 
@@ -63,10 +63,6 @@ public class RequestConfiguration : IEntityTypeConfiguration<Request>
             .HasColumnName("related_entity_name")
             .HasColumnType("text");
 
-        builder.Property(r => r.ExternalReferenceId)
-            .HasColumnName("external_reference_id")
-            .HasColumnType("text");
-
         builder.Property(r => r.TargetEntityType)
             .HasColumnName("target_entity_type")
             .HasColumnType("text");
@@ -77,6 +73,22 @@ public class RequestConfiguration : IEntityTypeConfiguration<Request>
 
         builder.Property(r => r.TargetEntityName)
             .HasColumnName("target_entity_name")
+            .HasColumnType("text");
+
+        builder.Property(r => r.BasisType)
+            .HasColumnName("basis_type")
+            .HasColumnType("text");
+
+        builder.Property(r => r.BasisRequestId)
+            .HasColumnName("basis_request_id")
+            .HasColumnType("uuid");
+
+        builder.Property(r => r.BasisCustomerOrderId)
+            .HasColumnName("basis_customer_order_id")
+            .HasColumnType("uuid");
+
+        builder.Property(r => r.BasisDescription)
+            .HasColumnName("basis_description")
             .HasColumnType("text");
 
         builder.Property(r => r.CreatedAt)
@@ -104,10 +116,10 @@ public class RequestConfiguration : IEntityTypeConfiguration<Request>
             .HasForeignKey(r => r.RequestStatusId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // FK на core.users.initiator_id
+        // FK РЅР° core.users.manager_id
         builder.HasOne<User>()
             .WithMany()
-            .HasForeignKey(r => r.InitiatorId)
+            .HasForeignKey(r => r.ManagerId)
             .HasPrincipalKey(u => u.Id)
             .OnDelete(DeleteBehavior.Restrict);
 
@@ -117,3 +129,7 @@ public class RequestConfiguration : IEntityTypeConfiguration<Request>
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+
+
+

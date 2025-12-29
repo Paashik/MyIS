@@ -961,7 +961,7 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("external_reference_id");
 
-                    b.Property<Guid>("InitiatorId")
+                    b.Property<Guid>("ManagerId")
                         .HasColumnType("uuid")
                         .HasColumnName("initiator_id");
 
@@ -992,7 +992,7 @@ namespace MyIS.Core.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InitiatorId");
+                    b.HasIndex("ManagerId");
 
                     b.HasIndex("RequestStatusId");
 
@@ -1633,7 +1633,7 @@ namespace MyIS.Core.Infrastructure.Migrations
                 {
                     b.HasOne("MyIS.Core.Domain.Users.User", null)
                         .WithMany()
-                        .HasForeignKey("InitiatorId")
+                        .HasForeignKey("ManagerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -1790,3 +1790,6 @@ namespace MyIS.Core.Infrastructure.Migrations
         }
     }
 }
+
+
+

@@ -2,11 +2,13 @@ namespace MyIS.Core.Domain.Mdm.Entities;
 
 public enum ItemKind
 {
-    Component,
+    PurchasedComponent,
     Material,
     Assembly,
     Product,
-    Service,
+    ServiceWork,
     Tool,
-    Equipment
+    Equipment,
+    StandardPart,
+    ManufacturedPart
 }

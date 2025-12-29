@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
@@ -43,8 +43,20 @@ public sealed class RequestRepository : IRequestRepository
     {
         if (request is null) throw new ArgumentNullException(nameof(request));
 
-        _dbContext.Requests.Update(request);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // Only persist request comments here to avoid optimistic concurrency on request row.
+        var newComments = request.Comments
+            .Where(comment => _dbContext.Entry(comment).State == EntityState.Detached)
+            .ToList();
+
+        if (newComments.Count > 0)
+        {
+            await _dbContext.RequestComments.AddRangeAsync(newComments, cancellationToken);
+        }
+
+        if (_dbContext.ChangeTracker.HasChanges())
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task DeleteAsync(RequestId id, CancellationToken cancellationToken)
@@ -61,7 +73,7 @@ public sealed class RequestRepository : IRequestRepository
         Guid? requestTypeId,
         Guid? requestStatusId,
         RequestDirection? direction,
-        Guid? initiatorId,
+        Guid? managerId,
         bool onlyMine,
         int pageNumber,
         int pageSize,
@@ -92,12 +104,12 @@ public sealed class RequestRepository : IRequestRepository
             query = query.Where(r => r.RequestStatusId == statusId);
         }
 
-        if (initiatorId.HasValue)
+        if (managerId.HasValue)
         {
-            query = query.Where(r => r.InitiatorId == initiatorId.Value);
+            query = query.Where(r => r.ManagerId == managerId.Value);
         }
 
-                // Простая сортировка: по CreatedAt по убыванию, затем по идентификатору
+                // РџСЂРѕСЃС‚Р°СЏ СЃРѕСЂС‚РёСЂРѕРІРєР°: РїРѕ CreatedAt РїРѕ СѓР±С‹РІР°РЅРёСЋ, Р·Р°С‚РµРј РїРѕ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂСѓ
                 query = query
                     .OrderByDescending(r => r.CreatedAt)
                     .ThenBy(r => r.Id);
@@ -126,16 +138,31 @@ public sealed class RequestRepository : IRequestRepository
             .AnyAsync(r => r.RequestStatusId == requestStatusId, cancellationToken);
     }
 
-    public async Task<long> GetNextRequestNumberAsync(CancellationToken cancellationToken)
+    public async Task<long> GetNextRequestNumberAsync(
+        RequestDirection direction,
+        int year,
+        CancellationToken cancellationToken)
     {
         if (string.Equals(_dbContext.Database.ProviderName, "Microsoft.EntityFrameworkCore.InMemory", StringComparison.Ordinal))
         {
-            var currentCount = await _dbContext.Requests.LongCountAsync(cancellationToken);
+            var currentCount = await _dbContext.Requests
+                .Include(r => r.Type)
+                .LongCountAsync(
+                    r => r.Type != null
+                        && r.Type.Direction == direction
+                        && r.CreatedAt.Year == year,
+                    cancellationToken);
             return currentCount + 1;
         }
 
+        if (year < 1) throw new ArgumentOutOfRangeException(nameof(year));
+
+        var directionKey = direction == RequestDirection.Incoming ? "in" : "out";
+        var sequenceName = $"requests.request_number_{directionKey}_{year}";
+
         await using var command = _dbContext.Database.GetDbConnection().CreateCommand();
-        command.CommandText = "SELECT nextval('requests.request_number_seq')";
+        command.CommandText =
+            $"CREATE SEQUENCE IF NOT EXISTS {sequenceName} START WITH 1 INCREMENT BY 1;";
 
         var connection = command.Connection ?? throw new InvalidOperationException("Database connection is not initialized.");
         if (connection.State != ConnectionState.Open)
@@ -143,7 +170,14 @@ public sealed class RequestRepository : IRequestRepository
             await connection.OpenAsync(cancellationToken);
         }
 
+        await command.ExecuteNonQueryAsync(cancellationToken);
+
+        command.CommandText = $"SELECT nextval('{sequenceName}')";
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt64(result, CultureInfo.InvariantCulture);
     }
 }
+
+
+
+

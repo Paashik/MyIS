@@ -1,4 +1,5 @@
 import React from "react";
+import "./CommandBar.css";
 
 export interface CommandBarProps {
   left?: React.ReactNode;
@@ -8,6 +9,7 @@ export interface CommandBarProps {
 export const CommandBar: React.FC<CommandBarProps> = ({ left, right }) => {
   return (
     <div
+      className="command-bar"
       style={{
         marginBottom: 16,
         display: "flex",
@@ -26,4 +28,3 @@ export const CommandBar: React.FC<CommandBarProps> = ({ left, right }) => {
     </div>
   );
 };
-

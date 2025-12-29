@@ -144,6 +144,7 @@ export const StatusDictionaryPage: React.FC = () => {
     void loadStatuses();
   }, [loadStatuses]);
 
+
   useEffect(() => {
     if (!defaultGroupKey || groups.length === 0 || statusGroupId) return;
     if (defaultGroupKey === "requests") {
@@ -614,6 +615,7 @@ export const StatusDictionaryPage: React.FC = () => {
         />
         <Button onClick={() => void loadStatuses()}>{t("common.actions.refresh")}</Button>
       </Space>
+
       <Table
         rowKey={(r: StatusTreeRow) => r.key}
         loading={statusesLoading || groupsLoading}

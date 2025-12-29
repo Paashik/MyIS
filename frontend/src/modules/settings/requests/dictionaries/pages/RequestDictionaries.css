@@ -1,0 +1,67 @@
+.request-dict-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.request-dict-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.request-dict-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.request-dict-divider {
+  border-top: 1px solid #e5e7eb;
+  margin: 0 0 12px;
+}
+
+.request-dict-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.request-dict-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.request-dict-list .ant-table-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.request-dict-list .ant-table-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.request-dict-list .ant-table {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.request-dict-list .ant-table-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+body.request-dict-scroll-lock .app-shell__content {
+  overflow: hidden;
+}

@@ -97,6 +97,7 @@ export interface MdmItemReferenceDto extends MdmSimpleReferenceDto {
   isEskd: boolean;
   isEskdDocument?: boolean | null;
   manufacturerPartNumber?: string | null;
+  hasPhoto?: boolean;
   externalSystem?: string | null;
   externalId?: string | null;
   syncedAt?: string | null;
@@ -147,6 +148,14 @@ export interface MdmExternalEntityLinkDto {
   sourceType?: number | null;
   syncedAt?: string | null;
   updatedAt: string; // ISO
+}
+
+export interface MdmItemsPurgeResultDto {
+  deletedItems: number;
+  deletedLinks: number;
+  deletedAttributeValues: number;
+  deletedSequences: number;
+  clearedRequestLines: number;
 }
 
 class HttpError extends Error {
@@ -222,5 +231,12 @@ export async function getMdmDictionaryById<T>(dict: MdmDictionaryKey, id: string
   return httpRequest<T>(
     `/api/admin/references/mdm/${encodeURIComponent(dict)}/${encodeURIComponent(id)}`,
     { method: "GET" }
+  );
+}
+
+export async function purgeMdmItems(): Promise<MdmItemsPurgeResultDto> {
+  return httpRequest<MdmItemsPurgeResultDto>(
+    "/api/admin/references/mdm/items/purge",
+    { method: "POST" }
   );
 }

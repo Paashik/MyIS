@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyIS.Core.Application.Mdm.References;
 using MyIS.Core.Application.Requests.Dto;
+using MyIS.Core.Domain.Requests.ValueObjects;
 using MyIS.Core.Infrastructure.Data;
 
 namespace MyIS.Core.WebApi.Controllers.Requests;
@@ -72,7 +73,12 @@ public sealed class RequestReferencesController : ControllerBase
                 })
                 .ToListAsync(cancellationToken);
 
-            return Ok(prioritizedItems);
+            var deduped = prioritizedItems
+                .GroupBy(x => x.Id)
+                .Select(g => g.First())
+                .ToArray();
+
+            return Ok(deduped);
         }
 
         var result = await _service.GetCounterpartiesAsync(
@@ -90,7 +96,121 @@ public sealed class RequestReferencesController : ControllerBase
                 Name = x.Name,
                 FullName = x.FullName
             })
+            .GroupBy(x => x.Id)
+            .Select(g => g.First())
             .ToArray();
+
+        return Ok(items);
+    }
+
+    [HttpGet("org-units")]
+    public async Task<ActionResult<RequestOrgUnitLookupDto[]>> GetOrgUnits(
+        [FromQuery] string? q,
+        [FromQuery] int take = 200,
+        CancellationToken cancellationToken = default)
+    {
+        q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        take = Math.Clamp(take, 1, 500);
+
+        var query = _dbContext.OrgUnits.AsNoTracking().Where(x => x.IsActive);
+        if (q != null)
+        {
+            query = query.Where(x =>
+                x.Name.Contains(q) ||
+                (x.Code != null && x.Code.Contains(q)));
+        }
+
+        var items = await query
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.Name)
+            .Take(take)
+            .Select(x => new RequestOrgUnitLookupDto
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Code = x.Code,
+                ParentId = x.ParentId,
+                Phone = x.Phone,
+                Email = x.Email
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return Ok(items);
+    }
+
+    [HttpGet("incoming-requests")]
+    public async Task<ActionResult<RequestBasisIncomingRequestLookupDto[]>> GetIncomingRequests(
+        [FromQuery] string? q,
+        [FromQuery] int take = 50,
+        CancellationToken cancellationToken = default)
+    {
+        q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        take = Math.Clamp(take, 1, 200);
+
+        var query =
+            from request in _dbContext.Requests.AsNoTracking()
+            join type in _dbContext.RequestTypes.AsNoTracking()
+                on request.RequestTypeId equals type.Id
+            where type.Direction == RequestDirection.Incoming
+            select new { request, type };
+
+        if (q != null)
+        {
+            query = query.Where(x =>
+                x.request.Title.Contains(q) ||
+                (x.request.Description != null && x.request.Description.Contains(q)));
+        }
+
+        var items = await query
+            .OrderByDescending(x => x.request.CreatedAt)
+            .ThenBy(x => x.request.Title)
+            .Take(take)
+            .Select(x => new RequestBasisIncomingRequestLookupDto
+            {
+                Id = x.request.Id.Value,
+                Title = x.request.Title,
+                RequestTypeName = x.type.Name
+            })
+            .ToArrayAsync(cancellationToken);
+
+        return Ok(items);
+    }
+
+    [HttpGet("customer-orders")]
+    public async Task<ActionResult<RequestBasisCustomerOrderLookupDto[]>> GetCustomerOrders(
+        [FromQuery] string? q,
+        [FromQuery] int take = 50,
+        CancellationToken cancellationToken = default)
+    {
+        q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        take = Math.Clamp(take, 1, 200);
+
+        var query =
+            from order in _dbContext.CustomerOrders.AsNoTracking()
+            join customer in _dbContext.Counterparties.AsNoTracking()
+                on order.CustomerId equals customer.Id into customers
+            from customer in customers.DefaultIfEmpty()
+            select new { order, customer };
+
+        if (q != null)
+        {
+            query = query.Where(x =>
+                (x.order.Number != null && x.order.Number.Contains(q)) ||
+                (x.customer != null && x.customer.Name.Contains(q)) ||
+                (x.customer != null && x.customer.FullName != null && x.customer.FullName.Contains(q)));
+        }
+
+        var items = await query
+            .OrderByDescending(x => x.order.OrderDate)
+            .ThenByDescending(x => x.order.CreatedAt)
+            .Take(take)
+            .Select(x => new RequestBasisCustomerOrderLookupDto
+            {
+                Id = x.order.Id,
+                Number = x.order.Number,
+                CustomerName = x.customer != null ? x.customer.Name : null
+            })
+            .ToArrayAsync(cancellationToken);
 
         return Ok(items);
     }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Alert, Button, Card, Col, Descriptions, Dropdown, Input, List, Modal, Row, Select, Space, Table, Tag, Typography, message } from "antd";
 import Tooltip from "antd/es/tooltip";
 import type { ColumnsType } from "antd/es/table";
@@ -26,6 +26,7 @@ import type {
   MdmUnitReferenceDto,
 } from "../api/adminMdmReferencesApi";
 import { getMdmDictionaryList } from "../api/adminMdmReferencesApi";
+import "./MdmDictionaryJournalPage.css";
 
 const { Title, Text } = Typography;
 
@@ -897,98 +898,230 @@ export const MdmDictionaryJournalPage: React.FC = () => {
     );
   }
 
-  return (
-    <div>
-      <CommandBar
-        left={
-          <Space direction="vertical" size={0}>
-            <Title level={2} style={{ margin: 0 }}>
-              {dictTitle(dict)}
-            </Title>
-            <Text type="secondary">{t("references.mdm.readOnlyHint")}</Text>
-          </Space>
-        }
-        right={
-          <Space>
-            {supportsImport && (
-              <Tooltip
-                title={!canExecute ? t("settings.forbidden") : undefined}
-                placement="bottom"
-              >
-                <Dropdown.Button
-                  trigger={["click"]}
-                  loading={importLoading}
-                  disabled={!canExecute}
-                  menu={{ items: importMenuItems, onClick: onImportMenuClick }}
-                  onClick={() => void runImport(Component2020SyncMode.SnapshotUpsert)}
-                  data-testid="mdm-dict-import"
-                >
-                  {t("references.mdm.import.button")}
-                </Dropdown.Button>
-              </Tooltip>
-            )}
-            {(isItemGroups || dict === "items") && (
-              <Space>
-                <Button
-                  onClick={() => setItemGroupsExpandedRowKeys(itemGroupsExpandableKeys)}
-                  disabled={!itemGroupsExpandableKeys.length}
-                >
-                  {t("common.actions.expandAll")}
-                </Button>
-                <Button
-                  onClick={() => setItemGroupsExpandedRowKeys([])}
-                  disabled={!itemGroupsExpandedRowKeys.length}
-                >
-                  {t("common.actions.collapseAll")}
-                </Button>
-              </Space>
-            )}
-            <Input.Search
-              allowClear
-              value={q}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)}
-              onSearch={() => { if (!isItemGroups) void load(); }}
-              placeholder={t("common.search")}
-              style={{ width: 280 }}
-            />
-            {supportsIsActive && (
-              <Select
-                value={isActive}
-                style={{ width: 160 }}
-                options={[
-                  { value: "all", label: t("references.filters.all") },
-                  { value: "active", label: t("references.filters.active") },
-                  { value: "inactive", label: t("references.filters.inactive") },
-                ]}
-                onChange={(v: "all" | "active" | "inactive") => setIsActive(v)}
-              />
-            )}
-            {dict === "counterparties" && (
-              <Select
-                value={roleType}
-                style={{ width: 180 }}
-                options={[
-                  { value: "all", label: "Все роли" },
-                  { value: "1", label: "Поставщик" },
-                  { value: "2", label: "Заказчик" },
-                ]}
-                onChange={(v: "all" | "1" | "2") => setRoleType(v)}
-              />
-            )}
-            <Button onClick={() => void load()} data-testid="mdm-dict-refresh">
-              {t("common.actions.refresh")}
-            </Button>
-            {canEdit && dict !== "external-links" && (
-              <Tooltip title={isReadOnly ? t("references.mdm.actions.disabledExternalMaster") : undefined}>
-                <Button type="primary" disabled={isReadOnly} data-testid="mdm-dict-create">
-                  {t("common.actions.create")}
-                </Button>
-              </Tooltip>
-            )}
-          </Space>
-        }
-      />
+  const isPlainList =
+    dict === "counterparties" ||
+    dict === "units" ||
+    dict === "currencies" ||
+    dict === "item-groups" ||
+    dict === "manufacturers" ||
+    dict === "external-links";
 
+  const useStackedHeader = isPlainList;
+  const plainControlsRef = useRef<HTMLDivElement | null>(null);
+  const [plainControlsMultiRow, setPlainControlsMultiRow] = useState(false);
+
+  const measurePlainControlsMultiRow = useCallback(() => {
+    const container = plainControlsRef.current;
+    if (!container) return;
+
+    const search = container.querySelector<HTMLElement>(".mdm-dict-controls__search");
+    const actions = container.querySelector<HTMLElement>(".mdm-dict-controls__actions");
+    if (!search || !actions) {
+      setPlainControlsMultiRow(false);
+      return;
+    }
+
+    const searchTop = Math.round(search.getBoundingClientRect().top);
+    const actionsTop = Math.round(actions.getBoundingClientRect().top);
+    setPlainControlsMultiRow(actionsTop > searchTop + 4);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!useStackedHeader) return;
+    const container = plainControlsRef.current;
+    if (!container) return;
+
+    let raf = 0;
+    const schedule = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => measurePlainControlsMultiRow());
+    };
+
+    schedule();
+
+    const ro = new ResizeObserver(() => schedule());
+    ro.observe(container);
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [measurePlainControlsMultiRow, useStackedHeader]);
+
+  const headerLeft = (
+    <Space direction="vertical" size={0}>
+      <Title level={2} style={{ margin: 0 }}>
+        {dictTitle(dict)}
+      </Title>
+    </Space>
+  );
+
+  const headerControls = (
+    <Space>
+      {supportsImport && (
+        <Tooltip
+          title={!canExecute ? t("settings.forbidden") : undefined}
+          placement="bottom"
+        >
+          <Dropdown.Button
+            trigger={["click"]}
+            loading={importLoading}
+            disabled={!canExecute}
+            menu={{ items: importMenuItems, onClick: onImportMenuClick }}
+            onClick={() => void runImport(Component2020SyncMode.SnapshotUpsert)}
+            data-testid="mdm-dict-import"
+          >
+            {t("references.mdm.import.button")}
+          </Dropdown.Button>
+        </Tooltip>
+      )}
+      {(isItemGroups || dict === "items") && (
+        <Space>
+          <Button
+            onClick={() => setItemGroupsExpandedRowKeys(itemGroupsExpandableKeys)}
+            disabled={!itemGroupsExpandableKeys.length}
+          >
+            {t("common.actions.expandAll")}
+          </Button>
+          <Button
+            onClick={() => setItemGroupsExpandedRowKeys([])}
+            disabled={!itemGroupsExpandedRowKeys.length}
+          >
+            {t("common.actions.collapseAll")}
+          </Button>
+        </Space>
+      )}
+      <Input.Search
+        allowClear
+        value={q}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)}
+        onSearch={() => { if (!isItemGroups) void load(); }}
+        placeholder={t("common.search")}
+        style={{ width: 280 }}
+      />
+      {supportsIsActive && (
+        <Select
+          value={isActive}
+          style={{ width: 160 }}
+          options={[
+            { value: "all", label: t("references.filters.all") },
+            { value: "active", label: t("references.filters.active") },
+            { value: "inactive", label: t("references.filters.inactive") },
+          ]}
+          onChange={(v: "all" | "active" | "inactive") => setIsActive(v)}
+        />
+      )}
+      {dict === "counterparties" && (
+        <Select
+          value={roleType}
+          style={{ width: 180 }}
+          options={[
+            { value: "all", label: "Все роли" },
+            { value: "1", label: "Поставщик" },
+            { value: "2", label: "Заказчик" },
+          ]}
+          onChange={(v: "all" | "1" | "2") => setRoleType(v)}
+        />
+      )}
+      <Button onClick={() => void load()} data-testid="mdm-dict-refresh">
+        {t("common.actions.refresh")}
+      </Button>
+      {canEdit && dict !== "external-links" && (
+        <Tooltip title={isReadOnly ? t("references.mdm.actions.disabledExternalMaster") : undefined}>
+          <Button type="primary" disabled={isReadOnly} data-testid="mdm-dict-create">
+            {t("common.actions.create")}
+          </Button>
+        </Tooltip>
+      )}
+    </Space>
+  );
+
+  const headerControlsStacked = (
+    <>
+      <div className="mdm-dict-controls__search">
+        <Input.Search
+          allowClear
+          value={q}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)}
+          onSearch={() => { if (!isItemGroups) void load(); }}
+          placeholder={t("common.search")}
+          style={{ width: 280 }}
+        />
+        {supportsIsActive && (
+          <Select
+            value={isActive}
+            style={{ width: 160 }}
+            options={[
+              { value: "all", label: t("references.filters.all") },
+              { value: "active", label: t("references.filters.active") },
+              { value: "inactive", label: t("references.filters.inactive") },
+            ]}
+            onChange={(v: "all" | "active" | "inactive") => setIsActive(v)}
+          />
+        )}
+        {dict === "counterparties" && (
+          <Select
+            value={roleType}
+            style={{ width: 180 }}
+            options={[
+              { value: "all", label: "Все роли" },
+              { value: "1", label: "Поставщик" },
+              { value: "2", label: "Заказчик" },
+            ]}
+            onChange={(v: "all" | "1" | "2") => setRoleType(v)}
+          />
+        )}
+      </div>
+      <div className="mdm-dict-controls__actions">
+        {supportsImport && (
+          <Tooltip
+            title={!canExecute ? t("settings.forbidden") : undefined}
+            placement="bottom"
+          >
+            <Dropdown.Button
+              trigger={["click"]}
+              loading={importLoading}
+              disabled={!canExecute}
+              menu={{ items: importMenuItems, onClick: onImportMenuClick }}
+              onClick={() => void runImport(Component2020SyncMode.SnapshotUpsert)}
+              data-testid="mdm-dict-import"
+            >
+              {t("references.mdm.import.button")}
+            </Dropdown.Button>
+          </Tooltip>
+        )}
+        {(isItemGroups || dict === "items") && (
+          <Space className="mdm-dict-controls__actions-group">
+            <Button
+              onClick={() => setItemGroupsExpandedRowKeys(itemGroupsExpandableKeys)}
+              disabled={!itemGroupsExpandableKeys.length}
+            >
+              {t("common.actions.expandAll")}
+            </Button>
+            <Button
+              onClick={() => setItemGroupsExpandedRowKeys([])}
+              disabled={!itemGroupsExpandedRowKeys.length}
+            >
+              {t("common.actions.collapseAll")}
+            </Button>
+          </Space>
+        )}
+        <Button onClick={() => void load()} data-testid="mdm-dict-refresh">
+          {t("common.actions.refresh")}
+        </Button>
+        {canEdit && dict !== "external-links" && (
+          <Tooltip title={isReadOnly ? t("references.mdm.actions.disabledExternalMaster") : undefined}>
+            <Button type="primary" disabled={isReadOnly} data-testid="mdm-dict-create">
+              {t("common.actions.create")}
+            </Button>
+          </Tooltip>
+        )}
+      </div>
+    </>
+  );
+
+  const alertsBlock = (
+    <>
       {!canView && (
         <Alert
           type="warning"
@@ -1020,6 +1153,26 @@ export const MdmDictionaryJournalPage: React.FC = () => {
           style={{ marginBottom: 12 }}
         />
       )}
+    </>
+  );
+
+  return (
+    <div>
+      {useStackedHeader ? (
+        <div className="mdm-dict-plain-header">
+          <div className="mdm-dict-plain-title">{headerLeft}</div>
+          <div
+            ref={plainControlsRef}
+            className={`mdm-dict-plain-controls${plainControlsMultiRow ? " mdm-dict-plain-controls--multi" : ""}`}
+          >
+            {headerControlsStacked}
+          </div>
+        </div>
+      ) : (
+        <CommandBar left={headerLeft} right={headerControls} />
+      )}
+
+      {alertsBlock}
 
       {isItemGroups && items.length > 0 && itemGroupsRootCount === 0 && (
         <Alert

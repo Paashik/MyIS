@@ -135,6 +135,7 @@ export const RequestEditPage: React.FC = () => {
     try {
       if (isEdit && id) {
         const payload: UpdateRequestPayload = {
+          requestTypeId: values.requestTypeId,
           title: values.title,
           description: values.description,
           lines: values.lines,
@@ -142,10 +143,13 @@ export const RequestEditPage: React.FC = () => {
           relatedEntityType: values.relatedEntityType,
           relatedEntityId: values.relatedEntityId,
           relatedEntityName: values.relatedEntityName,
-          externalReferenceId: values.externalReferenceId,
           targetEntityType: values.targetEntityType,
           targetEntityId: values.targetEntityId,
           targetEntityName: values.targetEntityName,
+          basisType: values.basisType,
+          basisRequestId: values.basisRequestId,
+          basisCustomerOrderId: values.basisCustomerOrderId,
+          basisDescription: values.basisDescription,
         };
 
         const updated = await updateRequest(id, payload);
@@ -163,10 +167,13 @@ export const RequestEditPage: React.FC = () => {
           relatedEntityType: values.relatedEntityType,
           relatedEntityId: values.relatedEntityId,
           relatedEntityName: values.relatedEntityName,
-          externalReferenceId: values.externalReferenceId,
           targetEntityType: values.targetEntityType,
           targetEntityId: values.targetEntityId,
           targetEntityName: values.targetEntityName,
+          basisType: values.basisType,
+          basisRequestId: values.basisRequestId,
+          basisCustomerOrderId: values.basisCustomerOrderId,
+          basisDescription: values.basisDescription,
         };
 
         const created = await createRequest(payload);
@@ -255,10 +262,13 @@ export const RequestEditPage: React.FC = () => {
           relatedEntityType: request.relatedEntityType ?? "",
           relatedEntityId: request.relatedEntityId ?? "",
           relatedEntityName: request.relatedEntityName ?? "",
-          externalReferenceId: request.externalReferenceId ?? "",
           targetEntityType: request.targetEntityType ?? "",
           targetEntityId: request.targetEntityId ?? "",
           targetEntityName: request.targetEntityName ?? "",
+          basisType: request.basisType ?? undefined,
+          basisRequestId: request.basisRequestId ?? undefined,
+          basisCustomerOrderId: request.basisCustomerOrderId ?? undefined,
+          basisDescription: request.basisDescription ?? "",
         }
       : {
           requestTypeId: preselectedTypeId,
@@ -269,10 +279,13 @@ export const RequestEditPage: React.FC = () => {
           relatedEntityType: "",
           relatedEntityId: "",
           relatedEntityName: "",
-          externalReferenceId: "",
           targetEntityType: "",
           targetEntityId: "",
           targetEntityName: "",
+          basisType: undefined,
+          basisRequestId: undefined,
+          basisCustomerOrderId: undefined,
+          basisDescription: "",
         };
 
   const requestTypesForForm = isEdit ? requestTypes : requestTypesForDirection;

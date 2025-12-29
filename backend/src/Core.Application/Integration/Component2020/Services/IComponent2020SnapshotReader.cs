@@ -22,6 +22,11 @@ public class Component2020Item
     public int? GroupId { get; set; }
     public int? UnitId { get; set; }
     public string? PartNumber { get; set; }
+    public int? ManufacturerId { get; set; }
+    public string? DataSheet { get; set; }
+    public bool? CanMeans { get; set; }
+    public int? BomSection { get; set; }
+    public byte[]? Photo { get; set; }
     // etc.
 }
 
@@ -97,6 +102,7 @@ public class Component2020Product
     public DateTime? Dt { get; set; }
     public int? UserId { get; set; }
     public int? DeptId { get; set; }
+    public byte[]? Photo { get; set; }
 }
 
 public class Component2020Manufacturer

@@ -1,0 +1,33 @@
+.mdm-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mdm-item-card__header {
+  line-height: 1.2;
+}
+
+.mdm-item-card__panel {
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.mdm-item-card__photo {
+  width: 100%;
+  max-width: 360px;
+  height: 180px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mdm-item-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

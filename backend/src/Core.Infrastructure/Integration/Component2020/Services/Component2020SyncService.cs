@@ -58,14 +58,14 @@ public class Component2020SyncService : IComponent2020SyncService
                 await RunScopeAsync(Component2020SyncScope.ItemGroups, command, run.Id, counters, errors, cancellationToken);
             }
 
-            if (command.Scope == Component2020SyncScope.Items || command.Scope == Component2020SyncScope.All)
-            {
-                await RunScopeAsync(Component2020SyncScope.Items, command, run.Id, counters, errors, cancellationToken);
-            }
-
             if (command.Scope == Component2020SyncScope.Products || command.Scope == Component2020SyncScope.All)
             {
                 await RunScopeAsync(Component2020SyncScope.Products, command, run.Id, counters, errors, cancellationToken);
+            }
+            
+            if (command.Scope == Component2020SyncScope.Items || command.Scope == Component2020SyncScope.All)
+            {
+                await RunScopeAsync(Component2020SyncScope.Items, command, run.Id, counters, errors, cancellationToken);
             }
 
             if (command.Scope == Component2020SyncScope.Manufacturers || command.Scope == Component2020SyncScope.All)

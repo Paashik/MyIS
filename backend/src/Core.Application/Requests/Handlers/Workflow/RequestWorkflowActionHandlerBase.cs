@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MyIS.Core.Application.Common;
@@ -67,7 +67,7 @@ public abstract class RequestWorkflowActionHandlerBase
             throw new InvalidOperationException($"RequestStatus with id '{request.RequestStatusId.Value}' was not found.");
         }
 
-        // Поиск перехода
+        // РџРѕРёСЃРє РїРµСЂРµС…РѕРґР°
         var transition = await TransitionRepository.FindByTypeFromStatusAndActionAsync(
             request.RequestTypeId,
             currentStatus.Code,
@@ -80,24 +80,24 @@ public abstract class RequestWorkflowActionHandlerBase
                 $"Transition is not allowed. TypeId='{requestType.Id.Value}', From='{currentStatus.Code.Value}', Action='{actionCode}'.");
         }
 
-        // Права
+        // РџСЂР°РІР°
         await AccessChecker.EnsureCanPerformActionAsync(currentUserId, request, actionCode, transition.RequiredPermission, cancellationToken);
 
-        // Доменные условия для SupplyRequest при выходе из Draft
+        // Р”РѕРјРµРЅРЅС‹Рµ СѓСЃР»РѕРІРёСЏ РґР»СЏ SupplyRequest РїСЂРё РІС‹С…РѕРґРµ РёР· Draft
         if (string.Equals(currentStatus.Code.Value, RequestStatusCode.Draft.Value, StringComparison.OrdinalIgnoreCase)
             && string.Equals(actionCode, RequestActionCodes.Submit, StringComparison.OrdinalIgnoreCase))
         {
             request.EnsureBodyIsValidForSubmit(requestType.Id);
         }
 
-        // Целевой статус
+        // Р¦РµР»РµРІРѕР№ СЃС‚Р°С‚СѓСЃ
         var targetStatus = await RequestStatusRepository.GetByCodeAsync(transition.ToStatusCode, cancellationToken);
         if (targetStatus is null)
         {
             throw new InvalidOperationException($"Target RequestStatus '{transition.ToStatusCode.Value}' is not configured.");
         }
 
-        // Смена статуса + история
+        // РЎРјРµРЅР° СЃС‚Р°С‚СѓСЃР° + РёСЃС‚РѕСЂРёСЏ
         request.ChangeStatus(
             currentStatus,
             targetStatus,
@@ -108,9 +108,9 @@ public abstract class RequestWorkflowActionHandlerBase
 
         await RequestRepository.UpdateAsync(request, cancellationToken);
 
-        var initiator = await UserRepository.GetByIdAsync(request.InitiatorId, cancellationToken);
-        var initiatorBaseName = initiator?.Employee?.ShortName ?? initiator?.Employee?.FullName ?? initiator?.FullName ?? initiator?.Login;
-        var initiatorFullName = PersonNameFormatter.ToShortName(initiatorBaseName) ?? initiatorBaseName;
+        var manager = await UserRepository.GetByIdAsync(request.ManagerId, cancellationToken);
+        var managerBaseName = manager?.Employee?.ShortName ?? manager?.Employee?.FullName ?? manager?.FullName ?? manager?.Login;
+        var managerFullName = PersonNameFormatter.ToShortName(managerBaseName) ?? managerBaseName;
 
         return new RequestDto
         {
@@ -123,15 +123,18 @@ public abstract class RequestWorkflowActionHandlerBase
             RequestStatusId = targetStatus.Id.Value,
             RequestStatusCode = targetStatus.Code.Value,
             RequestStatusName = targetStatus.Name,
-            InitiatorId = request.InitiatorId,
-            InitiatorFullName = initiatorFullName,
+            ManagerId = request.ManagerId,
+            ManagerFullName = managerFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
-            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,
+            BasisType = request.BasisType,
+            BasisRequestId = request.BasisRequestId,
+            BasisCustomerOrderId = request.BasisCustomerOrderId,
+            BasisDescription = request.BasisDescription,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
             DueDate = request.DueDate,
@@ -167,4 +170,8 @@ public abstract class RequestWorkflowActionHandlerBase
         return result;
     }
 }
+
+
+
+
 

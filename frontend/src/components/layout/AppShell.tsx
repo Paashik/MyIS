@@ -1,15 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Layout,
-  Menu,
-  Avatar,
-  Typography,
-  Dropdown,
-  Space,
-  Button,
-  Input,
-  Badge,
-} from "antd";
+import { Layout, Menu, Avatar, Typography, Dropdown, Space, Button, Badge } from "antd";
 import type { MenuProps } from "antd";
 import {
   MenuFoldOutlined,
@@ -52,6 +42,7 @@ const AppShell: React.FC = () => {
     useCan("Admin.Security.EditEmployees") ||
     useCan("Admin.Security.EditUsers") ||
     useCan("Admin.Security.EditRoles") ||
+    useCan("Admin.Organization.Edit") ||
     useCan("Admin.Requests.EditWorkflow") ||
     useCan("Admin.Integration.View") ||
     useCan("Admin.Integration.Execute");
@@ -80,6 +71,8 @@ const AppShell: React.FC = () => {
 
     if (location.pathname.startsWith("/administration/security/employees"))
       return "/administration/security/employees";
+    if (location.pathname.startsWith("/administration/org-structure"))
+      return "/administration/org-structure";
     if (location.pathname.startsWith("/administration/security/users"))
       return "/administration/security/users";
     if (location.pathname.startsWith("/administration/security/roles"))
@@ -104,26 +97,6 @@ const AppShell: React.FC = () => {
   }, [location.pathname, location.search]);
 
   useEffect(() => {
-    if (collapsed) {
-      setOpenKeys([]);
-      return;
-    }
-
-    if (location.pathname.startsWith("/requests")) {
-      setOpenKeys(["/requests"]);
-      return;
-    }
-
-    if (location.pathname.startsWith("/references")) {
-      setOpenKeys(["/references"]);
-      return;
-    }
-
-    if (location.pathname.startsWith("/administration")) {
-      setOpenKeys(["/administration"]);
-      return;
-    }
-
     setOpenKeys([]);
   }, [collapsed, location.pathname]);
 
@@ -198,6 +171,7 @@ const AppShell: React.FC = () => {
           { key: "/administration/security/users", label: t("nav.administration.security.users") },
           { key: "/administration/security/roles", label: t("nav.administration.security.roles") },
           { key: "/administration/security/employees", label: t("nav.administration.security.employees") },
+          { key: "/administration/org-structure", label: t("nav.administration.orgStructure") },
           { key: "/administration/requests/workflow", label: t("nav.administration.requests.workflow") },
           { key: "/administration/system/paths", label: t("nav.administration.system.paths") },
           ...(canSeeIntegrations
@@ -268,7 +242,9 @@ const AppShell: React.FC = () => {
         </div>
         <Menu
           theme="dark"
-          mode="inline"
+          mode={collapsed ? "inline" : "vertical"}
+          inlineCollapsed={collapsed}
+          triggerSubMenuAction="hover"
           selectedKeys={[selectedKey]}
           openKeys={openKeys}
           onOpenChange={(keys: string[]) => setOpenKeys(keys)}
@@ -290,15 +266,6 @@ const AppShell: React.FC = () => {
           </Space>
 
           <Space align="center" size="middle">
-            <Input.Search
-              placeholder={t("nav.search.placeholder")}
-              allowClear
-              className="app-shell__search"
-              onSearch={() => {
-                // Global search is not implemented yet.
-              }}
-            />
-
             <Badge count={0} size="small">
               <Button
                 type="text"

@@ -134,6 +134,7 @@ public sealed class MdmItemReferenceDto
     public bool IsEskd { get; set; }
     public bool? IsEskdDocument { get; set; }
     public string? ManufacturerPartNumber { get; set; }
+    public bool HasPhoto { get; set; }
     public bool IsActive { get; set; }
     public string? ExternalSystem { get; set; }
     public string? ExternalId { get; set; }

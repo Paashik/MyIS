@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using MyIS.Core.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyIS.Core.Application.Mdm.References;
@@ -138,12 +140,74 @@ public sealed class AdminMdmReferencesController : ControllerBase
         return Ok(new { total = result.Total, items = result.Items });
     }
 
+    [HttpPost("items/purge")]
+    [Authorize(Policy = "Admin.Integration.Execute")]
+    public async Task<IActionResult> PurgeItems(
+        [FromServices] AppDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        var clearedRequestLines = await dbContext.Database.ExecuteSqlRawAsync(
+            "UPDATE requests.request_lines SET \"item_id\" = NULL WHERE \"item_id\" IN (SELECT \"Id\" FROM mdm.items);",
+            cancellationToken);
+
+        var deletedAttributeValues = await dbContext.Database.ExecuteSqlRawAsync(
+            "DELETE FROM mdm.item_attribute_values WHERE \"ItemId\" IN (SELECT \"Id\" FROM mdm.items);",
+            cancellationToken);
+
+        var deletedLinks = await dbContext.Database.ExecuteSqlRawAsync(
+            "DELETE FROM integration.external_entity_links WHERE \"EntityType\" = 'Item';",
+            cancellationToken);
+
+        var deletedItems = await dbContext.Database.ExecuteSqlRawAsync(
+            "DELETE FROM mdm.items;",
+            cancellationToken);
+
+        var deletedSequences = await dbContext.Database.ExecuteSqlRawAsync(
+            "DELETE FROM mdm.item_sequences;",
+            cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return Ok(new
+        {
+            deletedItems,
+            deletedLinks,
+            deletedAttributeValues,
+            deletedSequences,
+            clearedRequestLines
+        });
+    }
+
     [HttpGet("items/{id:guid}")]
     [Authorize(Policy = "Admin.Integration.View")]
     public async Task<IActionResult> GetItemById(Guid id, CancellationToken cancellationToken)
     {
         var entity = await _service.GetItemByIdAsync(id, cancellationToken);
         return entity == null ? NotFound() : Ok(entity);
+    }
+
+    [HttpGet("items/{id:guid}/photo")]
+    [Authorize(Policy = "Admin.Integration.View")]
+    public async Task<IActionResult> GetItemPhoto(
+        Guid id,
+        [FromServices] AppDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var photo = await dbContext.Items
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => x.Photo)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (photo == null || photo.Length == 0)
+        {
+            return NotFound();
+        }
+
+        var contentType = ResolveImageContentType(photo);
+        return File(photo, contentType);
     }
 
     [HttpGet("manufacturers")]
@@ -292,5 +356,35 @@ public sealed class AdminMdmReferencesController : ControllerBase
             take,
             cancellationToken);
         return Ok(new { total = result.Total, items = result.Items });
+    }
+
+    private static string ResolveImageContentType(byte[] data)
+    {
+        if (data.Length >= 4)
+        {
+            if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+            {
+                return "image/png";
+            }
+            if (data[0] == 0xFF && data[1] == 0xD8)
+            {
+                return "image/jpeg";
+            }
+            if (data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46)
+            {
+                return "image/gif";
+            }
+            if (data[0] == 0x42 && data[1] == 0x4D)
+            {
+                return "image/bmp";
+            }
+            if (data.Length >= 12 && data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46
+                && data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50)
+            {
+                return "image/webp";
+            }
+        }
+
+        return "application/octet-stream";
     }
 }

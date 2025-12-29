@@ -5,12 +5,12 @@ import { useNavigate } from "react-router-dom";
 
 import { t } from "../../../../../core/i18n/t";
 import { useCan } from "../../../../../core/auth/permissions";
-import { CommandBar } from "../../../../../components/ui/CommandBar";
 import {
   archiveAdminRequestStatus,
   getAdminRequestStatuses,
 } from "../api/adminRequestsDictionariesApi";
 import type { AdminRequestStatusDto } from "../api/types";
+import "./RequestDictionaries.css";
 
 export const RequestStatusesSettingsPage: React.FC = () => {
   const canEdit = useCan("Admin.Requests.EditStatuses");
@@ -36,6 +36,13 @@ export const RequestStatusesSettingsPage: React.FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    document.body.classList.add("request-dict-scroll-lock");
+    return () => {
+      document.body.classList.remove("request-dict-scroll-lock");
+    };
+  }, []);
 
   const onArchive = async (item: AdminRequestStatusDto) => {
     try {
@@ -102,29 +109,25 @@ export const RequestStatusesSettingsPage: React.FC = () => {
   );
 
   return (
-    <div data-testid="references-requests-statuses-journal">
-      <CommandBar
-        left={
-          <Typography.Title level={2} style={{ margin: 0 }}>
-            {t("settings.requests.statuses.title")}
-          </Typography.Title>
-        }
-        right={
-          <>
-            <Button onClick={() => void load()} data-testid="references-requests-statuses-refresh">
-              {t("common.actions.refresh")}
-            </Button>
-            <Button
-              type="primary"
-              onClick={() => navigate("/references/requests/statuses/new")}
-              disabled={!canEdit}
-              data-testid="references-requests-statuses-create"
-            >
-              {t("common.actions.create")}
-            </Button>
-          </>
-        }
-      />
+    <div className="request-dict-page" data-testid="references-requests-statuses-journal">
+      <div className="request-dict-header">
+        <Typography.Title level={2} style={{ margin: 0 }}>
+          {t("settings.requests.statuses.title")}
+        </Typography.Title>
+        <div className="request-dict-controls">
+          <Button onClick={() => void load()} data-testid="references-requests-statuses-refresh">
+            {t("common.actions.refresh")}
+          </Button>
+          <Button
+            type="primary"
+            onClick={() => navigate("/references/requests/statuses/new")}
+            disabled={!canEdit}
+            data-testid="references-requests-statuses-create"
+          >
+            {t("common.actions.create")}
+          </Button>
+        </div>
+      </div>
 
       {!canEdit && (
         <Alert type="warning" showIcon message={t("settings.forbidden")} style={{ marginBottom: 12 }} />
@@ -132,14 +135,21 @@ export const RequestStatusesSettingsPage: React.FC = () => {
 
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
 
-      <Table
-        data-testid="references-requests-statuses-table"
-        rowKey={(r: AdminRequestStatusDto) => r.id}
-        loading={loading}
-        columns={columns}
-        dataSource={items}
-        pagination={false}
-      />
+      <div className="request-dict-divider" />
+
+      <div className="request-dict-scroll">
+        <div className="request-dict-list">
+          <Table
+            data-testid="references-requests-statuses-table"
+            rowKey={(r: AdminRequestStatusDto) => r.id}
+            loading={loading}
+            columns={columns}
+            dataSource={items}
+            pagination={false}
+            scroll={{ y: "100%" }}
+          />
+        </div>
+      </div>
     </div>
   );
 };

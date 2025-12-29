@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MyIS.Core.Application.Common;
@@ -47,7 +47,7 @@ public class UpdateRequestHandler
             throw new ArgumentException("CurrentUserId is required.", nameof(command));
         }
 
-        // 1. Загрузка заявки
+        // 1. Р—Р°РіСЂСѓР·РєР° Р·Р°СЏРІРєРё
         var requestId = new RequestId(command.Id);
         var request = await _requestRepository.GetByIdAsync(requestId, cancellationToken);
         if (request is null)
@@ -55,7 +55,7 @@ public class UpdateRequestHandler
             throw new InvalidOperationException($"Request with id '{command.Id}' was not found.");
         }
 
-        // 2. Загрузка текущего типа и статуса
+        // 2. Р—Р°РіСЂСѓР·РєР° С‚РµРєСѓС‰РµРіРѕ С‚РёРїР° Рё СЃС‚Р°С‚СѓСЃР°
         var requestType = await _requestTypeRepository.GetByIdAsync(request.RequestTypeId, cancellationToken);
         if (requestType is null)
         {
@@ -68,11 +68,34 @@ public class UpdateRequestHandler
             throw new InvalidOperationException($"RequestStatus with id '{request.RequestStatusId.Value}' was not found.");
         }
 
-        // 3. Проверка прав на редактирование
+        // 3. РџСЂРѕРІРµСЂРєР° РїСЂР°РІ РЅР° СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ
         await _accessChecker.EnsureCanUpdateAsync(command.CurrentUserId, request, cancellationToken);
 
-        // 4. Обновление деталей (нельзя, если статус финальный)
+        // 4. Смена типа заявки (разрешена только для Draft, чтобы не ломать workflow).
+        if (command.RequestTypeId.HasValue && command.RequestTypeId.Value != request.RequestTypeId.Value)
+        {
+            if (!string.Equals(status.Code.Value, RequestStatusCode.Draft.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Cannot change request type unless status is Draft.");
+            }
+
+            var newTypeId = RequestTypeId.From(command.RequestTypeId.Value);
+            var newType = await _requestTypeRepository.GetByIdAsync(newTypeId, cancellationToken);
+            if (newType is null)
+            {
+                throw new InvalidOperationException($"RequestType with id '{command.RequestTypeId.Value}' was not found.");
+            }
+
+            request.ChangeType(newType);
+            requestType = newType;
+        }
+
+        // 4.1. РћР±РЅРѕРІР»РµРЅРёРµ РґРµС‚Р°Р»РµР№ (РЅРµР»СЊР·СЏ, РµСЃР»Рё СЃС‚Р°С‚СѓСЃ С„РёРЅР°Р»СЊРЅС‹Р№)
         var now = DateTimeOffset.UtcNow;
+        var basisType = command.BasisType ?? request.BasisType;
+        var basisRequestId = command.BasisRequestId ?? request.BasisRequestId;
+        var basisCustomerOrderId = command.BasisCustomerOrderId ?? request.BasisCustomerOrderId;
+        var basisDescription = command.BasisDescription ?? request.BasisDescription;
 
         request.UpdateDetails(
             request.Title,
@@ -81,14 +104,17 @@ public class UpdateRequestHandler
             command.RelatedEntityType,
             command.RelatedEntityId,
             command.RelatedEntityName,
-            command.ExternalReferenceId,
             command.TargetEntityType,
             command.TargetEntityId,
             command.TargetEntityName,
+            basisType,
+            basisRequestId,
+            basisCustomerOrderId,
+            basisDescription,
             now,
             isCurrentStatusFinal: status.IsFinal);
 
-        // 4.1. Позиционное тело (v0.1: replace-all)
+        // 4.1. РџРѕР·РёС†РёРѕРЅРЅРѕРµ С‚РµР»Рѕ (v0.1: replace-all)
         if (command.Lines is not null)
         {
             await _accessChecker.EnsureCanEditBodyAsync(command.CurrentUserId, request, cancellationToken);
@@ -96,15 +122,15 @@ public class UpdateRequestHandler
             request.ReplaceLines(lines, now, isCurrentStatusFinal: status.IsFinal);
         }
 
-        // 5. Сохранение
+        // 5. РЎРѕС…СЂР°РЅРµРЅРёРµ
         await _requestRepository.UpdateAsync(request, cancellationToken);
 
-        // 6. Маппинг в DTO
-        var initiator = await _userRepository.GetByIdAsync(request.InitiatorId, cancellationToken);
-        var initiatorBaseName = initiator?.Employee?.ShortName ?? initiator?.Employee?.FullName ?? initiator?.FullName ?? initiator?.Login;
-        var initiatorFullName = PersonNameFormatter.ToShortName(initiatorBaseName) ?? initiatorBaseName;
+        // 6. РњР°РїРїРёРЅРі РІ DTO
+        var manager = await _userRepository.GetByIdAsync(request.ManagerId, cancellationToken);
+        var managerBaseName = manager?.Employee?.ShortName ?? manager?.Employee?.FullName ?? manager?.FullName ?? manager?.Login;
+        var managerFullName = PersonNameFormatter.ToShortName(managerBaseName) ?? managerBaseName;
 
-        var dto = MapToDto(request, requestType, status, initiatorFullName);
+        var dto = MapToDto(request, requestType, status, managerFullName);
 
         return dto;
     }
@@ -113,7 +139,7 @@ public class UpdateRequestHandler
         Request request,
         RequestType requestType,
         RequestStatus status,
-        string? initiatorFullName)
+        string? managerFullName)
     {
         return new RequestDto
         {
@@ -126,15 +152,18 @@ public class UpdateRequestHandler
             RequestStatusId = status.Id.Value,
             RequestStatusCode = status.Code.Value,
             RequestStatusName = status.Name,
-            InitiatorId = request.InitiatorId,
-            InitiatorFullName = initiatorFullName,
+            ManagerId = request.ManagerId,
+            ManagerFullName = managerFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
-            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,
+            BasisType = request.BasisType,
+            BasisRequestId = request.BasisRequestId,
+            BasisCustomerOrderId = request.BasisCustomerOrderId,
+            BasisDescription = request.BasisDescription,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
             DueDate = request.DueDate,
@@ -193,3 +222,7 @@ public class UpdateRequestHandler
         return result;
     }
 }
+
+
+
+

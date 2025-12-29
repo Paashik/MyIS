@@ -154,20 +154,41 @@ public sealed class Component2020CounterpartiesSyncHandler : IComponent2020SyncH
 
                     if (counterparty == null)
                     {
-                        counterparty = new Counterparty(
-                            name: name,
-                            fullName: fullName,
-                            inn: inn,
-                            kpp: kpp,
-                            email: email,
-                            phone: phone,
-                            city: city,
-                            address: address,
-                            site: site,
-                            siteLogin: siteLogin,
-                            sitePassword: sitePassword,
-                            note: note);
-                        _dbContext.Counterparties.Add(counterparty);
+                        counterparty = await FindExistingCounterpartyAsync(inn, kpp, name, fullName, cancellationToken);
+                        if (counterparty == null)
+                        {
+                            counterparty = new Counterparty(
+                                name: name,
+                                fullName: fullName,
+                                inn: inn,
+                                kpp: kpp,
+                                email: email,
+                                phone: phone,
+                                city: city,
+                                address: address,
+                                site: site,
+                                siteLogin: siteLogin,
+                                sitePassword: sitePassword,
+                                note: note);
+                            _dbContext.Counterparties.Add(counterparty);
+                        }
+                        else
+                        {
+                            counterparty.UpdateFromExternal(
+                                name,
+                                fullName,
+                                inn,
+                                kpp,
+                                email,
+                                phone,
+                                city,
+                                address,
+                                site,
+                                siteLogin,
+                                sitePassword,
+                                note,
+                                true);
+                        }
                     }
                     else
                     {
@@ -235,13 +256,14 @@ public sealed class Component2020CounterpartiesSyncHandler : IComponent2020SyncH
 
         if (!dryRun && isOverwrite && incomingExternalIds != null)
         {
-            var deleted = await DeleteMissingExternalLinksAsync(
+            var (linksDeleted, counterpartiesDeleted) = await DeleteMissingCounterpartiesAsync(
                 linkEntityType,
                 externalSystem,
                 externalEntity,
                 incomingExternalIds,
                 cancellationToken);
-            counters["ProviderLinkDeleted"] = deleted;
+            counters["ProviderLinkDeleted"] = linksDeleted;
+            counters["CounterpartyDeleted"] = counterpartiesDeleted;
         }
 
         counters[entityType] = processed;
@@ -255,7 +277,7 @@ public sealed class Component2020CounterpartiesSyncHandler : IComponent2020SyncH
         return (processed, errors);
     }
 
-    private async Task<int> DeleteMissingExternalLinksAsync(
+    private async Task<(int linksDeleted, int counterpartiesDeleted)> DeleteMissingCounterpartiesAsync(
         string linkEntityType,
         string externalSystem,
         string externalEntity,
@@ -268,21 +290,187 @@ public sealed class Component2020CounterpartiesSyncHandler : IComponent2020SyncH
                 && l.ExternalSystem == externalSystem
                 && l.ExternalEntity == externalEntity
                 && !incomingExternalIds.Contains(l.ExternalId))
-            .Select(l => l.Id)
+            .Select(l => new { l.Id, l.EntityId })
             .ToListAsync(cancellationToken);
 
-        if (missingLinks.Count == 0)
+        var candidateCounterpartyIds = missingLinks
+            .Select(l => l.EntityId)
+            .Distinct()
+            .ToList();
+
+        var orphanIds = await _dbContext.Counterparties
+            .Where(c => !_dbContext.ExternalEntityLinks.Any(l => l.EntityType == linkEntityType && l.EntityId == c.Id))
+            .Select(c => c.Id)
+            .ToListAsync(cancellationToken);
+
+        if (missingLinks.Count == 0 && orphanIds.Count == 0)
         {
-            return 0;
+            LogCleanup("no missing links and no orphans (incoming={IncomingCount})", incomingExternalIds.Count);
+            return (0, 0);
         }
 
-        var links = await _dbContext.ExternalEntityLinks
-            .Where(l => missingLinks.Contains(l.Id))
+        var protectedIds = new List<Guid>();
+        if (candidateCounterpartyIds.Count > 0)
+        {
+            var protectedByOrders = await _dbContext.CustomerOrders
+                .Where(o => o.CustomerId.HasValue && candidateCounterpartyIds.Contains(o.CustomerId.Value))
+                .Select(o => o.CustomerId!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            protectedIds = protectedIds.Concat(protectedByOrders).ToList();
+
+            var protectedByRequests = await _dbContext.Requests
+                .Where(r =>
+                    ((r.TargetEntityType == "Counterparty" && r.TargetEntityId.HasValue)
+                     || (r.RelatedEntityType == "Counterparty" && r.RelatedEntityId.HasValue))
+                    && (candidateCounterpartyIds.Contains(r.TargetEntityId ?? Guid.Empty)
+                        || candidateCounterpartyIds.Contains(r.RelatedEntityId ?? Guid.Empty)))
+                .Select(r => r.TargetEntityType == "Counterparty" ? r.TargetEntityId : r.RelatedEntityId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (protectedByRequests.Count > 0)
+            {
+                protectedIds = protectedIds.Concat(protectedByRequests).ToList();
+            }
+        }
+
+        if (orphanIds.Count > 0)
+        {
+            var protectedOrphansByOrders = await _dbContext.CustomerOrders
+                .Where(o => o.CustomerId.HasValue && orphanIds.Contains(o.CustomerId.Value))
+                .Select(o => o.CustomerId!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (protectedOrphansByOrders.Count > 0)
+            {
+                protectedIds = protectedIds.Concat(protectedOrphansByOrders).ToList();
+            }
+
+            var protectedOrphansByRequests = await _dbContext.Requests
+                .Where(r =>
+                    ((r.TargetEntityType == "Counterparty" && r.TargetEntityId.HasValue)
+                     || (r.RelatedEntityType == "Counterparty" && r.RelatedEntityId.HasValue))
+                    && (orphanIds.Contains(r.TargetEntityId ?? Guid.Empty)
+                        || orphanIds.Contains(r.RelatedEntityId ?? Guid.Empty)))
+                .Select(r => r.TargetEntityType == "Counterparty" ? r.TargetEntityId : r.RelatedEntityId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (protectedOrphansByRequests.Count > 0)
+            {
+                protectedIds = protectedIds.Concat(protectedOrphansByRequests).ToList();
+            }
+        }
+
+        protectedIds = protectedIds.Distinct().ToList();
+
+        var deletableIds = candidateCounterpartyIds
+            .Concat(orphanIds)
+            .Distinct()
+            .Where(id => !protectedIds.Contains(id))
+            .ToList();
+
+        if (deletableIds.Count == 0)
+        {
+            LogCleanup(
+                "candidates={Candidates}, orphans={Orphans}, protected={Protected} -> nothing to delete",
+                candidateCounterpartyIds.Count,
+                orphanIds.Count,
+                protectedIds.Count);
+            return (0, 0);
+        }
+
+        var linkIdsToDelete = missingLinks
+            .Where(l => deletableIds.Contains(l.EntityId))
+            .Select(l => l.Id)
+            .ToList();
+
+        if (linkIdsToDelete.Count > 0)
+        {
+            var links = await _dbContext.ExternalEntityLinks
+                .Where(l => linkIdsToDelete.Contains(l.Id))
+                .ToListAsync(cancellationToken);
+            _dbContext.ExternalEntityLinks.RemoveRange(links);
+        }
+
+        var otherLinks = await _dbContext.ExternalEntityLinks
+            .Where(l =>
+                l.EntityType == linkEntityType
+                && deletableIds.Contains(l.EntityId)
+                && !linkIdsToDelete.Contains(l.Id))
             .ToListAsync(cancellationToken);
 
-        _dbContext.ExternalEntityLinks.RemoveRange(links);
+        _dbContext.ExternalEntityLinks.RemoveRange(otherLinks);
+
+        var counterparties = await _dbContext.Counterparties
+            .Where(c => deletableIds.Contains(c.Id))
+            .ToListAsync(cancellationToken);
+
+        _dbContext.Counterparties.RemoveRange(counterparties);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return links.Count;
+        LogCleanup(
+            "candidates={Candidates}, orphans={Orphans}, protected={Protected}, linksDeleted={LinksDeleted}, counterpartiesDeleted={CounterpartiesDeleted}",
+            candidateCounterpartyIds.Count,
+            orphanIds.Count,
+            protectedIds.Count,
+            linkIdsToDelete.Count + otherLinks.Count,
+            counterparties.Count);
+        return (linkIdsToDelete.Count + otherLinks.Count, counterparties.Count);
+    }
+
+    private void LogCleanup(string message, params object[] args)
+    {
+        var formatted = $"[C2020-CLEANUP] {message}";
+        _logger.LogWarning(formatted, args);
+        try
+        {
+            Console.WriteLine(string.Format(formatted, args));
+        }
+        catch
+        {
+            Console.WriteLine(formatted);
+        }
+    }
+
+    private async Task<Counterparty?> FindExistingCounterpartyAsync(
+        string? inn,
+        string? kpp,
+        string name,
+        string? fullName,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(inn))
+        {
+            var normalizedKpp = kpp ?? string.Empty;
+            return await _dbContext.Counterparties
+                .FirstOrDefaultAsync(
+                    x => x.Inn == inn && (x.Kpp ?? string.Empty) == normalizedKpp,
+                    cancellationToken);
+        }
+
+        var byName = await _dbContext.Counterparties
+            .OrderByDescending(x => x.UpdatedAt)
+            .FirstOrDefaultAsync(x => x.Name == name, cancellationToken);
+        if (byName != null)
+        {
+            return byName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(fullName))
+        {
+            return await _dbContext.Counterparties
+                .OrderByDescending(x => x.UpdatedAt)
+                .FirstOrDefaultAsync(x => x.FullName == fullName, cancellationToken);
+        }
+
+        return null;
     }
 
     private static string? NormalizeOptional(string? value)

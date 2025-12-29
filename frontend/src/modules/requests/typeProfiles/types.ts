@@ -25,6 +25,7 @@ export interface EditContext {
   form: FormInstance;
   requestTypeId: RequestTypeId;
   mode: "create" | "edit";
+  hideDescription?: boolean;
 }
 
 export interface RequestTypeProfile {

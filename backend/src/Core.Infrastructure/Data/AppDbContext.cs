@@ -21,6 +21,8 @@ public class AppDbContext : DbContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
     public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
+    public DbSet<OrgUnitContact> OrgUnitContacts => Set<OrgUnitContact>();
     public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
  
     public DbSet<Request> Requests => Set<Request>();

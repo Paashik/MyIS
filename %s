@@ -1,0 +1,174 @@
+
+BEGIN;
+
+-- Roots: ASM, STD
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '????????? ???????', null, true, now(), now(), 'ASM', null
+where not exists (select 1 from mdm.item_groups where "Name"='????????? ???????' and "ParentId" is null);
+
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '??????????? ???????', null, true, now(), now(), 'STD', null
+where not exists (select 1 from mdm.item_groups where "Name"='??????????? ???????' and "ParentId" is null);
+
+-- Promote "??????" to PRT root if it sits under PRD
+with prd as (
+    select "Id" from mdm.item_groups where "Name"='??????? ?????????' and "ParentId" is null
+)
+update mdm.item_groups
+set "ParentId" = null, "Abbreviation" = 'PRT'
+where "Name"='??????' and "ParentId" = (select "Id" from prd);
+
+update mdm.item_groups
+set "Abbreviation" = 'PRT'
+where "Name"='??????' and "ParentId" is null and ("Abbreviation" is null or "Abbreviation" <> 'PRT');
+
+-- PRD children
+with prd as (
+    select "Id" from mdm.item_groups where "Name"='??????? ?????????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '???????', (select "Id" from prd), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='???????' and "ParentId"=(select "Id" from prd)
+);
+
+with prd as (
+    select "Id" from mdm.item_groups where "Name"='??????? ?????????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '?????????', (select "Id" from prd), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='?????????' and "ParentId"=(select "Id" from prd)
+);
+
+-- Move old PRD subgroups to PRT root
+with prd as (
+    select "Id" from mdm.item_groups where "Name"='??????? ?????????' and "ParentId" is null
+),
+prt as (
+    select "Id" from mdm.item_groups where "Name"='??????' and "ParentId" is null
+)
+update mdm.item_groups
+set "ParentId" = (select "Id" from prt)
+where "ParentId" = (select "Id" from prd)
+  and "Name" in ('???????? ?????','???????','??????','?????????','?????????','??????','?????????','?????????');
+
+-- ASM children
+with asm as (
+    select "Id" from mdm.item_groups where "Name"='????????? ???????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '??????', (select "Id" from asm), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='??????' and "ParentId"=(select "Id" from asm)
+);
+
+with asm as (
+    select "Id" from mdm.item_groups where "Name"='????????? ???????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '??????', (select "Id" from asm), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='??????' and "ParentId"=(select "Id" from asm)
+);
+
+with asm as (
+    select "Id" from mdm.item_groups where "Name"='????????? ???????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '????', (select "Id" from asm), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='????' and "ParentId"=(select "Id" from asm)
+);
+
+-- PRT children
+with prt as (
+    select "Id" from mdm.item_groups where "Name"='??????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '?????? (??????)', (select "Id" from prt), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='?????? (??????)' and "ParentId"=(select "Id" from prt)
+);
+
+with prt as (
+    select "Id" from mdm.item_groups where "Name"='??????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '?????? (???????)', (select "Id" from prt), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='?????? (???????)' and "ParentId"=(select "Id" from prt)
+);
+
+with prt as (
+    select "Id" from mdm.item_groups where "Name"='??????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '?????? (????????)', (select "Id" from prt), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='?????? (????????)' and "ParentId"=(select "Id" from prt)
+);
+
+with prt as (
+    select "Id" from mdm.item_groups where "Name"='??????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '??????', (select "Id" from prt), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='??????' and "ParentId"=(select "Id" from prt)
+);
+
+-- STD: move fasteners under STD and add GOST/TU
+with std as (
+    select "Id" from mdm.item_groups where "Name"='??????????? ???????' and "ParentId" is null
+),
+cmp as (
+    select "Id" from mdm.item_groups where "Name"='???????? ?????????????' and "ParentId" is null
+)
+update mdm.item_groups
+set "ParentId" = (select "Id" from std)
+where "Name"='????????? ???????' and "ParentId"=(select "Id" from cmp);
+
+with std as (
+    select "Id" from mdm.item_groups where "Name"='??????????? ???????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '????/?? ???????', (select "Id" from std), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='????/?? ???????' and "ParentId"=(select "Id" from std)
+);
+
+-- MAT: add "??????" under "?????????"
+with mat_root as (
+    select "Id" from mdm.item_groups where "Name"='????? ? ?????????' and "ParentId" is null
+),
+mat as (
+    select "Id" from mdm.item_groups where "Name"='?????????' and "ParentId"=(select "Id" from mat_root)
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '??????', (select "Id" from mat), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='??????' and "ParentId"=(select "Id" from mat)
+);
+
+-- SFG: add "?????????"
+with sfg as (
+    select "Id" from mdm.item_groups where "Name"='?????????????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '?????????', (select "Id" from sfg), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='?????????' and "ParentId"=(select "Id" from sfg)
+);
+
+-- SRV: add "??????"
+with srv as (
+    select "Id" from mdm.item_groups where "Name"='?????? ? ??????' and "ParentId" is null
+)
+insert into mdm.item_groups ("Id","Name","ParentId","IsActive","CreatedAt","UpdatedAt","Abbreviation","Description")
+select gen_random_uuid(), '??????', (select "Id" from srv), true, now(), now(), null, null
+where not exists (
+    select 1 from mdm.item_groups where "Name"='??????' and "ParentId"=(select "Id" from srv)
+);
+
+COMMIT;

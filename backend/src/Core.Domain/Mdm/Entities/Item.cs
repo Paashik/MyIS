@@ -28,9 +28,15 @@ public class Item : IDeactivatable
 
     public bool? IsEskdDocument { get; private set; }
 
+    public bool IsTooling { get; private set; }
+
+    public bool IsFinishedProduct { get; private set; }
+
     public string? Designation { get; private set; }
 
     public string? ManufacturerPartNumber { get; private set; }
+
+    public byte[]? Photo { get; private set; }
 
     public Guid? ItemGroupId { get; private set; }
 
@@ -76,6 +82,8 @@ public class Item : IDeactivatable
         ItemGroupId = itemGroupId;
         IsActive = true;
         IsEskd = false;
+        IsTooling = false;
+        IsFinishedProduct = false;
         CreatedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -88,7 +96,9 @@ public class Item : IDeactivatable
         bool isEskd,
         bool? isEskdDocument,
         string? designation,
-        string? manufacturerPartNumber)
+        string? manufacturerPartNumber,
+        bool isTooling,
+        bool isFinishedProduct)
     {
         if (string.IsNullOrWhiteSpace(nomenclatureNo))
         {
@@ -111,8 +121,21 @@ public class Item : IDeactivatable
         ItemGroupId = itemGroupId;
         IsEskd = isEskd;
         IsEskdDocument = isEskdDocument;
+        IsTooling = isTooling;
+        IsFinishedProduct = isFinishedProduct;
         Designation = string.IsNullOrWhiteSpace(designation) ? null : designation.Trim();
         ManufacturerPartNumber = string.IsNullOrWhiteSpace(manufacturerPartNumber) ? null : manufacturerPartNumber.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetTooling(bool isTooling)
+    {
+        if (IsTooling == isTooling)
+        {
+            return;
+        }
+
+        IsTooling = isTooling;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -124,6 +147,27 @@ public class Item : IDeactivatable
         }
 
         ItemKind = itemKind;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetPhoto(byte[]? photo, bool overwrite = false)
+    {
+        if (photo == null || photo.Length == 0)
+        {
+            if (overwrite && Photo != null)
+            {
+                Photo = null;
+                UpdatedAt = DateTimeOffset.UtcNow;
+            }
+            return;
+        }
+
+        if (!overwrite && Photo != null && Photo.Length > 0)
+        {
+            return;
+        }
+
+        Photo = photo;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

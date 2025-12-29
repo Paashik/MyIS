@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,14 +18,14 @@ public interface IRequestRepository
     Task DeleteAsync(RequestId id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Поиск заявок с базовой пагинацией и простыми фильтрами.
-    /// Возвращает кортеж: список сущностей и общее количество строк под фильтром.
+    /// РџРѕРёСЃРє Р·Р°СЏРІРѕРє СЃ Р±Р°Р·РѕРІРѕР№ РїР°РіРёРЅР°С†РёРµР№ Рё РїСЂРѕСЃС‚С‹РјРё С„РёР»СЊС‚СЂР°РјРё.
+    /// Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕСЂС‚РµР¶: СЃРїРёСЃРѕРє СЃСѓС‰РЅРѕСЃС‚РµР№ Рё РѕР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ СЃС‚СЂРѕРє РїРѕРґ С„РёР»СЊС‚СЂРѕРј.
     /// </summary>
     Task<(IReadOnlyList<Request> Items, int TotalCount)> SearchAsync(
         Guid? requestTypeId,
         Guid? requestStatusId,
         RequestDirection? direction,
-        Guid? initiatorId,
+        Guid? managerId,
         bool onlyMine,
         int pageNumber,
         int pageSize,
@@ -35,5 +35,11 @@ public interface IRequestRepository
 
     Task<bool> AnyWithStatusIdAsync(RequestStatusId requestStatusId, CancellationToken cancellationToken);
 
-    Task<long> GetNextRequestNumberAsync(CancellationToken cancellationToken);
+    Task<long> GetNextRequestNumberAsync(
+        RequestDirection direction,
+        int year,
+        CancellationToken cancellationToken);
 }
+
+
+

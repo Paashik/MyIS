@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -43,7 +43,7 @@ public class SearchRequestsHandler
         var pageNumber = query.PageNumber <= 0 ? 1 : query.PageNumber;
         var pageSize = query.PageSize <= 0 ? 20 : query.PageSize;
 
-        // 1. Загрузка данных из репозитория
+        // 1. Р—Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С… РёР· СЂРµРїРѕР·РёС‚РѕСЂРёСЏ
         RequestDirection? direction = null;
         if (!string.IsNullOrWhiteSpace(query.Direction))
         {
@@ -61,18 +61,18 @@ public class SearchRequestsHandler
             requestTypeId: query.RequestTypeId,
             requestStatusId: query.RequestStatusId,
             direction: direction,
-            initiatorId: query.OnlyMine ? query.CurrentUserId : null,
+            managerId: query.OnlyMine ? query.CurrentUserId : null,
             onlyMine: query.OnlyMine,
             pageNumber: pageNumber,
             pageSize: pageSize,
             cancellationToken: cancellationToken);
 
-        // 2. Проверка прав на просмотр для каждой заявки (упрощённо)
+        // 2. РџСЂРѕРІРµСЂРєР° РїСЂР°РІ РЅР° РїСЂРѕСЃРјРѕС‚СЂ РґР»СЏ РєР°Р¶РґРѕР№ Р·Р°СЏРІРєРё (СѓРїСЂРѕС‰С‘РЅРЅРѕ)
         var listItems = new List<RequestListItemDto>(items.Count);
 
-        var initiatorIds = items.Select(x => x.InitiatorId).Distinct().ToArray();
-        var initiators = await _userRepository.GetByIdsAsync(initiatorIds, cancellationToken);
-        var initiatorById = initiators.ToDictionary(
+        var managerIds = items.Select(x => x.ManagerId).Distinct().ToArray();
+        var managers = await _userRepository.GetByIdsAsync(managerIds, cancellationToken);
+        var managerById = managers.ToDictionary(
             u => u.Id,
             u =>
             {
@@ -84,8 +84,8 @@ public class SearchRequestsHandler
         {
             await _accessChecker.EnsureCanViewAsync(query.CurrentUserId, request, cancellationToken);
 
-            initiatorById.TryGetValue(request.InitiatorId, out var initiatorFullName);
-            var dto = MapToListItemDto(request, initiatorFullName);
+            managerById.TryGetValue(request.ManagerId, out var managerFullName);
+            var dto = MapToListItemDto(request, managerFullName);
             listItems.Add(dto);
         }
 
@@ -98,10 +98,10 @@ public class SearchRequestsHandler
         return new SearchRequestsResult(page);
     }
 
-    private static RequestListItemDto MapToListItemDto(Request request, string? initiatorFullName)
+    private static RequestListItemDto MapToListItemDto(Request request, string? managerFullName)
     {
-        // На Iteration 1 полагаемся на то, что репозиторий может подгрузить навигационные свойства.
-        // Если Type/Status не загружены, используем безопасные значения по умолчанию.
+        // РќР° Iteration 1 РїРѕР»Р°РіР°РµРјСЃСЏ РЅР° С‚Рѕ, С‡С‚Рѕ СЂРµРїРѕР·РёС‚РѕСЂРёР№ РјРѕР¶РµС‚ РїРѕРґРіСЂСѓР·РёС‚СЊ РЅР°РІРёРіР°С†РёРѕРЅРЅС‹Рµ СЃРІРѕР№СЃС‚РІР°.
+        // Р•СЃР»Рё Type/Status РЅРµ Р·Р°РіСЂСѓР¶РµРЅС‹, РёСЃРїРѕР»СЊР·СѓРµРј Р±РµР·РѕРїР°СЃРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ.
         var type = request.Type;
         var status = request.Status;
 
@@ -114,12 +114,22 @@ public class SearchRequestsHandler
             RequestStatusId = status?.Id.Value ?? request.RequestStatusId.Value,
             RequestStatusCode = status?.Code.Value ?? string.Empty,
             RequestStatusName = status?.Name ?? string.Empty,
-            InitiatorId = request.InitiatorId,
-            InitiatorFullName = initiatorFullName,
+            ManagerId = request.ManagerId,
+            ManagerFullName = managerFullName,
             TargetEntityName = request.TargetEntityName,
             RelatedEntityName = request.RelatedEntityName,
+            Description = request.Description,
+            BasisType = request.BasisType,
+            BasisRequestId = request.BasisRequestId,
+            BasisCustomerOrderId = request.BasisCustomerOrderId,
+            BasisDescription = request.BasisDescription,
             CreatedAt = request.CreatedAt,
             DueDate = request.DueDate
         };
     }
 }
+
+
+
+
+

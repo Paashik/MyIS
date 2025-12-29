@@ -44,11 +44,20 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
 
         builder.Property(i => i.IsEskdDocument);
 
+        builder.Property(i => i.IsTooling)
+            .IsRequired();
+
+        builder.Property(i => i.IsFinishedProduct)
+            .IsRequired();
+
         builder.Property(i => i.Designation)
             .HasMaxLength(100);
 
         builder.Property(i => i.ManufacturerPartNumber)
             .HasMaxLength(100);
+
+        builder.Property(i => i.Photo)
+            .HasColumnType("bytea");
 
         builder.Property(i => i.ItemGroupId);
 

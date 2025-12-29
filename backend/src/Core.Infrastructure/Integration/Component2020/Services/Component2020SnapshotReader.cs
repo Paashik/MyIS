@@ -30,7 +30,7 @@ public class Component2020SnapshotReader : IComponent2020SnapshotReader
         using var connection = new OleDbConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var command = new OleDbCommand("SELECT ID, Code, Name, Description, GroupID, UnitID, PartNumber FROM Component", connection);
+        var command = new OleDbCommand("SELECT ID, Code, Name, Description, GroupID, UnitID, PartNumber, Manufact, DataSheet, CanMeans, BOMSection, Photo FROM Component", connection);
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var items = new List<Component2020Item>();
@@ -44,7 +44,12 @@ public class Component2020SnapshotReader : IComponent2020SnapshotReader
                 Description = reader.IsDBNull(3) ? null : reader.GetString(3),
                 GroupId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
                 UnitId = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                PartNumber = reader.IsDBNull(6) ? null : reader.GetString(6)
+                PartNumber = reader.IsDBNull(6) ? null : reader.GetString(6),
+                ManufacturerId = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                DataSheet = reader.IsDBNull(8) ? null : reader.GetString(8),
+                CanMeans = reader.IsDBNull(9) ? null : reader.GetBoolean(9),
+                BomSection = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                Photo = reader.IsDBNull(11) ? null : reader.GetValue(11) as byte[]
             });
         }
 

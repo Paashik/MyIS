@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -37,7 +37,7 @@ public sealed class AdminDbController : ControllerBase
     }
 
     /// <summary>
-    /// Текущий статус конфигурации и доступности БД.
+    /// РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ РєРѕРЅС„РёРіСѓСЂР°С†РёРё Рё РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё Р‘Р”.
     /// </summary>
     [HttpGet("db-status")]
     public async Task<ActionResult<DbConnectionStatusResponse>> GetDbStatus(
@@ -78,7 +78,97 @@ public sealed class AdminDbController : ControllerBase
     }
 
     /// <summary>
-    /// Проверка произвольной конфигурации подключения без сохранения.
+    /// РЎС‚Р°С‚СѓСЃ РїСЂРёРјРµРЅС‘РЅРЅС‹С…/РѕР¶РёРґР°СЋС‰РёС… РјРёРіСЂР°С†РёР№.
+    /// </summary>
+    [HttpGet("db-migrations")]
+    public async Task<ActionResult<DbMigrationsStatusResponse>> GetDbMigrations(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var all = dbContext.Database.GetMigrations();
+            var applied = await dbContext.Database.GetAppliedMigrationsAsync(cancellationToken);
+            var pending = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+
+            return Ok(new DbMigrationsStatusResponse
+            {
+                CanConnect = true,
+                AllMigrations = all,
+                AppliedMigrations = applied,
+                PendingMigrations = pending
+            });
+        }
+        catch (Exception ex)
+        {
+            var safeMsg = $"{ex.GetType().Name}: {ex.Message}";
+            _logger.LogError(ex, "Failed to read migrations status: {Error}", safeMsg);
+
+            return Ok(new DbMigrationsStatusResponse
+            {
+                CanConnect = false,
+                LastError = safeMsg
+            });
+        }
+    }
+
+    /// <summary>
+    /// Применение миграций.
+    /// </summary>
+    [HttpPost("db-migrations/apply")]
+    public async Task<ActionResult<DbMigrationsApplyResponse>> ApplyMigrations(
+        CancellationToken cancellationToken)
+    {
+        if (!_environment.IsDevelopment())
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            await dbContext.Database.MigrateAsync(cancellationToken);
+
+            var applied = await dbContext.Database.GetAppliedMigrationsAsync(cancellationToken);
+            var pending = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+
+            return Ok(new DbMigrationsApplyResponse
+            {
+                Applied = true,
+                AppliedMigrations = applied,
+                PendingMigrations = pending
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            const string msg = "Applying migrations was canceled.";
+            _logger.LogWarning("Applying migrations was canceled.");
+
+            return Ok(new DbMigrationsApplyResponse
+            {
+                Applied = false,
+                LastError = msg
+            });
+        }
+        catch (Exception ex)
+        {
+            var safeMsg = $"{ex.GetType().Name}: {ex.Message}";
+            _logger.LogError(ex, "Failed to apply migrations: {Error}", safeMsg);
+
+            return Ok(new DbMigrationsApplyResponse
+            {
+                Applied = false,
+                LastError = safeMsg
+            });
+        }
+    }
+
+    /// <summary>
+    /// РџСЂРѕРІРµСЂРєР° РїСЂРѕРёР·РІРѕР»СЊРЅРѕР№ РєРѕРЅС„РёРіСѓСЂР°С†РёРё РїРѕРґРєР»СЋС‡РµРЅРёСЏ Р±РµР· СЃРѕС…СЂР°РЅРµРЅРёСЏ.
     /// </summary>
     [HttpPost("db-config/test")]
     public async Task<ActionResult<DbConnectionTestResponse>> TestConnection(
@@ -127,8 +217,8 @@ public sealed class AdminDbController : ControllerBase
     }
 
     /// <summary>
-    /// Применение конфигурации подключения, сохранение в appsettings.Local.json
-    /// и прогон миграций. Доступно только в окружении Development.
+    /// РџСЂРёРјРµРЅРµРЅРёРµ РєРѕРЅС„РёРіСѓСЂР°С†РёРё РїРѕРґРєР»СЋС‡РµРЅРёСЏ, СЃРѕС…СЂР°РЅРµРЅРёРµ РІ appsettings.Local.json
+    /// Рё РїСЂРѕРіРѕРЅ РјРёРіСЂР°С†РёР№. Р”РѕСЃС‚СѓРїРЅРѕ С‚РѕР»СЊРєРѕ РІ РѕРєСЂСѓР¶РµРЅРёРё Development.
     /// </summary>
     [HttpPost("db-config/apply")]
     public async Task<ActionResult<DbConnectionApplyResponse>> ApplyConnection(
@@ -150,7 +240,7 @@ public sealed class AdminDbController : ControllerBase
         var migrationsApplied = false;
         string? lastError = null;
 
-        // 1. Сохранение строки подключения в appsettings.Local.json
+        // 1. РЎРѕС…СЂР°РЅРµРЅРёРµ СЃС‚СЂРѕРєРё РїРѕРґРєР»СЋС‡РµРЅРёСЏ РІ appsettings.Local.json
         try
         {
             WriteLocalConnectionString(connectionString);
@@ -163,7 +253,7 @@ public sealed class AdminDbController : ControllerBase
             lastError = AppendError(lastError, safeMsg);
         }
 
-        // 2. Проверка подключения по только что сформированной строке
+        // 2. РџСЂРѕРІРµСЂРєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ РїРѕ С‚РѕР»СЊРєРѕ С‡С‚Рѕ СЃС„РѕСЂРјРёСЂРѕРІР°РЅРЅРѕР№ СЃС‚СЂРѕРєРµ
         try
         {
             await using var connection = new NpgsqlConnection(connectionString);
@@ -183,31 +273,8 @@ public sealed class AdminDbController : ControllerBase
             lastError = AppendError(lastError, safeMsg);
         }
 
-        // 3. Прогон миграций, только если подключение успешно
-        if (canConnect)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                await dbContext.Database.MigrateAsync(cancellationToken);
-                migrationsApplied = true;
-            }
-            catch (OperationCanceledException)
-            {
-                const string msg = "Applying migrations was canceled.";
-                _logger.LogWarning("Applying migrations was canceled.");
-                lastError = AppendError(lastError, msg);
-            }
-            catch (Exception ex)
-            {
-                var safeMsg = $"{ex.GetType().Name}: {ex.Message}";
-                _logger.LogError(ex, "Failed to apply migrations: {Error}", safeMsg);
-                migrationsApplied = false;
-                lastError = AppendError(lastError, safeMsg);
-            }
-        }
+        // 3. РџСЂРѕРіРѕРЅ РјРёРіСЂР°С†РёР№, С‚РѕР»СЊРєРѕ РµСЃР»Рё РїРѕРґРєР»СЋС‡РµРЅРёРµ СѓСЃРїРµС€РЅРѕ
+        // Migrations are applied via a dedicated endpoint (db-migrations/apply).
 
         var response = new DbConnectionApplyResponse
         {
@@ -323,3 +390,4 @@ public sealed class AdminDbController : ControllerBase
         };
     }
 }
+

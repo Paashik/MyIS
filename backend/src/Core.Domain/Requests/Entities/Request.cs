@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using MyIS.Core.Domain.Requests.ValueObjects;
 
@@ -18,14 +18,17 @@ public class Request
     public RequestStatusId RequestStatusId { get; private set; }
 
     // User and relations
-    public Guid InitiatorId { get; private set; }
+    public Guid ManagerId { get; private set; }
     public string? RelatedEntityType { get; private set; }
     public Guid? RelatedEntityId { get; private set; }
     public string? RelatedEntityName { get; private set; }
-    public string? ExternalReferenceId { get; private set; }
     public string? TargetEntityType { get; private set; }
     public Guid? TargetEntityId { get; private set; }
     public string? TargetEntityName { get; private set; }
+    public string? BasisType { get; private set; }
+    public Guid? BasisRequestId { get; private set; }
+    public Guid? BasisCustomerOrderId { get; private set; }
+    public string? BasisDescription { get; private set; }
 
     // Audit / timeline
     public DateTimeOffset CreatedAt { get; private set; }
@@ -53,25 +56,28 @@ public class Request
         string? description,
         RequestTypeId typeId,
         RequestStatusId statusId,
-        Guid initiatorId,
+        Guid managerId,
         DateTimeOffset createdAt,
         DateTimeOffset? dueDate,
         string? relatedEntityType,
         Guid? relatedEntityId,
         string? relatedEntityName,
-        string? externalReferenceId,
         string? targetEntityType,
         Guid? targetEntityId,
-        string? targetEntityName)
+        string? targetEntityName,
+        string? basisType,
+        Guid? basisRequestId,
+        Guid? basisCustomerOrderId,
+        string? basisDescription)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
             throw new ArgumentException("Title is required.", nameof(title));
         }
 
-        if (initiatorId == Guid.Empty)
+        if (managerId == Guid.Empty)
         {
-            throw new ArgumentException("InitiatorId cannot be empty.", nameof(initiatorId));
+            throw new ArgumentException("ManagerId cannot be empty.", nameof(managerId));
         }
 
         Id = id;
@@ -79,23 +85,23 @@ public class Request
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         RequestTypeId = typeId;
         RequestStatusId = statusId;
-        InitiatorId = initiatorId;
+        ManagerId = managerId;
         CreatedAt = createdAt;
         UpdatedAt = createdAt;
         DueDate = dueDate;
         RelatedEntityType = string.IsNullOrWhiteSpace(relatedEntityType) ? null : relatedEntityType.Trim();
         RelatedEntityId = relatedEntityId;
         RelatedEntityName = string.IsNullOrWhiteSpace(relatedEntityName) ? null : relatedEntityName.Trim();
-        ExternalReferenceId = string.IsNullOrWhiteSpace(externalReferenceId) ? null : externalReferenceId.Trim();
         TargetEntityType = string.IsNullOrWhiteSpace(targetEntityType) ? null : targetEntityType.Trim();
         TargetEntityId = targetEntityId;
         TargetEntityName = string.IsNullOrWhiteSpace(targetEntityName) ? null : targetEntityName.Trim();
+        ApplyBasis(basisType, basisRequestId, basisCustomerOrderId, basisDescription);
     }
 
     public static Request Create(
         RequestType type,
         RequestStatus initialStatus,
-        Guid initiatorId,
+        Guid managerId,
         string title,
         string? description,
         DateTimeOffset createdAt,
@@ -103,10 +109,13 @@ public class Request
         string? relatedEntityType = null,
         Guid? relatedEntityId = null,
         string? relatedEntityName = null,
-        string? externalReferenceId = null,
         string? targetEntityType = null,
         Guid? targetEntityId = null,
-        string? targetEntityName = null)
+        string? targetEntityName = null,
+        string? basisType = null,
+        Guid? basisRequestId = null,
+        Guid? basisCustomerOrderId = null,
+        string? basisDescription = null)
     {
         if (type == null) throw new ArgumentNullException(nameof(type));
         if (initialStatus == null) throw new ArgumentNullException(nameof(initialStatus));
@@ -117,16 +126,19 @@ public class Request
             description,
             type.Id,
             initialStatus.Id,
-            initiatorId,
+            managerId,
             createdAt,
             dueDate,
             relatedEntityType,
             relatedEntityId,
             relatedEntityName,
-            externalReferenceId,
             targetEntityType,
             targetEntityId,
-            targetEntityName);
+            targetEntityName,
+            basisType,
+            basisRequestId,
+            basisCustomerOrderId,
+            basisDescription);
 
         return request;
     }
@@ -138,10 +150,13 @@ public class Request
         string? relatedEntityType,
         Guid? relatedEntityId,
         string? relatedEntityName,
-        string? externalReferenceId,
         string? targetEntityType,
         Guid? targetEntityId,
         string? targetEntityName,
+        string? basisType,
+        Guid? basisRequestId,
+        Guid? basisCustomerOrderId,
+        string? basisDescription,
         DateTimeOffset updatedAt,
         bool isCurrentStatusFinal)
     {
@@ -161,11 +176,17 @@ public class Request
         RelatedEntityType = string.IsNullOrWhiteSpace(relatedEntityType) ? null : relatedEntityType.Trim();
         RelatedEntityId = relatedEntityId;
         RelatedEntityName = string.IsNullOrWhiteSpace(relatedEntityName) ? null : relatedEntityName.Trim();
-        ExternalReferenceId = string.IsNullOrWhiteSpace(externalReferenceId) ? null : externalReferenceId.Trim();
         TargetEntityType = string.IsNullOrWhiteSpace(targetEntityType) ? null : targetEntityType.Trim();
         TargetEntityId = targetEntityId;
         TargetEntityName = string.IsNullOrWhiteSpace(targetEntityName) ? null : targetEntityName.Trim();
+        ApplyBasis(basisType, basisRequestId, basisCustomerOrderId, basisDescription);
         UpdatedAt = updatedAt;
+    }
+
+    public void ChangeType(RequestType newType)
+    {
+        if (newType is null) throw new ArgumentNullException(nameof(newType));
+        RequestTypeId = newType.Id;
     }
 
     public void ReplaceLines(
@@ -227,17 +248,13 @@ public class Request
             createdAt: createdAt);
 
         Comments.Add(comment);
-        if (createdAt > UpdatedAt)
-        {
-            UpdatedAt = createdAt;
-        }
 
         return comment;
     }
 
     /// <summary>
-    /// Валидация тела заявки для выхода из Draft по действию Submit.
-    /// Для SupplyRequest требуется заполнить либо Lines, либо Description.
+    /// Р’Р°Р»РёРґР°С†РёСЏ С‚РµР»Р° Р·Р°СЏРІРєРё РґР»СЏ РІС‹С…РѕРґР° РёР· Draft РїРѕ РґРµР№СЃС‚РІРёСЋ Submit.
+    /// Р”Р»СЏ SupplyRequest С‚СЂРµР±СѓРµС‚СЃСЏ Р·Р°РїРѕР»РЅРёС‚СЊ Р»РёР±Рѕ Lines, Р»РёР±Рѕ Description.
     /// </summary>
     public void EnsureBodyIsValidForSubmit(RequestTypeId requestTypeId)
     {
@@ -297,4 +314,63 @@ public class Request
 
         return historyItem;
     }
+
+    private void ApplyBasis(
+        string? basisType,
+        Guid? basisRequestId,
+        Guid? basisCustomerOrderId,
+        string? basisDescription)
+    {
+        var normalizedType = string.IsNullOrWhiteSpace(basisType) ? null : basisType.Trim();
+        var normalizedDescription = string.IsNullOrWhiteSpace(basisDescription) ? null : basisDescription.Trim();
+
+        if (normalizedType is null)
+        {
+            BasisType = null;
+            BasisRequestId = null;
+            BasisCustomerOrderId = null;
+            BasisDescription = null;
+            return;
+        }
+
+        if (!RequestBasisTypes.IsValid(normalizedType))
+        {
+            throw new ArgumentException($"Unsupported basis type '{normalizedType}'.", nameof(basisType));
+        }
+
+        switch (normalizedType)
+        {
+            case RequestBasisTypes.IncomingRequest:
+                if (!basisRequestId.HasValue || basisRequestId == Guid.Empty)
+                {
+                    throw new ArgumentException("BasisRequestId is required for IncomingRequest.", nameof(basisRequestId));
+                }
+
+                BasisRequestId = basisRequestId;
+                BasisCustomerOrderId = null;
+                BasisDescription = normalizedDescription;
+                break;
+            case RequestBasisTypes.CustomerOrder:
+                if (!basisCustomerOrderId.HasValue || basisCustomerOrderId == Guid.Empty)
+                {
+                    throw new ArgumentException("BasisCustomerOrderId is required for CustomerOrder.", nameof(basisCustomerOrderId));
+                }
+
+                BasisRequestId = null;
+                BasisCustomerOrderId = basisCustomerOrderId;
+                BasisDescription = normalizedDescription;
+                break;
+            case RequestBasisTypes.ProductionOrder:
+            case RequestBasisTypes.Other:
+                BasisRequestId = null;
+                BasisCustomerOrderId = null;
+                BasisDescription = normalizedDescription;
+                break;
+        }
+
+        BasisType = normalizedType;
+    }
 }
+
+
+

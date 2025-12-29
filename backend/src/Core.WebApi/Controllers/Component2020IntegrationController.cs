@@ -416,6 +416,53 @@ public class Component2020IntegrationController : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("preview")]
+    [Authorize(Policy = "Admin.Integration.Execute")]
+    public async Task<IActionResult> PreviewImport(
+        [FromBody] Component2020ImportPreviewRequest request,
+        [FromServices] IComponent2020ImportPreviewService previewService,
+        [FromServices] AppDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.ConnectionId))
+        {
+            return BadRequest("ConnectionId is required.");
+        }
+
+        if (!Guid.TryParse(request.ConnectionId, out var connectionId))
+        {
+            return BadRequest("ConnectionId is invalid.");
+        }
+
+        var connection = await dbContext.Component2020Connections
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == connectionId, cancellationToken);
+
+        if (connection == null || connection.IsActive == false)
+        {
+            return BadRequest("Component2020 connection is not active.");
+        }
+
+        var syncMode = Component2020SyncMode.Delta;
+        if (!string.IsNullOrWhiteSpace(request.SyncMode)
+            && !Enum.TryParse<Component2020SyncMode>(request.SyncMode, true, out syncMode))
+        {
+            return BadRequest($"Invalid syncMode: '{request.SyncMode}'.");
+        }
+
+        var preview = await previewService.PreviewAsync(
+            new MyIS.Core.Application.Integration.Component2020.Dto.Component2020ImportPreviewRequestDto
+            {
+                ConnectionId = connectionId,
+                SyncMode = syncMode,
+                Page = request.Page.GetValueOrDefault(1),
+                PageSize = request.PageSize.GetValueOrDefault(200)
+            },
+            cancellationToken);
+
+        return Ok(preview);
+    }
+
     [HttpPost("schedule")]
     [Authorize(Policy = "Admin.Integration.Execute")]
     public async Task<IActionResult> ScheduleSync(

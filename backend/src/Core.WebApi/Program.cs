@@ -96,6 +96,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Admin.Security.EditEmployees", policy => policy.RequireRole("ADMIN"));
     options.AddPolicy("Admin.Security.EditUsers", policy => policy.RequireRole("ADMIN"));
     options.AddPolicy("Admin.Security.EditRoles", policy => policy.RequireRole("ADMIN"));
+    options.AddPolicy("Admin.Organization.Edit", policy => policy.RequireRole("ADMIN"));
 
     // Integration.Component2020
     options.AddPolicy("Admin.Integration.View", policy => policy.RequireRole("ADMIN"));

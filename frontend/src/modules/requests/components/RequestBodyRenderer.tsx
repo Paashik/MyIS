@@ -13,6 +13,7 @@ export interface RequestBodyRendererProps {
   request?: RequestDto;
   form?: FormInstance;
   editMode?: "create" | "edit";
+  hideDescription?: boolean;
 }
 
 export const RequestBodyRenderer: React.FC<RequestBodyRendererProps> = ({
@@ -21,6 +22,7 @@ export const RequestBodyRenderer: React.FC<RequestBodyRendererProps> = ({
   request,
   form,
   editMode,
+  hideDescription,
 }) => {
   const profile = getRequestTypeProfile(requestTypeId);
 
@@ -37,6 +39,7 @@ export const RequestBodyRenderer: React.FC<RequestBodyRendererProps> = ({
         form,
         requestTypeId: requestTypeId ?? profile.id,
         mode: editMode ?? "create",
+        hideDescription,
       })}
     </>
   );

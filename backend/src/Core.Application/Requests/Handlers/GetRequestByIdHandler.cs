@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MyIS.Core.Application.Common;
@@ -49,7 +49,7 @@ public class GetRequestByIdHandler
             throw new ArgumentException("CurrentUserId is required.", nameof(query));
         }
 
-        // 1. Загрузка заявки
+        // 1. Р—Р°РіСЂСѓР·РєР° Р·Р°СЏРІРєРё
         var requestId = new RequestId(query.Id);
         var request = await _requestRepository.GetByIdAsync(requestId, cancellationToken);
         if (request is null)
@@ -57,10 +57,10 @@ public class GetRequestByIdHandler
             throw new InvalidOperationException($"Request with id '{query.Id}' was not found.");
         }
 
-        // 2. Проверка прав на просмотр
+        // 2. РџСЂРѕРІРµСЂРєР° РїСЂР°РІ РЅР° РїСЂРѕСЃРјРѕС‚СЂ
         await _accessChecker.EnsureCanViewAsync(query.CurrentUserId, request, cancellationToken);
 
-        // 3. Загрузка справочников (тип и статус)
+        // 3. Р—Р°РіСЂСѓР·РєР° СЃРїСЂР°РІРѕС‡РЅРёРєРѕРІ (С‚РёРї Рё СЃС‚Р°С‚СѓСЃ)
         var requestType = await _requestTypeRepository.GetByIdAsync(request.RequestTypeId, cancellationToken);
         if (requestType is null)
         {
@@ -73,12 +73,12 @@ public class GetRequestByIdHandler
             throw new InvalidOperationException($"RequestStatus with id '{request.RequestStatusId.Value}' was not found.");
         }
 
-        // 4. Маппинг в DTO
-        var initiator = await _userRepository.GetByIdAsync(request.InitiatorId, cancellationToken);
-        var initiatorBaseName = initiator?.Employee?.ShortName ?? initiator?.Employee?.FullName ?? initiator?.FullName ?? initiator?.Login;
-        var initiatorFullName = PersonNameFormatter.ToShortName(initiatorBaseName) ?? initiatorBaseName;
+        // 4. РњР°РїРїРёРЅРі РІ DTO
+        var manager = await _userRepository.GetByIdAsync(request.ManagerId, cancellationToken);
+        var managerBaseName = manager?.Employee?.ShortName ?? manager?.Employee?.FullName ?? manager?.FullName ?? manager?.Login;
+        var managerFullName = PersonNameFormatter.ToShortName(managerBaseName) ?? managerBaseName;
 
-        var dto = MapToDto(request, requestType, status, initiatorFullName);
+        var dto = MapToDto(request, requestType, status, managerFullName);
 
         return new GetRequestByIdResult(dto);
     }
@@ -87,7 +87,7 @@ public class GetRequestByIdHandler
         Request request,
         RequestType requestType,
         RequestStatus status,
-        string? initiatorFullName)
+        string? managerFullName)
     {
         return new RequestDto
         {
@@ -100,15 +100,18 @@ public class GetRequestByIdHandler
             RequestStatusId = status.Id.Value,
             RequestStatusCode = status.Code.Value,
             RequestStatusName = status.Name,
-            InitiatorId = request.InitiatorId,
-            InitiatorFullName = initiatorFullName,
+            ManagerId = request.ManagerId,
+            ManagerFullName = managerFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
-            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,
+            BasisType = request.BasisType,
+            BasisRequestId = request.BasisRequestId,
+            BasisCustomerOrderId = request.BasisCustomerOrderId,
+            BasisDescription = request.BasisDescription,
             CreatedAt = request.CreatedAt,
             UpdatedAt = request.UpdatedAt,
             DueDate = request.DueDate,
@@ -144,3 +147,7 @@ public class GetRequestByIdHandler
         return result;
     }
 }
+
+
+
+

@@ -5,9 +5,9 @@ namespace MyIS.Core.Application.Requests.Commands;
 public class CreateRequestCommand
 {
     /// <summary>
-    /// Инициатор (текущий пользователь). В WebApi должен браться из контекста аутентификации.
+    /// Менеджер (текущий пользователь). В WebApi должен браться из контекста аутентификации.
     /// </summary>
-    public Guid InitiatorId { get; init; }
+    public Guid ManagerId { get; init; }
 
     public Guid RequestTypeId { get; init; }
 
@@ -30,20 +30,26 @@ public class CreateRequestCommand
 
     public string? RelatedEntityName { get; init; }
 
-    /// <summary>
-    /// Внешняя ссылка (например, идентификатор объекта в Компонент‑2020).
-    /// Полноценная интеграция будет реализована на следующих итерациях.
-    /// </summary>
-    public string? ExternalReferenceId { get; init; }
-
     public string? TargetEntityType { get; init; }
 
     public Guid? TargetEntityId { get; init; }
 
     public string? TargetEntityName { get; init; }
 
+    public string? BasisType { get; init; }
+
+    public Guid? BasisRequestId { get; init; }
+
+    public Guid? BasisCustomerOrderId { get; init; }
+
+    public string? BasisDescription { get; init; }
+
     /// <summary>
     /// Позиционное тело заявки (replace-all стратегия v0.1).
     /// </summary>
     public Dto.RequestLineInputDto[]? Lines { get; init; }
 }
+
+
+
+

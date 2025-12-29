@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Alert, Button, Descriptions, Divider, Modal, Result, Spin, Table, Tabs, Typography } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   RequestCommentDto,
   RequestDto,
   RequestHistoryItemDto,
+  RequestBasisType,
 } from "../api/types";
 import {
   addRequestComment,
@@ -13,10 +14,13 @@ import {
   getRequestComments,
   getRequestHistory,
 } from "../api/requestsApi";
+import { getOrgUnit } from "../../organization/api/orgUnitsApi";
+import type { OrgUnitDetailsDto } from "../../organization/api/types";
 import { RequestStatusBadge } from "../components/RequestStatusBadge";
 import { RequestHistoryTimeline } from "../components/RequestHistoryTimeline";
 import { RequestCommentsPanel } from "../components/RequestCommentsPanel";
 import { RequestBodyRenderer } from "../components/RequestBodyRenderer";
+import { getRequestStatusLabel } from "../utils/requestWorkflowLocalization";
 import { useCan } from "../../../core/auth/permissions";
 import { t } from "../../../core/i18n/t";
 import { CommandBar } from "../../../components/ui/CommandBar";
@@ -54,6 +58,8 @@ export const RequestDetailsPage: React.FC = () => {
 
   const [request, setRequest] = useState<RequestDto | null>(null);
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [targetOrgUnit, setTargetOrgUnit] = useState<OrgUnitDetailsDto | null>(null);
+  const [relatedOrgUnit, setRelatedOrgUnit] = useState<OrgUnitDetailsDto | null>(null);
 
   const [history, setHistory] = useState<RequestHistoryItemDto[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -82,7 +88,7 @@ export const RequestDetailsPage: React.FC = () => {
       } catch (error: any) {
         if (cancelled) return;
 
-        // Пытаемся эвристически определить 404 по тексту ошибки
+        // РџС‹С‚Р°РµРјСЃСЏ СЌРІСЂРёСЃС‚РёС‡РµСЃРєРё РѕРїСЂРµРґРµР»РёС‚СЊ 404 РїРѕ С‚РµРєСЃС‚Сѓ РѕС€РёР±РєРё
         const message =
           error instanceof Error
             ? error.message
@@ -101,6 +107,38 @@ export const RequestDetailsPage: React.FC = () => {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    const loadOrgUnits = async () => {
+      if (!request) return;
+
+      const targetId =
+        request.targetEntityType === "Department" ? request.targetEntityId : null;
+      const relatedId =
+        request.relatedEntityType === "Department" ? request.relatedEntityId : null;
+
+      try {
+        if (targetId) {
+          const orgUnit = await getOrgUnit(targetId);
+          setTargetOrgUnit(orgUnit);
+        } else {
+          setTargetOrgUnit(null);
+        }
+
+        if (relatedId) {
+          const orgUnit = await getOrgUnit(relatedId);
+          setRelatedOrgUnit(orgUnit);
+        } else {
+          setRelatedOrgUnit(null);
+        }
+      } catch {
+        setTargetOrgUnit(null);
+        setRelatedOrgUnit(null);
+      }
+    };
+
+    void loadOrgUnits();
+  }, [request]);
 
   useEffect(() => {
     if (!id) {
@@ -160,9 +198,9 @@ export const RequestDetailsPage: React.FC = () => {
       navigate("/requests");
       return;
     }
-    // Простейший способ перезагрузить — перезагрузить страницу браузера
-    // или можно использовать navigate(0) в React Router v6.4+,
-    // но здесь оставим переход на тот же URL.
+    // РџСЂРѕСЃС‚РµР№С€РёР№ СЃРїРѕСЃРѕР± РїРµСЂРµР·Р°РіСЂСѓР·РёС‚СЊ вЂ” РїРµСЂРµР·Р°РіСЂСѓР·РёС‚СЊ СЃС‚СЂР°РЅРёС†Сѓ Р±СЂР°СѓР·РµСЂР°
+    // РёР»Рё РјРѕР¶РЅРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ navigate(0) РІ React Router v6.4+,
+    // РЅРѕ Р·РґРµСЃСЊ РѕСЃС‚Р°РІРёРј РїРµСЂРµС…РѕРґ РЅР° С‚РѕС‚ Р¶Рµ URL.
     navigate(0 as any);
   };
 
@@ -186,7 +224,7 @@ export const RequestDetailsPage: React.FC = () => {
     setAddingComment(true);
     try {
       const created = await addRequestComment(id, { text });
-      // Обновляем локальное состояние комментариев
+      // РћР±РЅРѕРІР»СЏРµРј Р»РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РєРѕРјРјРµРЅС‚Р°СЂРёРµРІ
       setComments((prev) => [...prev, created]);
     } catch (error) {
       const message =
@@ -202,15 +240,15 @@ export const RequestDetailsPage: React.FC = () => {
   const handleDelete = () => {
     if (!id) return;
     Modal.confirm({
-      title: 'Удалить заявку?',
-      content: 'Это действие нельзя отменить.',
-      okText: 'Удалить',
+      title: t("requests.details.delete.confirm.title"),
+      content: t("requests.details.delete.confirm.content"),
+      okText: t("requests.details.delete.confirm.ok"),
       okType: 'danger',
-      cancelText: 'Отмена',
+      cancelText: t("common.actions.cancel"),
       onOk: async () => {
         try {
           await deleteRequest(id);
-          navigate('/requests/journal');
+          handleBackToList();
         } catch (error) {
           // Handle error
         }
@@ -270,6 +308,56 @@ export const RequestDetailsPage: React.FC = () => {
   const createdAt = new Date(request.createdAt);
   const updatedAt = new Date(request.updatedAt);
   const dueDate = request.dueDate ? new Date(request.dueDate) : null;
+  const orgUnit = targetOrgUnit ?? relatedOrgUnit;
+  const contactPersons =
+    orgUnit?.contacts?.filter((c) => c.includeInRequest) ?? [];
+  const contactLabel = contactPersons.length
+    ? contactPersons
+        .map((c) => {
+          const parts = [c.employeeFullName ?? c.employeeId];
+          const extra = [c.employeeEmail, c.employeePhone].filter(Boolean).join(", ");
+          if (extra) parts.push(`(${extra})`);
+          return parts.join(" ");
+        })
+        .join("; ")
+    : null;
+
+  const getBasisTypeLabel = (type?: RequestBasisType | null) => {
+    switch (type) {
+      case "IncomingRequest":
+        return t("requests.basis.type.incoming");
+      case "CustomerOrder":
+        return t("requests.basis.type.customerOrder");
+      case "ProductionOrder":
+        return t("requests.basis.type.productionOrder");
+      case "Other":
+        return t("requests.basis.type.other");
+      default:
+        return null;
+    }
+  };
+
+  const basisTypeLabel = getBasisTypeLabel(request.basisType);
+  const basisDescription = request.basisDescription;
+  const basisValue = (() => {
+    const description = basisDescription ?? "";
+    const trimmedDescription = description.trim();
+
+    if (request.basisType === "CustomerOrder" && trimmedDescription) {
+      const splitToken = " · ";
+      const orderNumber = trimmedDescription.includes(splitToken)
+        ? trimmedDescription.split(splitToken, 2)[0]
+        : trimmedDescription;
+
+      return `${basisTypeLabel ?? ""} ${orderNumber}`.trim();
+    }
+
+    if (basisTypeLabel && trimmedDescription) {
+      return `${basisTypeLabel} ${trimmedDescription}`.trim();
+    }
+
+    return basisTypeLabel ?? (trimmedDescription || null);
+  })();
 
   return (
     <div data-testid="request-details-page">
@@ -278,14 +366,14 @@ export const RequestDetailsPage: React.FC = () => {
           <div className="request-details__header">
             <div className="request-details__heading">
               <Title level={3} className="request-details__title">
-                {request.requestTypeName}{" "}
-                <Text type="secondary" className="request-details__subtitle">
-                  <Text code>{request.id}</Text>
-                </Text>
+                {request.requestTypeName}
               </Title>
               <RequestStatusBadge
                 statusCode={request.requestStatusCode}
-                statusName={request.requestStatusName}
+                statusName={getRequestStatusLabel(
+                  request.requestStatusCode,
+                  request.requestStatusName
+                )}
               />
             </div>
             <Text className="request-details__request-title">{request.title}</Text>
@@ -299,7 +387,7 @@ export const RequestDetailsPage: React.FC = () => {
                 danger
                 onClick={handleDelete}
               >
-                Удалить
+                {t("common.actions.delete")}
               </Button>
             )}
             {canEdit && (
@@ -318,185 +406,198 @@ export const RequestDetailsPage: React.FC = () => {
         }
       />
 
-      <div className="request-details__summary">
-        <Descriptions column={2} bordered size="small">
-          <Descriptions.Item label={t("requests.details.fields.id")} span={2}>
-            <Text code>{request.id}</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.type")}>
+      <div className="request-details__card">
+        <div className="request-details__summary">
+          <Descriptions column={2} size="middle" className="request-details__descriptions">
+          <Descriptions.Item label={t("requests.table.columns.type")}>
             <Text strong>{request.requestTypeName}</Text>
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.status")}>
+          <Descriptions.Item label={t("requests.table.columns.status")}>
             <RequestStatusBadge
               statusCode={request.requestStatusCode}
-              statusName={request.requestStatusName}
+              statusName={getRequestStatusLabel(
+                request.requestStatusCode,
+                request.requestStatusName
+              )}
             />
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.initiator")}>
-            {request.initiatorFullName || request.initiatorId}
+          <Descriptions.Item label={t("requests.table.columns.initiator")}>
+            {request.managerFullName || request.managerId}
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.target")}>
+          <Descriptions.Item label={t("requests.table.columns.target")}>
             {request.targetEntityName || (
               <Text type="secondary">{t("requests.details.value.notSet")}</Text>
             )}
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.basis")}>
-            {request.relatedEntityName || (
+          <Descriptions.Item label={t("requests.table.columns.basisCombined")}>
+            {basisValue || (
               <Text type="secondary">{t("requests.details.value.notSet")}</Text>
             )}
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.createdAt")}>
+          <Descriptions.Item label={t("requests.table.columns.createdAt")}>
             {createdAt.toLocaleDateString()} {createdAt.toLocaleTimeString()}
           </Descriptions.Item>
           <Descriptions.Item label={t("requests.details.fields.updatedAt")}>
             {updatedAt.toLocaleDateString()} {updatedAt.toLocaleTimeString()}
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.dueDate")}>
+          <Descriptions.Item label={t("requests.table.columns.dueDate")}>
             {dueDate
-              ? `${dueDate.toLocaleDateString()} ${dueDate.toLocaleTimeString()}`
+              ? dueDate.toLocaleDateString()
               : t("requests.details.value.notSet")}
           </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.externalId")}>
-            {request.externalReferenceId || (
-              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
-            )}
-          </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.relatedType")}>
-            {request.relatedEntityType || (
-              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
-            )}
-          </Descriptions.Item>
-          <Descriptions.Item label={t("requests.details.fields.relatedId")}>
-            {request.relatedEntityId || (
-              <Text type="secondary">{t("requests.details.value.notSet")}</Text>
-            )}
-          </Descriptions.Item>
-        </Descriptions>
-      </div>
-
-      <Tabs
-        data-testid="request-details-tabs"
-        defaultActiveKey="general"
-        items={[
-          {
-            key: "general",
-            label: t("requests.card.tabs.general"),
-            children: (
-              <RequestBodyRenderer
-                mode="details"
-                requestTypeId={request.requestTypeId}
-                request={request}
-              />
-            ),
-          },
-          {
-            key: "composition",
-            label: t("requests.card.tabs.composition"),
-            children: (
-              <>
-                <Table
-                  data-testid="request-details-lines-table"
-                  rowKey={(r: any) => r.id}
-                  size="small"
-                  pagination={false}
-                  columns={[
-                    { title: "#", dataIndex: "lineNo", key: "lineNo" },
-                    {
-                      title: t("requests.supply.lines.columns.description"),
-                      dataIndex: "description",
-                      key: "description",
-                      render: (v: string | null | undefined, r: any) =>
-                        v || r.externalItemCode || "",
-                    },
-                    {
-                      title: t("requests.supply.lines.columns.quantity"),
-                      dataIndex: "quantity",
-                      key: "quantity",
-                    },
-                    {
-                      title: t("requests.supply.lines.columns.needByDate"),
-                      dataIndex: "needByDate",
-                      key: "needByDate",
-                      render: (value?: string | null) => {
-                        if (!value) return <Text type="secondary">{t("requests.details.value.notSet")}</Text>;
-                        const date = new Date(value);
-                        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-                      },
-                    },
-                    {
-                      title: t("requests.supply.lines.columns.supplierName"),
-                      dataIndex: "supplierName",
-                      key: "supplierName",
-                    },
-                    {
-                      title: t("requests.supply.lines.columns.supplierContact"),
-                      dataIndex: "supplierContact",
-                      key: "supplierContact",
-                    },
-                  ] as any}
-                  dataSource={request.lines ?? []}
-                />
-              </>
-            ),
-          },
-          {
-            key: "documents",
-            label: t("requests.card.tabs.documents"),
-            children: (
-              <Typography.Text type="secondary">
-                {t("requests.card.tabs.documents.empty")}
-              </Typography.Text>
-            ),
-          },
-          {
-            key: "history",
-            label: t("requests.card.tabs.history"),
-            children: (
-              <>
-                {historyError && (
-                  <Alert
-                    data-testid="request-details-history-error-alert"
-                    type="error"
-                    message={t("requests.details.history.error.title")}
-                    description={historyError}
-                    showIcon
-                    className="request-details__alert"
-                  />
+          {orgUnit && (
+            <>
+              <Descriptions.Item label={t("requests.details.fields.orgUnitEmail")}>
+                {orgUnit.email || (
+                  <Text type="secondary">{t("requests.details.value.notSet")}</Text>
                 )}
-                <RequestHistoryTimeline items={history} loading={historyLoading} />
+              </Descriptions.Item>
+              <Descriptions.Item label={t("requests.details.fields.orgUnitPhone")}>
+                {orgUnit.phone || (
+                  <Text type="secondary">{t("requests.details.value.notSet")}</Text>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label={t("requests.details.fields.orgUnitContacts")} span={2}>
+                {contactLabel || (
+                  <Text type="secondary">{t("requests.details.value.notSet")}</Text>
+                )}
+              </Descriptions.Item>
+            </>
+          )}
+          </Descriptions>
+        </div>
 
-                <Divider />
-
-                <RequestCommentsPanel
-                  comments={comments}
-                  loading={commentsLoading}
-                  adding={addingComment}
-                  error={commentsError}
-                  onAddComment={handleAddComment}
+        <Tabs
+          data-testid="request-details-tabs"
+          defaultActiveKey="general"
+          className="request-details__tabs"
+          items={[
+            {
+              key: "general",
+              label: t("requests.card.tabs.general"),
+              children: (
+                <RequestBodyRenderer
+                  mode="details"
+                  requestTypeId={request.requestTypeId}
+                  request={request}
                 />
-              </>
-            ),
-          },
-          {
-            key: "tasks",
-            label: t("requests.card.tabs.tasks"),
-            children: (
-              <Typography.Text type="secondary">
-                {t("requests.card.tabs.tasks.empty")}
-              </Typography.Text>
-            ),
-          },
-          {
-            key: "integrations",
-            label: t("requests.card.tabs.integrations"),
-            children: (
-              <Typography.Text type="secondary">
-                {t("requests.card.tabs.integrations.empty")}
-              </Typography.Text>
-            ),
-          },
-        ]}
-      />
+              ),
+            },
+            {
+              key: "composition",
+              label: t("requests.card.tabs.composition"),
+              children: (
+                <>
+                  <Table
+                    data-testid="request-details-lines-table"
+                    rowKey={(r: any) => r.id}
+                    size="small"
+                    pagination={false}
+                    columns={[
+                      { title: "#", dataIndex: "lineNo", key: "lineNo" },
+                      {
+                        title: t("requests.supply.lines.columns.description"),
+                        dataIndex: "description",
+                        key: "description",
+                        render: (v: string | null | undefined, r: any) =>
+                          v || r.externalItemCode || "",
+                      },
+                      {
+                        title: t("requests.supply.lines.columns.quantity"),
+                        dataIndex: "quantity",
+                        key: "quantity",
+                      },
+                      {
+                        title: t("requests.supply.lines.columns.needByDate"),
+                        dataIndex: "needByDate",
+                        key: "needByDate",
+                        render: (value?: string | null) => {
+                          if (!value) return <Text type="secondary">{t("requests.details.value.notSet")}</Text>;
+                          const date = new Date(value);
+                          return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                        },
+                      },
+                      {
+                        title: t("requests.supply.lines.columns.supplierName"),
+                        dataIndex: "supplierName",
+                        key: "supplierName",
+                      },
+                      {
+                        title: t("requests.supply.lines.columns.supplierContact"),
+                        dataIndex: "supplierContact",
+                        key: "supplierContact",
+                      },
+                    ] as any}
+                    dataSource={request.lines ?? []}
+                  />
+                </>
+              ),
+            },
+            {
+              key: "documents",
+              label: t("requests.card.tabs.documents"),
+              children: (
+                <Typography.Text type="secondary">
+                  {t("requests.card.tabs.documents.empty")}
+                </Typography.Text>
+              ),
+            },
+            {
+              key: "history",
+              label: t("requests.card.tabs.history"),
+              children: (
+                <>
+                  {historyError && (
+                    <Alert
+                      data-testid="request-details-history-error-alert"
+                      type="error"
+                      message={t("requests.details.history.error.title")}
+                      description={historyError}
+                      showIcon
+                      className="request-details__alert"
+                    />
+                  )}
+                  {history.length > 0 && (
+                    <>
+                      <RequestHistoryTimeline items={history} loading={historyLoading} />
+                      <Divider />
+                    </>
+                  )}
+
+                  <RequestCommentsPanel
+                    comments={comments}
+                    loading={commentsLoading}
+                    adding={addingComment}
+                    error={commentsError}
+                    onAddComment={handleAddComment}
+                  />
+                </>
+              ),
+            },
+            {
+              key: "tasks",
+              label: t("requests.card.tabs.tasks"),
+              children: (
+                <Typography.Text type="secondary">
+                  {t("requests.card.tabs.tasks.empty")}
+                </Typography.Text>
+              ),
+            },
+            {
+              key: "integrations",
+              label: t("requests.card.tabs.integrations"),
+              children: (
+                <Typography.Text type="secondary">
+                  {t("requests.card.tabs.integrations.empty")}
+                </Typography.Text>
+              ),
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 };
+
+
+

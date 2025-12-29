@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using MyIS.Core.Application.Integration.Component2020.Handlers;
 using MyIS.Core.Application.Requests.Handlers;
 using MyIS.Core.Application.Requests.Handlers.Admin;
@@ -10,18 +10,18 @@ namespace MyIS.Core.Application.DependencyInjection;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Регистрация Application-слоя (Use Case / Handlers).
-    /// На текущей итерации подключаем только модуль Requests.
+    /// Р РµРіРёСЃС‚СЂР°С†РёСЏ Application-СЃР»РѕСЏ (Use Case / Handlers).
+    /// РќР° С‚РµРєСѓС‰РµР№ РёС‚РµСЂР°С†РёРё РїРѕРґРєР»СЋС‡Р°РµРј С‚РѕР»СЊРєРѕ РјРѕРґСѓР»СЊ Requests.
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Requests — команды
+        // Requests вЂ” РєРѕРјР°РЅРґС‹
         services.AddScoped<CreateRequestHandler>();
         services.AddScoped<UpdateRequestHandler>();
         services.AddScoped<DeleteRequestHandler>();
         services.AddScoped<AddRequestCommentHandler>();
 
-        // Requests — workflow actions
+        // Requests вЂ” workflow actions
         services.AddScoped<GetRequestActionsHandler>();
         services.AddScoped<SubmitRequestHandler>();
         services.AddScoped<StartReviewRequestHandler>();
@@ -31,15 +31,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CompleteRequestHandler>();
         services.AddScoped<CloseRequestHandler>();
 
-        // Requests — запросы
+        // Requests вЂ” Р·Р°РїСЂРѕСЃС‹
         services.AddScoped<SearchRequestsHandler>();
         services.AddScoped<GetRequestByIdHandler>();
         services.AddScoped<GetRequestHistoryHandler>();
         services.AddScoped<GetRequestCommentsHandler>();
         services.AddScoped<GetRequestTypesHandler>();
         services.AddScoped<GetRequestStatusesHandler>();
+        services.AddScoped<GetRequestWorkflowTransitionsHandler>();
 
-        // Requests — admin/settings
+        // Requests вЂ” admin/settings
         services.AddScoped<GetAdminRequestTypesHandler>();
         services.AddScoped<CreateAdminRequestTypeHandler>();
         services.AddScoped<UpdateAdminRequestTypeHandler>();
@@ -53,7 +54,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<GetAdminRequestWorkflowTransitionsHandler>();
         services.AddScoped<ReplaceAdminRequestWorkflowTransitionsHandler>();
 
-        // Security — admin/settings
+        // Security вЂ” admin/settings
         services.AddScoped<GetAdminEmployeesHandler>();
         services.AddScoped<GetAdminEmployeeByIdHandler>();
         services.AddScoped<CreateAdminEmployeeHandler>();
@@ -86,3 +87,5 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+
+

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Form, Input, Select, Typography, message } from "antd";
 import Switch from "antd/es/switch";
 import { useNavigate, useParams } from "react-router-dom";
@@ -16,6 +16,7 @@ import type {
   AdminRequestWorkflowTransitionDto,
   WorkflowTransitionInput,
 } from "../api/types";
+import { getRequestStatusLabel } from "../../../../requests/utils/requestWorkflowLocalization";
 
 type Mode = "create" | "edit";
 
@@ -38,7 +39,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
       statuses
         .slice()
         .sort((a, b) => a.code.localeCompare(b.code))
-        .map((s) => ({ value: s.id, label: `${s.code} — ${s.name}` })),
+        .map((s) => ({ value: s.id, label: getRequestStatusLabel(s.code, s.name) })),
     [statuses]
   );
 
@@ -171,7 +172,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
           <>
             {mode === "edit" && (
               <Button danger onClick={() => void onDelete()} disabled={!canEdit || loading || !entity}>
-                Удалить
+                {t("common.actions.delete")}
               </Button>
             )}
             <Button onClick={onCancel}>{t("common.actions.cancel")}</Button>
@@ -193,7 +194,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
           <Form.Item
             label={t("settings.requests.form.fromStatus")}
             name="fromStatusId"
-            rules={[{ required: true, message: "Выберите статус" }]}
+            rules={[{ required: true, message: t("requests.workflow.validation.status.required") }]}
           >
             <Select options={statusOptions} />
           </Form.Item>
@@ -201,7 +202,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
           <Form.Item
             label={t("settings.requests.form.toStatus")}
             name="toStatusId"
-            rules={[{ required: true, message: "Выберите статус" }]}
+            rules={[{ required: true, message: t("requests.workflow.validation.status.required") }]}
           >
             <Select options={statusOptions} />
           </Form.Item>
@@ -209,7 +210,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
           <Form.Item
             label={t("settings.requests.form.actionCode")}
             name="actionCode"
-            rules={[{ required: true, message: "Введите ActionCode" }]}
+            rules={[{ required: true, message: t("requests.workflow.validation.action.required") }]}
           >
             <Input />
           </Form.Item>
@@ -226,4 +227,6 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
     </div>
   );
 };
+
+
 

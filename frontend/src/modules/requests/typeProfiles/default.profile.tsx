@@ -16,7 +16,10 @@ export const defaultRequestTypeProfile: RequestTypeProfile = {
     }
     return <div style={{ whiteSpace: "pre-wrap" }}>{description}</div>;
   },
-  renderEdit: () => {
+  renderEdit: ({ hideDescription }) => {
+    if (hideDescription) {
+      return null;
+    }
     return (
       <Form.Item label={t("requests.form.description.label")} name="description">
         <Input.TextArea data-testid="request-form-description-input" rows={4} />

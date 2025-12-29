@@ -159,7 +159,7 @@ public sealed class RequestsController : ControllerBase
 
         var command = new CreateRequestCommand
         {
-            InitiatorId = currentUserId,
+            ManagerId = currentUserId,
             RequestTypeId = request.RequestTypeId,
             Title = request.Title,
             Description = request.Description,
@@ -182,10 +182,13 @@ public sealed class RequestsController : ControllerBase
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
-            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
-            TargetEntityName = request.TargetEntityName
+            TargetEntityName = request.TargetEntityName,
+            BasisType = request.BasisType,
+            BasisRequestId = request.BasisRequestId,
+            BasisCustomerOrderId = request.BasisCustomerOrderId,
+            BasisDescription = request.BasisDescription
         };
 
         var created = await _createHandler.Handle(command, cancellationToken);
@@ -219,6 +222,7 @@ public sealed class RequestsController : ControllerBase
         {
             Id = id,
             CurrentUserId = currentUserId,
+            RequestTypeId = request.RequestTypeId,
             Title = request.Title,
             Description = request.Description,
             Lines = request.Lines is null
@@ -240,10 +244,13 @@ public sealed class RequestsController : ControllerBase
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
-            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
-            TargetEntityName = request.TargetEntityName
+            TargetEntityName = request.TargetEntityName,
+            BasisType = request.BasisType,
+            BasisRequestId = request.BasisRequestId,
+            BasisCustomerOrderId = request.BasisCustomerOrderId,
+            BasisDescription = request.BasisDescription
         };
 
         try
@@ -503,3 +510,6 @@ public sealed class RequestsController : ControllerBase
         return true;
     }
 }
+
+
+

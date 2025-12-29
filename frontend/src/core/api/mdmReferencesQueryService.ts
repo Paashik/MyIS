@@ -6,6 +6,9 @@ export interface ItemListItemDto {
   nomenclatureNo: string;
   name: string;
   designation?: string;
+  itemKind?: string | null;
+  isActive: boolean;
+  hasPhoto?: boolean;
   unitOfMeasureName?: string;
   itemGroupId?: string | null;
   itemGroupName?: string;
@@ -19,6 +22,7 @@ export interface GetItemsResult {
 export interface GetItemsParams {
   groupId?: string | null;
   searchText?: string;
+  isActive?: boolean;
   pageNumber: number;
   pageSize: number;
 }
@@ -36,6 +40,9 @@ export const useMdmReferencesQueryService = () => {
       if (params.searchText) {
         queryParams.append('q', params.searchText);
       }
+      if (typeof params.isActive === 'boolean') {
+        queryParams.append('isActive', String(params.isActive));
+      }
       queryParams.append('skip', ((params.pageNumber - 1) * params.pageSize).toString());
       queryParams.append('take', params.pageSize.toString());
 
@@ -45,7 +52,11 @@ export const useMdmReferencesQueryService = () => {
         throw new Error('Failed to fetch items');
       }
       const data = await response.json();
-      return data;
+      const totalCount = Number(data?.totalCount ?? data?.total ?? 0);
+      return {
+        items: Array.isArray(data?.items) ? data.items : [],
+        totalCount,
+      };
     } finally {
       setLoading(false);
     }

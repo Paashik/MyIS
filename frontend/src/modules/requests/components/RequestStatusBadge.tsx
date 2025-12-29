@@ -52,8 +52,8 @@ export const RequestStatusBadge: React.FC<RequestStatusBadgeProps> = ({
     >
       <span
         style={{
-          width: 8,
-          height: 8,
+          width: 20,
+          height: 20,
           borderRadius: "50%",
           backgroundColor: color,
           display: "inline-block",

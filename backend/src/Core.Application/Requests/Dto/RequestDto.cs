@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace MyIS.Core.Application.Requests.Dto;
 
@@ -11,7 +11,7 @@ public class RequestDto
     public string? Description { get; init; }
 
     /// <summary>
-    /// Текстовое тело заявки (на текущей итерации совпадает с Description).
+    /// РўРµРєСЃС‚РѕРІРѕРµ С‚РµР»Рѕ Р·Р°СЏРІРєРё (РЅР° С‚РµРєСѓС‰РµР№ РёС‚РµСЂР°С†РёРё СЃРѕРІРїР°РґР°РµС‚ СЃ Description).
     /// </summary>
     public string? BodyText { get; init; }
 
@@ -25,9 +25,9 @@ public class RequestDto
 
     public string RequestStatusName { get; init; } = null!;
 
-    public Guid InitiatorId { get; init; }
+    public Guid ManagerId { get; init; }
 
-    public string? InitiatorFullName { get; init; }
+    public string? ManagerFullName { get; init; }
 
     public string? RelatedEntityType { get; init; }
 
@@ -35,13 +35,19 @@ public class RequestDto
 
     public string? RelatedEntityName { get; init; }
 
-    public string? ExternalReferenceId { get; init; }
-
     public string? TargetEntityType { get; init; }
 
     public Guid? TargetEntityId { get; init; }
 
     public string? TargetEntityName { get; init; }
+
+    public string? BasisType { get; init; }
+
+    public Guid? BasisRequestId { get; init; }
+
+    public Guid? BasisCustomerOrderId { get; init; }
+
+    public string? BasisDescription { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
 
@@ -51,3 +57,6 @@ public class RequestDto
 
     public RequestLineDto[] Lines { get; init; } = Array.Empty<RequestLineDto>();
 }
+
+
+

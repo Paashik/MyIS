@@ -5,12 +5,12 @@ import { useNavigate } from "react-router-dom";
 
 import { t } from "../../../../../core/i18n/t";
 import { useCan } from "../../../../../core/auth/permissions";
-import { CommandBar } from "../../../../../components/ui/CommandBar";
 import {
   archiveAdminRequestType,
   getAdminRequestTypes,
 } from "../api/adminRequestsDictionariesApi";
 import type { AdminRequestTypeDto } from "../api/types";
+import "./RequestDictionaries.css";
 
 export const RequestTypesSettingsPage: React.FC = () => {
   const canEdit = useCan("Admin.Requests.EditTypes");
@@ -36,6 +36,13 @@ export const RequestTypesSettingsPage: React.FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    document.body.classList.add("request-dict-scroll-lock");
+    return () => {
+      document.body.classList.remove("request-dict-scroll-lock");
+    };
+  }, []);
 
   const onArchive = async (item: AdminRequestTypeDto) => {
     try {
@@ -101,29 +108,25 @@ export const RequestTypesSettingsPage: React.FC = () => {
   );
 
   return (
-    <div data-testid="references-requests-types-journal">
-      <CommandBar
-        left={
-          <Typography.Title level={2} style={{ margin: 0 }}>
-            {t("settings.requests.types.title")}
-          </Typography.Title>
-        }
-        right={
-          <>
-            <Button onClick={() => void load()} data-testid="references-requests-types-refresh">
-              {t("common.actions.refresh")}
-            </Button>
-            <Button
-              type="primary"
-              onClick={() => navigate("/references/requests/types/new")}
-              disabled={!canEdit}
-              data-testid="references-requests-types-create"
-            >
-              {t("common.actions.create")}
-            </Button>
-          </>
-        }
-      />
+    <div className="request-dict-page" data-testid="references-requests-types-journal">
+      <div className="request-dict-header">
+        <Typography.Title level={2} style={{ margin: 0 }}>
+          {t("settings.requests.types.title")}
+        </Typography.Title>
+        <div className="request-dict-controls">
+          <Button onClick={() => void load()} data-testid="references-requests-types-refresh">
+            {t("common.actions.refresh")}
+          </Button>
+          <Button
+            type="primary"
+            onClick={() => navigate("/references/requests/types/new")}
+            disabled={!canEdit}
+            data-testid="references-requests-types-create"
+          >
+            {t("common.actions.create")}
+          </Button>
+        </div>
+      </div>
 
       {!canEdit && (
         <Alert
@@ -138,14 +141,21 @@ export const RequestTypesSettingsPage: React.FC = () => {
         <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />
       )}
 
-      <Table
-        data-testid="references-requests-types-table"
-        rowKey={(r: AdminRequestTypeDto) => r.id}
-        loading={loading}
-        columns={columns}
-        dataSource={items}
-        pagination={false}
-      />
+      <div className="request-dict-divider" />
+
+      <div className="request-dict-scroll">
+        <div className="request-dict-list">
+          <Table
+            data-testid="references-requests-types-table"
+            rowKey={(r: AdminRequestTypeDto) => r.id}
+            loading={loading}
+            columns={columns}
+            dataSource={items}
+            pagination={false}
+            scroll={{ y: "100%" }}
+          />
+        </div>
+      </div>
     </div>
   );
 };

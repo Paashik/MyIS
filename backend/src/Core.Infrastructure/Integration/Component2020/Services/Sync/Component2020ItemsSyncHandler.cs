@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,6 @@ using MyIS.Core.Application.Integration.Component2020.Services;
 using MyIS.Core.Application.Integration.Component2020.Commands;
 using MyIS.Core.Domain.Mdm.Entities;
 using MyIS.Core.Domain.Mdm.Services;
-using MyIS.Core.Domain.Mdm.ValueObjects;
 using MyIS.Core.Infrastructure.Data;
 using MyIS.Core.Infrastructure.Data.Entities.Integration;
 using MyIS.Core.Application.Integration.Component2020.Abstractions;
@@ -39,6 +39,245 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
 
     public Component2020SyncScope Scope => Component2020SyncScope.Items;
 
+    private static readonly Regex DesignationPattern =
+        new(@"\b[А-ЯA-Z0-9]{2,10}\.\d{6}\.\d{3}\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly string[] PurchasedComponentKeywords =
+    {
+        "микросхем",
+        "резистор",
+        "конденсатор",
+        "разъем",
+        "разъём",
+        "фильтр",
+        "актив",
+        "пассив"
+    };
+
+    private static readonly string[] MaterialKeywords =
+    {
+        "материал",
+        "сырье",
+        "сырьё",
+        "хим",
+        "припой",
+        "клей",
+        "герметик",
+        "фольг"
+    };
+
+    private static readonly string[] StandardPartKeywords =
+    {
+        "крепеж",
+        "крепёж",
+        "винт",
+        "гайк",
+        "шайб",
+        "болт"
+    };
+
+    private static readonly string[] ServiceKeywords =
+    {
+        "работ",
+        "услуг"
+    };
+
+    private static readonly string[] ManufacturedPartKeywords =
+    {
+        "детал",
+        "заготов",
+        "механо",
+        "обработка"
+    };
+
+    private static string? NormalizeDesignationKey(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
+
+    private static IReadOnlyList<string> ExtractDesignationCandidates(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return Array.Empty<string>();
+        }
+
+        var matches = DesignationPattern.Matches(source);
+        if (matches.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return matches
+            .Select(m => m.Value.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> ExtractDesignationCandidates(Component2020Item item)
+    {
+        var fromPartNumber = ExtractDesignationCandidates(item.PartNumber);
+        if (fromPartNumber.Count > 0)
+        {
+            return fromPartNumber;
+        }
+
+        var fromName = ExtractDesignationCandidates(item.Name);
+        if (fromName.Count > 0)
+        {
+            return fromName;
+        }
+
+        return ExtractDesignationCandidates(item.Description);
+    }
+
+    private static bool ContainsAny(string? source, IReadOnlyList<string> keywords)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return false;
+        }
+
+        foreach (var keyword in keywords)
+        {
+            if (source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasGostOrTu(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return false;
+        }
+
+        return source.IndexOf("ГОСТ", StringComparison.OrdinalIgnoreCase) >= 0
+               || source.IndexOf("ТУ", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsMaterialUnit(UnitOfMeasure? unit)
+    {
+        if (unit == null)
+        {
+            return false;
+        }
+
+        var symbol = unit.Symbol ?? string.Empty;
+        var name = unit.Name ?? string.Empty;
+
+        return symbol.Equals("кг", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("кг.", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("kg", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("м", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("м.", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("m", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("л", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("л.", StringComparison.OrdinalIgnoreCase)
+               || symbol.Equals("l", StringComparison.OrdinalIgnoreCase)
+               || name.IndexOf("кг", StringComparison.OrdinalIgnoreCase) >= 0
+               || name.IndexOf("килограмм", StringComparison.OrdinalIgnoreCase) >= 0
+               || name.IndexOf("литр", StringComparison.OrdinalIgnoreCase) >= 0
+               || name.IndexOf("метр", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string ResolveComponentName(string? source, string? designation)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return source ?? string.Empty;
+        }
+
+        var name = source.Trim();
+        if (string.IsNullOrWhiteSpace(designation))
+        {
+            return name;
+        }
+
+        var trimmedDesignation = designation.Trim();
+        if (name.StartsWith(trimmedDesignation, StringComparison.OrdinalIgnoreCase))
+        {
+            var remainder = name.Substring(trimmedDesignation.Length);
+            remainder = remainder.TrimStart();
+            if (!string.IsNullOrWhiteSpace(remainder))
+            {
+                return remainder;
+            }
+        }
+
+        return name;
+    }
+
+    private static ItemKind ResolveComponentItemKind(Component2020Item item, string? groupName, UnitOfMeasure? unit, string? designation)
+    {
+        if (!string.IsNullOrWhiteSpace(designation))
+        {
+            return ItemKind.ManufacturedPart;
+        }
+
+        if (item.BomSection == 3)
+        {
+            return ItemKind.Material;
+        }
+
+        if (item.BomSection == 1)
+        {
+            return ItemKind.StandardPart;
+        }
+
+        if (ContainsAny(groupName, ServiceKeywords))
+        {
+            return ItemKind.ServiceWork;
+        }
+
+        if (ContainsAny(groupName, MaterialKeywords) || IsMaterialUnit(unit))
+        {
+            return ItemKind.Material;
+        }
+
+        if (ContainsAny(groupName, StandardPartKeywords)
+            || HasGostOrTu(item.Name)
+            || HasGostOrTu(item.Description)
+            || HasGostOrTu(item.PartNumber))
+        {
+            return ItemKind.StandardPart;
+        }
+
+        if (ContainsAny(groupName, ManufacturedPartKeywords))
+        {
+            return ItemKind.ManufacturedPart;
+        }
+
+        if (item.ManufacturerId.HasValue
+            || !string.IsNullOrWhiteSpace(item.PartNumber)
+            || !string.IsNullOrWhiteSpace(item.DataSheet)
+            || ContainsAny(groupName, PurchasedComponentKeywords))
+        {
+            return ItemKind.PurchasedComponent;
+        }
+
+        return ItemKind.PurchasedComponent;
+    }
+
+    private static void AddReviewError(
+        List<Component2020SyncError> errors,
+        Guid runId,
+        int componentId,
+        string reason,
+        string? designation,
+        IEnumerable<Item>? productCandidates)
+    {
+        var candidateIds = productCandidates?.Select(c => c.Id.ToString()).ToList() ?? new List<string>();
+        var message = $"Review required: {reason}. ComponentId={componentId}.";
+        var details = candidateIds.Count > 0
+            ? $"Designation='{designation}', ProductIds=[{string.Join(",", candidateIds)}]"
+            : $"Designation='{designation}'";
+
+        errors.Add(new Component2020SyncError(runId, "ItemMatchReview", "Component", componentId.ToString(CultureInfo.InvariantCulture), message, details));
+    }
+
     public async Task<(int processed, List<Component2020SyncError> errors)> SyncAsync(
         Guid connectionId,
         bool dryRun,
@@ -64,9 +303,10 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
 
         var groupMappings = await EnsureItemGroupsAsync(connectionId, dryRun, cancellationToken);
         var itemGroupIdByExternalId = groupMappings.ItemGroupIdByExternalId;
-        var rootGroupIdByExternalId = groupMappings.RootGroupIdByExternalId;
-        var rootAbbreviationByExternalId = groupMappings.RootAbbreviationByExternalId;
+        var groupNameByExternalId = groupMappings.GroupNameByExternalId;
         var defaultUoM = await FindDefaultUnitOfMeasureAsync(cancellationToken);
+        var defaultGroupIds = await LoadDefaultItemGroupIdsAsync(cancellationToken);
+        var rootAbbreviationByGroupId = await LoadGroupRootAbbreviationsAsync(cancellationToken);
 
         var unitExternalIds = items
             .Where(x => x.UnitId.HasValue)
@@ -86,6 +326,14 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
                 .ToDictionary(l => l.ExternalId, l => l.EntityId, StringComparer.Ordinal)
             : new Dictionary<string, Guid>(StringComparer.Ordinal);
 
+        var unitIds = unitOfMeasureIdByExternalId.Values.Distinct().ToList();
+        var unitsById = unitIds.Count > 0
+            ? await DbContext.UnitOfMeasures
+                .AsNoTracking()
+                .Where(u => unitIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, cancellationToken)
+            : new Dictionary<Guid, UnitOfMeasure>();
+
         var sequences = new Dictionary<ItemKind, ItemSequence>();
         var dryRunSequences = new Dictionary<ItemKind, DryRunSequenceState>();
 
@@ -93,8 +341,21 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
         var maxIncomingCodeByKind = new Dictionary<ItemKind, int>();
         foreach (var item in items)
         {
-            var kind = ResolveItemKindByGroupRoot(item.GroupId, rootGroupIdByExternalId, ItemKind.Component);
-            var prefix = ResolveNomenclaturePrefix(kind, item.GroupId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
+            var groupName = item.GroupId.HasValue && groupNameByExternalId.TryGetValue(item.GroupId.Value, out var groupLabel)
+                ? groupLabel
+                : null;
+
+            UnitOfMeasure? unit = null;
+            if (item.UnitId.HasValue
+                && unitOfMeasureIdByExternalId.TryGetValue(item.UnitId.Value.ToString(), out var mappedUnitId))
+            {
+                unitsById.TryGetValue(mappedUnitId, out unit);
+            }
+
+            var designationCandidates = ExtractDesignationCandidates(item);
+            var componentDesignation = designationCandidates.Count == 1 ? designationCandidates[0] : null;
+            var kind = ResolveComponentItemKind(item, groupName, unit, componentDesignation);
+            var prefix = ItemNomenclature.GetDefaultPrefix(kind);
             var itemCode = NormalizeOptional(item.Code);
 
             if (!prefixByKind.TryGetValue(kind, out var existingPrefix))
@@ -135,12 +396,24 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
 
         Dictionary<string, ExternalEntityLink> existingLinksByExternalId;
         Dictionary<Guid, Item> existingItemsById;
+        Dictionary<string, Item> existingItemsByCode;
 
-        if (!dryRun && items.Count > 0)
+        if (items.Count > 0)
         {
             var externalIds = items.Select(i => i.Id.ToString()).Distinct(StringComparer.Ordinal).ToList();
+            var incomingCodes = items
+                .Select(i => NormalizeOptional(i.Code))
+                .Where(code => !string.IsNullOrWhiteSpace(code))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
 
-            var existingLinks = await DbContext.ExternalEntityLinks
+            var linkQuery = DbContext.ExternalEntityLinks.AsQueryable();
+            if (dryRun)
+            {
+                linkQuery = linkQuery.AsNoTracking();
+            }
+
+            var existingLinks = await linkQuery
                 .Where(l =>
                     l.EntityType == linkEntityType
                     && l.ExternalSystem == externalSystem
@@ -151,16 +424,71 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
             existingLinksByExternalId = existingLinks.ToDictionary(l => l.ExternalId, StringComparer.Ordinal);
 
             var ids = existingLinks.Select(l => l.EntityId).Distinct().ToList();
-            var existingEntities = await DbContext.Items
+            var itemQuery = DbContext.Items.AsQueryable();
+            if (dryRun)
+            {
+                itemQuery = itemQuery.AsNoTracking();
+            }
+
+            var existingEntities = await itemQuery
                 .Where(x => ids.Contains(x.Id))
                 .ToListAsync(cancellationToken);
 
             existingItemsById = existingEntities.ToDictionary(x => x.Id);
+            existingItemsByCode = incomingCodes.Count > 0
+                ? await itemQuery
+                    .Where(x => incomingCodes.Contains(x.Code))
+                    .ToDictionaryAsync(x => x.Code, StringComparer.Ordinal, cancellationToken)
+                : new Dictionary<string, Item>(StringComparer.Ordinal);
         }
         else
         {
             existingLinksByExternalId = new Dictionary<string, ExternalEntityLink>(StringComparer.Ordinal);
             existingItemsById = new Dictionary<Guid, Item>();
+            existingItemsByCode = new Dictionary<string, Item>(StringComparer.Ordinal);
+        }
+
+        var productItemsByDesignation = new Dictionary<string, List<Item>>(StringComparer.Ordinal);
+        var productItemIds = new HashSet<Guid>();
+
+        if (items.Count > 0)
+        {
+            var productLinkQuery = DbContext.ExternalEntityLinks.AsQueryable();
+            if (dryRun)
+            {
+                productLinkQuery = productLinkQuery.AsNoTracking();
+            }
+
+            var productLinks = await productLinkQuery
+                .Where(l =>
+                    l.EntityType == linkEntityType
+                    && l.ExternalSystem == "Component2020Product"
+                    && l.ExternalEntity == "Product")
+                .ToListAsync(cancellationToken);
+
+            var productIds = productLinks
+                .Select(l => l.EntityId)
+                .Distinct()
+                .ToList();
+
+            if (productIds.Count > 0)
+            {
+                productItemIds = new HashSet<Guid>(productIds);
+                var productItemQuery = DbContext.Items.AsQueryable();
+                if (dryRun)
+                {
+                    productItemQuery = productItemQuery.AsNoTracking();
+                }
+
+                var productItems = await productItemQuery
+                    .Where(x => productIds.Contains(x.Id))
+                    .ToListAsync(cancellationToken);
+
+                productItemsByDesignation = productItems
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Designation))
+                    .GroupBy(x => NormalizeDesignationKey(x.Designation)!)
+                    .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+            }
         }
 
         foreach (var item in items)
@@ -171,18 +499,43 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
                 incomingExternalIds?.Add(externalId);
 
                 var unitOfMeasureId = defaultUoM.Id;
+                UnitOfMeasure? unit = null;
                 if (item.UnitId.HasValue && unitOfMeasureIdByExternalId.TryGetValue(item.UnitId.Value.ToString(), out var mappedUoMId))
                 {
                     unitOfMeasureId = mappedUoMId;
+                    unitsById.TryGetValue(mappedUoMId, out unit);
                 }
 
-                var itemKind = ResolveItemKindByGroupRoot(item.GroupId, rootGroupIdByExternalId, ItemKind.Component);
+                var groupName = item.GroupId.HasValue && groupNameByExternalId.TryGetValue(item.GroupId.Value, out var groupLabel)
+                    ? groupLabel
+                    : null;
+
+                var designationCandidates = ExtractDesignationCandidates(item);
+                var componentDesignation = designationCandidates.Count == 1 ? designationCandidates[0] : null;
+
+                if (designationCandidates.Count > 1)
+                {
+                    AddReviewError(
+                        errors,
+                        runId,
+                        item.Id,
+                        "Multiple designation candidates in Component",
+                        string.Join(";", designationCandidates),
+                        null);
+                }
+
+                var itemKind = ResolveComponentItemKind(item, groupName, unit, componentDesignation);
+                var isTooling = item.CanMeans == true;
                 var itemCode = NormalizeOptional(item.Code);
 
                 Guid? itemGroupId = null;
                 if (item.GroupId.HasValue && itemGroupIdByExternalId.TryGetValue(item.GroupId.Value, out var mappedGroupId))
                 {
                     itemGroupId = mappedGroupId;
+                }
+                if (string.IsNullOrWhiteSpace(componentDesignation) || !itemGroupId.HasValue)
+                {
+                    itemGroupId = ResolveItemGroupIdForKind(itemGroupId, itemKind, rootAbbreviationByGroupId, defaultGroupIds);
                 }
 
                 Item? existing = null;
@@ -191,8 +544,48 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
                 {
                     existingItemsById.TryGetValue(existingLink.EntityId, out existing);
                 }
+                else
+                {
+                    var designationKey = NormalizeDesignationKey(componentDesignation);
+                    if (designationKey != null && productItemsByDesignation.TryGetValue(designationKey, out var candidates))
+                    {
+                        if (candidates.Count == 1)
+                        {
+                            var candidate = candidates[0];
+                            if (candidate.ItemKind != itemKind)
+                            {
+                                existing = candidate;
+                                _logger.LogWarning(
+                                    "Classification conflict resolved by Product priority. ComponentId={ComponentId}, ProductItemId={ItemId}, ComponentKind={ComponentKind}, ProductKind={ProductKind}",
+                                    item.Id,
+                                    candidate.Id,
+                                    itemKind,
+                                    candidate.ItemKind);
+                            }
+                            else
+                            {
+                                existing = candidate;
+                            }
+                        }
+                        else if (candidates.Count > 1)
+                        {
+                            AddReviewError(errors, runId, item.Id, "Multiple Product candidates", componentDesignation, candidates);
+                        }
+                    }
 
-                var prefix = ResolveNomenclaturePrefix(itemKind, item.GroupId, rootGroupIdByExternalId, rootAbbreviationByExternalId);
+                    if (existing == null && !string.IsNullOrWhiteSpace(itemCode) && existingItemsByCode.TryGetValue(itemCode, out var existingByCode))
+                    {
+                        existing = existingByCode;
+                        _logger.LogWarning(
+                            "Component2020 item matched by code without external link. Code={ItemCode}, ExternalId={ExternalId}, ExistingId={ExistingId}",
+                            itemCode,
+                            externalId,
+                            existingByCode.Id);
+                    }
+                }
+
+                var prefix = ItemNomenclature.GetDefaultPrefix(itemKind);
+                var resolvedName = ResolveComponentName(item.Name, componentDesignation);
 
                 string nomenclatureNo;
                 if (ItemNomenclature.TryParseComponentCode(itemCode, out var codeNumber))
@@ -203,17 +596,37 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
                 {
                     nomenclatureNo = await GenerateNextNomenclatureNoAsync(itemKind, prefix, dryRun, sequences, dryRunSequences, cancellationToken);
                 }
+                var codeToUse = itemCode ?? nomenclatureNo;
+
+                if (existing == null)
+                {
+                    if (!dryRun && existingItemsByCode.TryGetValue(codeToUse, out var existingByGeneratedCode))
+                    {
+                        existing = existingByGeneratedCode;
+                    }
+                }
 
                 if (existing == null)
                 {
                     if (!dryRun)
                     {
-                        var code = itemCode ?? nomenclatureNo;
-                        var newItem = new Item(code, nomenclatureNo, item.Name, itemKind, unitOfMeasureId, itemGroupId);
-                        newItem.Update(nomenclatureNo, item.Name, unitOfMeasureId, itemGroupId, newItem.IsEskd, newItem.IsEskdDocument, newItem.Designation, item.PartNumber);
+                        var newItem = new Item(codeToUse, nomenclatureNo, resolvedName, itemKind, unitOfMeasureId, itemGroupId);
+                        newItem.Update(
+                            nomenclatureNo,
+                            resolvedName,
+                            unitOfMeasureId,
+                            itemGroupId,
+                            newItem.IsEskd,
+                            newItem.IsEskdDocument,
+                            componentDesignation,
+                            item.PartNumber,
+                            isTooling,
+                            false);
+                        newItem.SetPhoto(item.Photo);
                         var now = DateTimeOffset.UtcNow;
                         DbContext.Items.Add(newItem);
                         ExternalLinkHelper.EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, newItem.Id, externalSystem, externalEntity, externalId, null, now);
+                        existingItemsByCode[codeToUse] = newItem;
                     }
                     processed++;
                 }
@@ -221,10 +634,48 @@ public sealed class Component2020ItemsSyncHandler : Component2020ItemSyncHandler
                 {
                     if (!dryRun)
                     {
-                        existing.SetItemKind(itemKind);
-
+                        var isProductItem = productItemIds.Contains(existing.Id);
                         var targetNomenclatureNo = IsValidNomenclatureNo(existing.NomenclatureNo) ? existing.NomenclatureNo : nomenclatureNo;
-                        existing.Update(targetNomenclatureNo, item.Name, unitOfMeasureId, itemGroupId, existing.IsEskd, existing.IsEskdDocument, existing.Designation, item.PartNumber);
+
+                        var manufacturerPartNumber = !string.IsNullOrWhiteSpace(item.PartNumber)
+                            ? item.PartNumber
+                            : existing.ManufacturerPartNumber;
+                        if (isProductItem && !string.IsNullOrWhiteSpace(existing.ManufacturerPartNumber))
+                        {
+                            manufacturerPartNumber = existing.ManufacturerPartNumber;
+                        }
+
+                        if (isProductItem)
+                        {
+                            existing.Update(
+                                existing.NomenclatureNo,
+                                existing.Name,
+                                existing.UnitOfMeasureId,
+                                existing.ItemGroupId,
+                                existing.IsEskd,
+                                existing.IsEskdDocument,
+                                existing.Designation,
+                                manufacturerPartNumber,
+                                existing.IsTooling || isTooling,
+                                existing.IsFinishedProduct);
+                        }
+                        else
+                        {
+                            existing.SetItemKind(itemKind);
+                            existing.Update(
+                                targetNomenclatureNo,
+                                resolvedName,
+                                unitOfMeasureId,
+                                itemGroupId,
+                                existing.IsEskd,
+                                existing.IsEskdDocument,
+                                componentDesignation ?? existing.Designation,
+                                manufacturerPartNumber,
+                                isTooling,
+                                existing.IsFinishedProduct);
+                        }
+                        existing.SetPhoto(item.Photo);
+
                         var now = DateTimeOffset.UtcNow;
                         ExternalLinkHelper.EnsureExternalEntityLink(existingLinksByExternalId, linkEntityType, existing.Id, externalSystem, externalEntity, externalId, null, now);
                     }
