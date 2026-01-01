@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MyIS.Core.Domain.Customers.Entities;
+using MyIS.Core.Domain.Engineering.Entities;
 using MyIS.Core.Domain.Organization;
 using MyIS.Core.Domain.Users;
 using MyIS.Core.Domain.Requests.Entities;
@@ -24,7 +25,12 @@ public class AppDbContext : DbContext
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
     public DbSet<OrgUnitContact> OrgUnitContacts => Set<OrgUnitContact>();
     public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
- 
+
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<BomVersion> BomVersions => Set<BomVersion>();
+    public DbSet<BomLine> BomLines => Set<BomLine>();
+    public DbSet<BomOperation> BomOperations => Set<BomOperation>();
+
     public DbSet<Request> Requests => Set<Request>();
     public DbSet<RequestType> RequestTypes => Set<RequestType>();
     public DbSet<RequestStatus> RequestStatuses => Set<RequestStatus>();

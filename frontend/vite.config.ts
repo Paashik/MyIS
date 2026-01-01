@@ -7,8 +7,8 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        // Backend Kestrel слушает порт 5000 (см. лог "Now listening on: http://0.0.0.0:5000")
-        // поэтому дев-прокси Vite направляем именно туда
+        // Backend Kestrel (dotnet watch) сейчас слушает http://localhost:5000 (см. лог "Now listening on: ...")
+        // поэтому дев-прокси Vite направляем туда же.
         target: "http://localhost:5000",
         changeOrigin: true,
         secure: false,

@@ -3,17 +3,19 @@ using MyIS.Core.Application.Auth;
 using MyIS.Core.Application.Customers.Queries;
 using MyIS.Core.Application.Integration.Component2020.Abstractions;
 using MyIS.Core.Application.Integration.Component2020.Services;
+using MyIS.Core.Application.Engineering.Abstractions;
 using MyIS.Core.Application.Mdm.Abstractions;
+using MyIS.Core.Infrastructure.Mdm.Repositories;
 using MyIS.Core.Application.Mdm.References;
 using MyIS.Core.Application.Requests.Abstractions;
 using MyIS.Core.Application.Security.Abstractions;
 using MyIS.Core.Application.Statuses;
 using MyIS.Core.Infrastructure.Auth;
 using MyIS.Core.Infrastructure.Customers.Services;
+using MyIS.Core.Infrastructure.Engineering.Repositories;
 using MyIS.Core.Infrastructure.Integration.Component2020.Repositories;
 using MyIS.Core.Infrastructure.Integration.Component2020.Services;
 using MyIS.Core.Infrastructure.Integration.Component2020.Services.Sync;
-using MyIS.Core.Infrastructure.Mdm.Repositories;
 using MyIS.Core.Infrastructure.Mdm.Services;
 using MyIS.Core.Infrastructure.Requests.Access;
 using MyIS.Core.Infrastructure.Requests.Repositories;
@@ -47,6 +49,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
 
         // MDM
+        services.AddScoped<IItemRepository, ItemRepository>();
         services.AddScoped<IManufacturerRepository, ManufacturerRepository>();
         services.AddScoped<IBodyTypeRepository, BodyTypeRepository>();
         services.AddScoped<ICurrencyRepository, CurrencyRepository>();
@@ -56,6 +59,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMdmReferencesQueryService, MdmReferencesQueryService>();
         services.AddScoped<IStatusDictionaryService, StatusDictionaryService>();
 
+        // Engineering
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IBomVersionRepository, BomVersionRepository>();
+        services.AddScoped<IBomLineRepository, BomLineRepository>();
+        services.AddScoped<IBomOperationRepository, BomOperationRepository>();
+
         // Customers
         services.AddScoped<ICustomerOrdersQueryService, CustomerOrdersQueryService>();
 
@@ -64,6 +73,7 @@ public static class ServiceCollectionExtensions
         {
             services.AddScoped<IComponent2020ConnectionProvider, Component2020ConnectionProvider>();
             services.AddScoped<IComponent2020SnapshotReader, Component2020SnapshotReader>();
+            // services.AddScoped<IComponent2020BomReader, Component2020BomReader>();
             services.AddScoped<IComponent2020DeltaReader, Component2020DeltaReader>();
             services.AddScoped<Component2020ExternalLinkHelper>();
             services.AddScoped<IComponent2020SyncHandler, Component2020BodyTypesSyncHandler>();
@@ -76,6 +86,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<IComponent2020SyncHandler, Component2020ManufacturersSyncHandler>();
             services.AddScoped<IComponent2020SyncHandler, Component2020ParameterSetsSyncHandler>();
             services.AddScoped<IComponent2020SyncHandler, Component2020ProductsSyncHandler>();
+            services.AddScoped<IComponent2020SyncHandler, Component2020BomSyncHandler>();
             services.AddScoped<IComponent2020SyncHandler, Component2020SymbolsSyncHandler>();
             services.AddScoped<IComponent2020SyncHandler, Component2020TechnicalParametersSyncHandler>();
             services.AddScoped<IComponent2020SyncHandler, Component2020UnitsSyncHandler>();

@@ -96,6 +96,7 @@ public class UpdateRequestHandler
         var basisRequestId = command.BasisRequestId ?? request.BasisRequestId;
         var basisCustomerOrderId = command.BasisCustomerOrderId ?? request.BasisCustomerOrderId;
         var basisDescription = command.BasisDescription ?? request.BasisDescription;
+        var externalReferenceId = command.ExternalReferenceId ?? request.ExternalReferenceId;
 
         request.UpdateDetails(
             request.Title,
@@ -104,6 +105,7 @@ public class UpdateRequestHandler
             command.RelatedEntityType,
             command.RelatedEntityId,
             command.RelatedEntityName,
+            externalReferenceId,
             command.TargetEntityType,
             command.TargetEntityId,
             command.TargetEntityName,
@@ -153,10 +155,12 @@ public class UpdateRequestHandler
             RequestStatusCode = status.Code.Value,
             RequestStatusName = status.Name,
             ManagerId = request.ManagerId,
+            InitiatorId = request.InitiatorId,
             ManagerFullName = managerFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
+            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,

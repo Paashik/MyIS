@@ -66,7 +66,7 @@ public class RequestTests
         var request = Request.Create(
             type,
             initialStatus,
-            initiatorId,
+            managerId: initiatorId,
             title,
             description,
             createdAt,
@@ -84,7 +84,7 @@ public class RequestTests
 
         request.RequestTypeId.Value.Should().Be(type.Id.Value);
         request.RequestStatusId.Value.Should().Be(initialStatus.Id.Value);
-        request.InitiatorId.Should().Be(initiatorId);
+        request.ManagerId.Should().Be(initiatorId);
 
         request.RelatedEntityType.Should().Be("Order");
         request.RelatedEntityId.Should().Be(relatedEntityId);
@@ -138,7 +138,7 @@ public class RequestTests
         Action act = () => Request.Create(
             type,
             initialStatus,
-            Guid.Empty,
+            managerId: Guid.Empty,
             "Title",
             description: null,
             createdAt: DateTimeOffset.UtcNow);
@@ -164,7 +164,7 @@ public class RequestTests
         var request = Request.Create(
             type,
             initialStatus,
-            initiatorId,
+            managerId: initiatorId,
             "Old title",
             "Old description",
             createdAt,
@@ -188,6 +188,10 @@ public class RequestTests
             targetEntityType: null,
             targetEntityId: null,
             targetEntityName: null,
+            basisType: null,
+            basisRequestId: null,
+            basisCustomerOrderId: null,
+            basisDescription: null,
             updatedAt: updatedAt,
             isCurrentStatusFinal: false);
 
@@ -230,6 +234,10 @@ public class RequestTests
             targetEntityType: null,
             targetEntityId: null,
             targetEntityName: null,
+            basisType: null,
+            basisRequestId: null,
+            basisCustomerOrderId: null,
+            basisDescription: null,
             updatedAt: DateTimeOffset.UtcNow,
             isCurrentStatusFinal: true);
 
@@ -254,7 +262,7 @@ public class RequestTests
         var request = Request.Create(
             type,
             initialStatus,
-            initiatorId,
+            managerId: initiatorId,
             "Title",
             description: null,
             createdAt: createdAt);
@@ -301,7 +309,7 @@ public class RequestTests
         var request = Request.Create(
             type,
             finalStatus,
-            initiatorId,
+            managerId: initiatorId,
             "Title",
             description: null,
             createdAt: DateTimeOffset.UtcNow);

@@ -11,7 +11,7 @@ public class RequestDto
     public string? Description { get; init; }
 
     /// <summary>
-    /// РўРµРєСЃС‚РѕРІРѕРµ С‚РµР»Рѕ Р·Р°СЏРІРєРё (РЅР° С‚РµРєСѓС‰РµР№ РёС‚РµСЂР°С†РёРё СЃРѕРІРїР°РґР°РµС‚ СЃ Description).
+    /// Текстовое тело заявки (на текущей итерации совпадает с Description).
     /// </summary>
     public string? BodyText { get; init; }
 
@@ -27,6 +27,11 @@ public class RequestDto
 
     public Guid ManagerId { get; init; }
 
+    /// <summary>
+    /// Алиас для совместимости: инициатор заявки = ManagerId (на текущей итерации).
+    /// </summary>
+    public Guid InitiatorId { get; init; }
+
     public string? ManagerFullName { get; init; }
 
     public string? RelatedEntityType { get; init; }
@@ -34,6 +39,11 @@ public class RequestDto
     public Guid? RelatedEntityId { get; init; }
 
     public string? RelatedEntityName { get; init; }
+
+    /// <summary>
+    /// Ссылка на внешний объект (например, Компонент-2020).
+    /// </summary>
+    public string? ExternalReferenceId { get; init; }
 
     public string? TargetEntityType { get; init; }
 

@@ -346,7 +346,7 @@ function buildItemTree(groups: MdmItemGroupReferenceDto[], items: MdmItemReferen
         title: (
           <Space>
             <Text>{i.nomenclatureNo ?? i.name}</Text>
-            {i.isActive ? <Tag color="green" size="small">ON</Tag> : <Tag size="small">OFF</Tag>}
+            {i.isActive ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>}
           </Space>
         ),
         isLeaf: true,
@@ -450,7 +450,7 @@ export const MdmDictionaryJournalPage: React.FC = () => {
               return (
                 <Space>
                   <Text>{r.nomenclatureNo ?? r.name}</Text>
-                  {r.isActive ? <Tag color="green" size="small">ON</Tag> : <Tag size="small">OFF</Tag>}
+                  {r.isActive ? <Tag color="green">ON</Tag> : <Tag>OFF</Tag>}
                 </Space>
               );
             } else {

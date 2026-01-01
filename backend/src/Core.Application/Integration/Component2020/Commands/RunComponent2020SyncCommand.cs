@@ -1,8 +1,9 @@
 using System;
+using MediatR;
 
 namespace MyIS.Core.Application.Integration.Component2020.Commands;
 
-public class RunComponent2020SyncCommand
+public class RunComponent2020SyncCommand : IRequest<RunComponent2020SyncResponse>
 {
     public Guid ConnectionId { get; set; }
     public Component2020SyncScope Scope { get; set; }
@@ -26,6 +27,7 @@ public enum Component2020SyncScope
     ItemGroups,
     Items,
     Products,
+    Bom,
     Manufacturers,
     BodyTypes,
     Currencies,

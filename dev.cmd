@@ -4,6 +4,9 @@ setlocal
 REM Путь к корню репозитория
 cd /d d:\MyIS
 
+echo Killing existing dotnet processes on port 5000...
+for /f "tokens=5" %%a in ('netstat -ano ^| find "5000" ^| find "LISTENING"') do taskkill /f /pid %%a 2>nul
+
 echo Starting backend (dotnet watch run) on http://localhost:5000 ...
 start "MyIS Backend" cmd /k "cd /d d:\MyIS && dotnet build backend/src/Core.WebApi/MyIS.Core.WebApi.csproj && dotnet watch run --project backend/src/Core.WebApi/MyIS.Core.WebApi.csproj --urls http://localhost:5000"
 

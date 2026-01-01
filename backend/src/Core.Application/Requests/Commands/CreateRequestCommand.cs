@@ -9,6 +9,12 @@ public class CreateRequestCommand
     /// </summary>
     public Guid ManagerId { get; init; }
 
+    /// <summary>
+    /// Инициатор заявки (алиас для совместимости с тестами/контрактами).
+    /// На текущей итерации = текущий пользователь (обычно совпадает с ManagerId).
+    /// </summary>
+    public Guid InitiatorId { get; init; }
+
     public Guid RequestTypeId { get; init; }
 
     public string Title { get; init; } = null!;
@@ -29,6 +35,11 @@ public class CreateRequestCommand
     public Guid? RelatedEntityId { get; init; }
 
     public string? RelatedEntityName { get; init; }
+
+    /// <summary>
+    /// Ссылка на внешний объект (например, Компонент-2020).
+    /// </summary>
+    public string? ExternalReferenceId { get; init; }
 
     public string? TargetEntityType { get; init; }
 

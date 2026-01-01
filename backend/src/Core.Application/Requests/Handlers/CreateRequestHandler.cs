@@ -38,9 +38,12 @@ public class CreateRequestHandler
     public async Task<RequestDto> Handle(CreateRequestCommand command, CancellationToken cancellationToken)
     {
         if (command is null) throw new ArgumentNullException(nameof(command));
-        if (command.ManagerId == Guid.Empty)
+
+        // Совместимость: инициатор = InitiatorId, но если он не задан — используем ManagerId.
+        var initiatorId = command.InitiatorId != Guid.Empty ? command.InitiatorId : command.ManagerId;
+        if (initiatorId == Guid.Empty)
         {
-            throw new ArgumentException("ManagerId is required.", nameof(command));
+            throw new ArgumentException("InitiatorId is required.", nameof(command));
         }
 
         if (command.RequestTypeId == Guid.Empty)
@@ -64,7 +67,7 @@ public class CreateRequestHandler
         }
 
         // 3. РџСЂРѕРІРµСЂРєР° РїСЂР°РІ
-        await _accessChecker.EnsureCanCreateAsync(command.ManagerId, requestType, cancellationToken);
+        await _accessChecker.EnsureCanCreateAsync(initiatorId, requestType, cancellationToken);
 
         // 4. РЎРѕР·РґР°РЅРёРµ РґРѕРјРµРЅРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё
         var now = DateTimeOffset.UtcNow;
@@ -80,7 +83,7 @@ public class CreateRequestHandler
         var request = Request.Create(
             requestType,
             draftStatus,
-            command.ManagerId,
+            initiatorId,
             requestNumber,
             command.Description,
             now,
@@ -88,6 +91,7 @@ public class CreateRequestHandler
             command.RelatedEntityType,
             command.RelatedEntityId,
             command.RelatedEntityName,
+            command.ExternalReferenceId,
             command.TargetEntityType,
             command.TargetEntityId,
             command.TargetEntityName,
@@ -134,10 +138,12 @@ public class CreateRequestHandler
             RequestStatusCode = status.Code.Value,
             RequestStatusName = status.Name,
             ManagerId = request.ManagerId,
+            InitiatorId = request.InitiatorId,
             ManagerFullName = managerFullName,
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
+            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,

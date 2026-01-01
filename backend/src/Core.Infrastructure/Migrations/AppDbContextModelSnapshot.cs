@@ -144,6 +144,191 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.ToTable("customer_orders", "customers");
                 });
 
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.BomLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BomVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bom_version_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid>("ParentItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_item_id");
+
+                    b.Property<string>("PositionNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("text")
+                        .HasColumnName("position_no");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("quantity");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("UnitOfMeasure")
+                        .HasMaxLength(20)
+                        .HasColumnType("text")
+                        .HasColumnName("unit_of_measure");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BomVersionId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ParentItemId");
+
+                    b.ToTable("bom_lines", "engineering");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.BomOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AreaName")
+                        .HasMaxLength(100)
+                        .HasColumnType("text")
+                        .HasColumnName("area_name");
+
+                    b.Property<Guid>("BomVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bom_version_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BomVersionId");
+
+                    b.ToTable("bom_operations", "engineering");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.BomVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer")
+                        .HasColumnName("source");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("VersionCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("text")
+                        .HasColumnName("version_code");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("bom_versions", "engineering");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.Product", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("products", "engineering");
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.BodyType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -439,9 +624,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<byte[]>("Photo")
-                        .HasColumnType("bytea");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -451,6 +633,9 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<byte[]>("Photo")
+                        .HasColumnType("bytea");
 
                     b.Property<Guid>("UnitOfMeasureId")
                         .HasColumnType("uuid");
@@ -865,15 +1050,122 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.ToTable("employees", "org");
                 });
 
+            modelBuilder.Entity("MyIS.Core.Domain.Organization.OrgUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("email");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid?>("ManagerEmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_employee_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_id");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("phone");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ManagerEmployeeId");
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("org_units", "org");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Organization.OrgUnitContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("uuid_generate_v4()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
+
+                    b.Property<bool>("IncludeInRequest")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("include_in_request");
+
+                    b.Property<Guid>("OrgUnitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("org_unit_id");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("OrgUnitId");
+
+                    b.ToTable("org_unit_contacts", "org");
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.Request", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
 
                     b.Property<Guid?>("BasisCustomerOrderId")
                         .HasColumnType("uuid")
@@ -890,6 +1182,10 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<string>("BasisType")
                         .HasColumnType("text")
                         .HasColumnName("basis_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
 
                     b.Property<string>("Description")
                         .HasColumnType("text")
@@ -1252,15 +1548,15 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<int?>("Flags")
                         .HasColumnType("integer");
 
                     b.Property<Guid?>("GroupId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -1583,6 +1879,60 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.BomLine", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Engineering.Entities.BomVersion", "BomVersion")
+                        .WithMany("Lines")
+                        .HasForeignKey("BomVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Mdm.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Mdm.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ParentItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BomVersion");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.BomOperation", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Engineering.Entities.BomVersion", "BomVersion")
+                        .WithMany("Operations")
+                        .HasForeignKey("BomVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BomVersion");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.BomVersion", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Engineering.Entities.Product", "Product")
+                        .WithMany("BomVersions")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.Product", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Mdm.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.Item", b =>
                 {
                     b.HasOne("MyIS.Core.Domain.Mdm.Entities.ItemGroup", "ItemGroup")
@@ -1628,6 +1978,34 @@ namespace MyIS.Core.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Organization.OrgUnit", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Organization.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ManagerEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MyIS.Core.Domain.Organization.OrgUnit", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Organization.OrgUnitContact", b =>
+                {
+                    b.HasOne("MyIS.Core.Domain.Organization.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MyIS.Core.Domain.Organization.OrgUnit", null)
+                        .WithMany("Contacts")
+                        .HasForeignKey("OrgUnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.Request", b =>
@@ -1765,9 +2143,26 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Navigation("SyncRun");
                 });
 
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.BomVersion", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("Operations");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Engineering.Entities.Product", b =>
+                {
+                    b.Navigation("BomVersions");
+                });
+
             modelBuilder.Entity("MyIS.Core.Domain.Mdm.Entities.Item", b =>
                 {
                     b.Navigation("AttributeValues");
+                });
+
+            modelBuilder.Entity("MyIS.Core.Domain.Organization.OrgUnit", b =>
+                {
+                    b.Navigation("Contacts");
                 });
 
             modelBuilder.Entity("MyIS.Core.Domain.Requests.Entities.Request", b =>
@@ -1796,11 +2191,6 @@ namespace MyIS.Core.Infrastructure.Migrations
                     b.Navigation("Errors");
                 });
 #pragma warning restore 612, 618
-        
         }
     }
 }
-
-
-
-

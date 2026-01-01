@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
@@ -115,7 +116,6 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
-
 
 // Логируем источник строки подключения на старте, без раскрытия секретов
 var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");

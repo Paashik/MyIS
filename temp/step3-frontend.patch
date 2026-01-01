@@ -1,0 +1,737 @@
+diff --git a/frontend/src/pages/engineering/EngineeringPage.tsx b/frontend/src/pages/engineering/EngineeringPage.tsx
+index 0a172347..d7464755 100644
+--- a/frontend/src/pages/engineering/EngineeringPage.tsx
++++ b/frontend/src/pages/engineering/EngineeringPage.tsx
+@@ -1,12 +1,728 @@
+-import React from "react";
+-import { Typography } from "antd";
++import React, { useCallback, useEffect, useMemo, useState } from "react";
++import { Alert, Button, Empty, Input, Layout, Space, Spin, Switch, Tree, Typography, message } from "antd";
++import type { DataNode } from "antd/es/tree";
++import { BuildOutlined, SearchOutlined } from "@ant-design/icons";
++import { useSearchParams } from "react-router-dom";
+ 
+-const { Title } = Typography;
++import { EbomHeader } from "../../features/ebom/components/EbomHeader/EbomHeader";
++import { EbomInspector } from "../../features/ebom/components/EbomInspector/EbomInspector";
++import { EbomTablePanel } from "../../features/ebom/components/EbomTablePanel/EbomTablePanel";
++import { ItemSelectModal } from "../../features/ebom/components/ItemSelectModal/ItemSelectModal";
+ 
++import {
++  useCreateEbomLine,
++  useDeleteEbomLine,
++  useEbomLines,
++  useEbomTree,
++  useEbomVersion,
++  useEbomVersions,
++  useImportBomFromComponent2020,
++  useItem,
++  useUpdateEbomLine,
++  useValidateEbom,
++} from "../../features/ebom/api/hooks";
++import type {
++  BomRole,
++  EbomLineDto,
++  EbomTreeNodeDto,
++  ItemSearchResultDto,
++  UpdateEbomLinePayload,
++} from "../../features/ebom/api/types";
++import { getEbomProducts } from "../../features/ebom/api/ebomApi";
++
++const { Sider, Content } = Layout;
++const { Title, Text } = Typography;
++
++interface Product {
++  id: string;
++  code: string;
++  name: string;
++  description?: string;
++  type: string;
++  itemId: string;
++  hasBomVersions: boolean;
++  bomVersionsCount: number;
++  updatedAt: string;
++}
++
++type SelectedTreeKey =
++  | { kind: "productsRoot" }
++  | { kind: "product"; itemId: string }
++  | { kind: "node"; nodeKey: string };
++
++function parseSelectedKey(key: React.Key): SelectedTreeKey | null {
++  const s = String(key);
++  if (s === "products-root") return { kind: "productsRoot" };
++  if (s.startsWith("product:")) return { kind: "product", itemId: s.replace("product:", "") };
++  return { kind: "node", nodeKey: s };
++}
++
++function productKey(itemId: string) {
++  return `product:${itemId}`;
++}
++
++/**
++ * Важно: Ant Design Tree требует уникальные key на каждый узел.
++ * Для eBOM поддерживаем "алмазы" (один itemId в разных ветках) через key, зависящий от parentItemId.
++ */
++function buildNodeKey(parentItemId: string | null | undefined, itemId: string) {
++  return `${parentItemId ?? "root"}:${itemId}`;
++}
++
++function parseNodeKey(nodeKey: string): { parentItemId: string | null; itemId: string } | null {
++  const s = String(nodeKey);
++  const idx = s.indexOf(":");
++  if (idx <= 0) return null;
++
++  const parent = s.slice(0, idx);
++  const itemId = s.slice(idx + 1);
++
++  if (!itemId) return null;
++  return { parentItemId: parent === "root" ? null : parent, itemId };
++}
++
++/**
++ * Engineering / eBOM Workspace:
++ * - Left: tree of ALL products (Engineering entry points)
++ * - Click product -> load its latest eBOM version -> show structure under the product node
++ * - Click node -> show lines for that node in the table and inspector
++ */
+ const EngineeringPage: React.FC = () => {
++  const [searchParams, setSearchParams] = useSearchParams();
++
++  // Products list
++  const [products, setProducts] = useState<Product[]>([]);
++  const [productsLoading, setProductsLoading] = useState(true);
++  const [productsError, setProductsError] = useState<string | null>(null);
++
++  // Workspace state (deep-link поддержка через query params)
++  const [selectedProductItemId, setSelectedProductItemId] = useState<string | null>(() =>
++    searchParams.get("productItemId")
++  );
++  const [selectedBomVersionId, setSelectedBomVersionId] = useState<string | null>(() =>
++    searchParams.get("bomVersionId")
++  );
++  const [selectedNodeItemId, setSelectedNodeItemId] = useState<string | null>(() =>
++    searchParams.get("nodeItemId")
++  );
++  // UI selection for Ant Tree (must be unique even when itemId repeats in different branches)
++  const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);
++  const [selectedLineId, setSelectedLineId] = useState<string | null>(() =>
++    searchParams.get("lineId")
++  );
++
++  // Left tree UI
++  const [expandedKeys, setExpandedKeys] = useState<string[]>(["products-root"]);
++  const [productSearch, setProductSearch] = useState("");
++  const [includeLeaves, setIncludeLeaves] = useState(false);
++  const [structureSearch, setStructureSearch] = useState("");
++
++  // Center/Right UI
++  const [isEditMode, setIsEditMode] = useState(false);
++  const [onlyErrors, setOnlyErrors] = useState(false);
++  const [itemSelectModalOpen, setItemSelectModalOpen] = useState(false);
++  const [editingLineId, setEditingLineId] = useState<string | null>(null);
++
++  const updateSearchParams = useCallback(
++    (patch: {
++      productItemId?: string | null;
++      bomVersionId?: string | null;
++      nodeItemId?: string | null;
++      lineId?: string | null;
++    }) => {
++      const next = new URLSearchParams(searchParams);
++      let changed = false;
++
++      const apply = (key: string, value: string | null | undefined) => {
++        if (!value) {
++          if (next.has(key)) {
++            next.delete(key);
++            changed = true;
++          }
++          return;
++        }
++
++        if (next.get(key) !== value) {
++          next.set(key, value);
++          changed = true;
++        }
++      };
++
++      apply("productItemId", patch.productItemId);
++      apply("bomVersionId", patch.bomVersionId);
++      apply("nodeItemId", patch.nodeItemId);
++      apply("lineId", patch.lineId);
++
++      if (changed) setSearchParams(next);
++    },
++    [searchParams, setSearchParams]
++  );
++
++  useEffect(() => {
++    updateSearchParams({
++      productItemId: selectedProductItemId,
++      bomVersionId: selectedBomVersionId,
++      nodeItemId: selectedNodeItemId,
++      lineId: selectedLineId,
++    });
++  }, [
++    selectedProductItemId,
++    selectedBomVersionId,
++    selectedNodeItemId,
++    selectedLineId,
++    updateSearchParams,
++  ]);
++
++  // Load products
++  useEffect(() => {
++    const load = async () => {
++      try {
++        setProductsLoading(true);
++        const data = await getEbomProducts();
++        setProducts(data);
++        setProductsError(null);
++
++        const selectedExists = !!selectedProductItemId && data.some((p) => p.itemId === selectedProductItemId);
++
++        // Autoselect first product with versions (if nothing selected yet OR deep-link points to missing item)
++        if (!selectedProductItemId || !selectedExists) {
++          const first = data.find((p) => p.hasBomVersions) ?? data[0];
++          if (first) setSelectedProductItemId(first.itemId);
++        }
++      } catch (e) {
++        setProducts([]);
++        setProductsError(e instanceof Error ? e.message : "Неизвестная ошибка");
++      } finally {
++        setProductsLoading(false);
++      }
++    };
++
++    void load();
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
++
++  // Versions / Item / BOM data
++  const { data: item, isLoading: isItemLoading, error: itemError } = useItem(
++    selectedProductItemId ?? undefined
++  );
++
++  const { data: versions, isLoading: isVersionsLoading } = useEbomVersions(
++    selectedProductItemId ?? undefined
++  );
++
++  // Autoselect version when product changes or versions loaded
++  useEffect(() => {
++    if (!selectedProductItemId) return;
++
++    // When switching product - reset selection state
++    setSelectedLineId(null);
++    setSelectedNodeItemId(selectedProductItemId);
++    setSelectedNodeKey(null);
++
++    // expand root and selected product
++    const pKey = productKey(selectedProductItemId);
++    setExpandedKeys((prev) => {
++      const next = new Set(prev);
++      next.add("products-root");
++      next.add(pKey);
++      return Array.from(next);
++    });
++  }, [selectedProductItemId]);
++
++  useEffect(() => {
++    if (!selectedProductItemId) return;
++    if (!versions || versions.length === 0) {
++      setSelectedBomVersionId(null);
++      return;
++    }
++
++    // MVP: select the first version (usually the latest depending on backend sort)
++    if (!selectedBomVersionId || !versions.some((v: { id: string }) => v.id === selectedBomVersionId)) {
++      setSelectedBomVersionId(versions[0].id);
++    }
++  }, [selectedProductItemId, versions, selectedBomVersionId]);
++
++  const { data: version, isLoading: isVersionLoading } = useEbomVersion(
++    selectedBomVersionId ?? undefined
++  );
++
++  const {
++    data: treeData,
++    isLoading: isTreeLoading,
++  } = useEbomTree(selectedBomVersionId ?? undefined, {
++    includeLeaves,
++    q: structureSearch,
++  });
++
++  const {
++    data: lines,
++    isLoading: isLinesLoading,
++  } = useEbomLines(
++    selectedBomVersionId ?? undefined,
++    selectedNodeItemId ? { parentItemId: selectedNodeItemId, onlyErrors } : undefined
++  );
++
++  // Mutations
++  const createLineMutation = useCreateEbomLine(selectedBomVersionId || "");
++  const updateLineMutation = useUpdateEbomLine(selectedBomVersionId || "", selectedNodeItemId || "");
++  const deleteLineMutation = useDeleteEbomLine(selectedBomVersionId || "", selectedNodeItemId || "");
++  const validateMutation = useValidateEbom(selectedBomVersionId || "");
++  const importMutation = useImportBomFromComponent2020();
++
++  const isLoading =
++    productsLoading ||
++    isItemLoading ||
++    isVersionsLoading ||
++    isVersionLoading;
++
++  const error = productsError || (itemError instanceof Error ? itemError.message : null);
++
++  const filteredProducts = useMemo(() => {
++    const q = productSearch.trim().toLowerCase();
++    if (!q) return products;
++    return products.filter((p) => {
++      const s = `${p.code} ${p.name}`.toLowerCase();
++      return s.includes(q);
++    });
++  }, [products, productSearch]);
++
++  // Restore selectedNodeKey from selectedNodeItemId (URL deep-link keeps itemId only)
++  useEffect(() => {
++    if (!selectedNodeItemId) {
++      setSelectedNodeKey(null);
++      return;
++    }
++
++    // Product "root" is represented by product node, not by structure node
++    if (selectedProductItemId && selectedNodeItemId === selectedProductItemId) {
++      setSelectedNodeKey(null);
++      return;
++    }
++
++    const currentParsed = selectedNodeKey ? parseNodeKey(selectedNodeKey) : null;
++    if (currentParsed?.itemId === selectedNodeItemId) return;
++
++    const node =
++      (treeData?.nodes as EbomTreeNodeDto[] | undefined)?.find((n) => n.itemId === selectedNodeItemId) ??
++      null;
++
++    if (node) {
++      setSelectedNodeKey(buildNodeKey(node.parentItemId, node.itemId));
++    }
++  }, [selectedNodeItemId, selectedProductItemId, selectedNodeKey, treeData?.nodes]);
++
++  type StructureTreeDataNode = DataNode & {
++    itemId: string;
++    parentItemId: string | null;
++  };
++
++  const buildStructureChildren = useCallback(
++    (parentItemId: string): StructureTreeDataNode[] => {
++      const nodes = (treeData?.nodes ?? []) as EbomTreeNodeDto[];
++      const children = nodes.filter((n: EbomTreeNodeDto) => n.parentItemId === parentItemId);
++
++      return children.map(
++        (n: EbomTreeNodeDto) =>
++          ({
++            key: buildNodeKey(n.parentItemId, n.itemId),
++            itemId: n.itemId,
++            parentItemId: n.parentItemId,
++            title: (
++              <span>
++                {n.code ? <Text code style={{ marginRight: 8 }}>{n.code}</Text> : null}
++                <span>{n.name}</span>
++                {n.hasErrors ? (
++                  <Text type="danger" style={{ marginLeft: 8 }}>
++                    !
++                  </Text>
++                ) : null}
++              </span>
++            ),
++            children: buildStructureChildren(n.itemId),
++          }) as StructureTreeDataNode
++      );
++    },
++    [treeData?.nodes]
++  );
++
++  const productsTreeData: DataNode[] = useMemo(() => {
++    const selectedProductKey = selectedProductItemId ? productKey(selectedProductItemId) : null;
++    const root: DataNode = {
++      key: "products-root",
++      title: (
++        <Space>
++          <BuildOutlined />
++          <span>Изделия</span>
++          <Text type="secondary">({filteredProducts.length})</Text>
++        </Space>
++      ),
++      children: filteredProducts.map((p) => {
++        const isSelectedProduct = p.itemId === selectedProductItemId;
++        const canExpand = isSelectedProduct && !!treeData?.rootItemId && (treeData.nodes?.length ?? 0) > 0;
++
++        return {
++          key: productKey(p.itemId),
++          title: (
++            <Space size={8}>
++              <Text strong>{p.code}</Text>
++              <Text>{p.name}</Text>
++              {!p.hasBomVersions ? (
++                <Text type="secondary">(нет версий)</Text>
++              ) : (
++                <Text type="secondary">(версий: {p.bomVersionsCount})</Text>
++              )}
++            </Space>
++          ),
++          selectable: true,
++          disabled: !p.hasBomVersions,
++          children: canExpand ? buildStructureChildren(treeData.rootItemId) : undefined,
++        } as DataNode;
++      }),
++    };
++
++    // If nothing selected yet, keep root only
++    if (!selectedProductKey) return [root];
++    return [root];
++  }, [filteredProducts, selectedProductItemId, treeData?.rootItemId, treeData?.nodes, buildStructureChildren]);
++
++  const selectedTreeKeys = useMemo(() => {
++    if (selectedNodeKey) return [selectedNodeKey];
++    if (selectedProductItemId) return [productKey(selectedProductItemId)];
++    return ["products-root"];
++  }, [selectedNodeKey, selectedProductItemId]);
++
++  const handleTreeSelect = useCallback((keys: React.Key[], info: any) => {
++    if (!keys.length) return;
++
++    const parsed = parseSelectedKey(keys[0]);
++    if (!parsed) return;
++
++    if (parsed.kind === "productsRoot") {
++      setSelectedProductItemId(null);
++      setSelectedBomVersionId(null);
++      setSelectedNodeItemId(null);
++      setSelectedNodeKey(null);
++      setSelectedLineId(null);
++      return;
++    }
++
++    if (parsed.kind === "product") {
++      setSelectedProductItemId(parsed.itemId);
++      setSelectedNodeItemId(parsed.itemId); // root node of product (for queries/inspector)
++      setSelectedNodeKey(null); // product node is selected in tree
++      setSelectedLineId(null);
++      return;
++    }
++
++    if (parsed.kind === "node") {
++      const itemIdFromNode = info?.node?.itemId ? String(info.node.itemId) : null;
++      const parsedNodeKey = parseNodeKey(parsed.nodeKey);
++
++      setSelectedNodeKey(parsed.nodeKey);
++      setSelectedNodeItemId(itemIdFromNode ?? parsedNodeKey?.itemId ?? null);
++      setSelectedLineId(null);
++      return;
++    }
++  }, []);
++
++  const handleExpand = useCallback((keys: React.Key[]) => {
++    setExpandedKeys(keys as string[]);
++  }, []);
++
++  const selectedNode = useMemo<EbomTreeNodeDto | null>(() => {
++    if (!selectedNodeItemId) return null;
++
++    const nodes = treeData?.nodes as EbomTreeNodeDto[] | undefined;
++
++    // Prefer exact match by (parentItemId, itemId) when we have selectedNodeKey
++    if (selectedNodeKey && nodes) {
++      const parsed = parseNodeKey(selectedNodeKey);
++      if (parsed) {
++        const exact =
++          nodes.find((n) => n.itemId === parsed.itemId && (n.parentItemId ?? null) === parsed.parentItemId) ??
++          null;
++        if (exact) return exact;
++      }
++    }
++
++    const first =
++      nodes?.find((n: EbomTreeNodeDto) => n.itemId === selectedNodeItemId) ??
++      null;
++    if (first) return first;
++
++    // Fallback for product root while tree is not loaded yet
++    if (selectedProductItemId && selectedNodeItemId === selectedProductItemId && item) {
++      return {
++        itemId: selectedNodeItemId,
++        parentItemId: null,
++        code: item.code,
++        name: item.name,
++        itemType: "Assembly",
++        hasErrors: false,
++      };
++    }
++
++    return null;
++  }, [selectedNodeItemId, selectedNodeKey, treeData?.nodes, selectedProductItemId, item]);
++
++  const selectedLine = useMemo<EbomLineDto | null>(() => {
++    if (!lines || !selectedLineId) return null;
++    return lines.find((l: EbomLineDto) => l.id === selectedLineId) ?? null;
++  }, [lines, selectedLineId]);
++
++  const handleAddLine = useCallback(() => {
++    if (!selectedBomVersionId || !selectedNodeItemId) {
++      message.warning("Сначала выберите изделие и узел структуры");
++      return;
++    }
++    setEditingLineId(null);
++    setItemSelectModalOpen(true);
++  }, [selectedBomVersionId, selectedNodeItemId]);
++
++  const handleOpenItemSelect = useCallback((lineId: string) => {
++    setEditingLineId(lineId);
++    setItemSelectModalOpen(true);
++  }, []);
++
++  const handleItemSelect = useCallback(
++    (selectedItem: ItemSearchResultDto) => {
++      if (!selectedBomVersionId || !selectedNodeItemId) return;
++
++      if (editingLineId) {
++        updateLineMutation.mutate({
++          lineId: editingLineId,
++          payload: { itemId: selectedItem.id },
++        });
++      } else {
++        createLineMutation.mutate({
++          parentItemId: selectedNodeItemId,
++          itemId: selectedItem.id,
++          role: "Component" as BomRole,
++          qty: 1,
++        });
++      }
++
++      setItemSelectModalOpen(false);
++      setEditingLineId(null);
++    },
++    [selectedBomVersionId, selectedNodeItemId, editingLineId, updateLineMutation, createLineMutation]
++  );
++
++  const handleUpdateLine = useCallback(
++    (lineId: string, payload: UpdateEbomLinePayload) => {
++      updateLineMutation.mutate({ lineId, payload });
++    },
++    [updateLineMutation]
++  );
++
++  const handleDeleteLine = useCallback(
++    (lineId: string) => {
++      deleteLineMutation.mutate(lineId);
++      if (selectedLineId === lineId) setSelectedLineId(null);
++    },
++    [deleteLineMutation, selectedLineId]
++  );
++
++  const handleValidate = useCallback(() => {
++    if (!selectedBomVersionId) return;
++    validateMutation.mutate();
++  }, [validateMutation, selectedBomVersionId]);
++
++  const handleImportBom = useCallback(
++    async (syncMode: "Delta" | "SnapshotUpsert" | "Overwrite") => {
++      try {
++        if (!selectedBomVersionId) return;
++        await importMutation.mutateAsync({
++          bomVersionId: selectedBomVersionId,
++          syncMode,
++        });
++      } catch (e) {
++        // Hook already shows message
++        // eslint-disable-next-line no-console
++        console.error("Import error:", e);
++      }
++    },
++    [importMutation, selectedBomVersionId]
++  );
++
++  const handleSave = useCallback(() => {
++    message.success("Все изменения сохранены");
++  }, []);
++
++  // Render states
++  if (isLoading && products.length === 0) {
++    return (
++      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 240 }}>
++        <Spin size="large" />
++      </div>
++    );
++  }
++
++  if (error) {
++    return (
++      <Alert
++        type="error"
++        showIcon
++        message="Ошибка загрузки инженерных данных"
++        description={error}
++        style={{ marginBottom: 16 }}
++      />
++    );
++  }
++
+   return (
+     <div>
+-      <Title level={2}>Engineering</Title>
++      <EbomHeader
++        item={item}
++        version={version}
++        isLoading={isLoading}
++        hasUnsavedChanges={false}
++        onSave={handleSave}
++        onCreateVersion={() => message.info("MVP позже")}
++        onCompareVersions={() => message.info("MVP позже")}
++        onExport={() => message.info("MVP позже")}
++        onImportBom={handleImportBom}
++      />
++
++      <Layout style={{ background: "transparent" }}>
++        <Sider width={360} style={{ background: "#fff", borderRight: "1px solid #f0f0f0" }}>
++          <div style={{ padding: 12, borderBottom: "1px solid #f0f0f0" }}>
++            <Title level={5} style={{ margin: 0 }}>
++              Инженерный модуль
++            </Title>
++            <Text type="secondary">Выберите изделие и узел структуры</Text>
++
++            <div style={{ marginTop: 12 }}>
++              <Input
++                placeholder="Поиск изделия (код/название)..."
++                prefix={<SearchOutlined />}
++                value={productSearch}
++                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProductSearch(e.target.value)}
++                allowClear
++              />
++            </div>
++
++            <div style={{ marginTop: 12 }}>
++              <Input
++                placeholder="Поиск в структуре (код/название)..."
++                prefix={<SearchOutlined />}
++                value={structureSearch}
++                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStructureSearch(e.target.value)}
++                allowClear
++                disabled={!selectedBomVersionId}
++              />
++            </div>
++
++            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
++              <Switch
++                size="small"
++                checked={includeLeaves}
++                onChange={setIncludeLeaves}
++                disabled={!selectedBomVersionId}
++              />
++              <span>Показывать листья</span>
++
++              <Button
++                size="small"
++                style={{ marginLeft: "auto" }}
++                onClick={handleValidate}
++                disabled={!selectedBomVersionId}
++              >
++                Проверить
++              </Button>
++            </div>
++          </div>
++
++          <div style={{ padding: 8, height: "calc(100vh - 260px)", overflow: "auto" }}>
++            {productsLoading ? (
++              <div style={{ padding: 16 }}>
++                <Spin />
++              </div>
++            ) : filteredProducts.length === 0 ? (
++              <Empty description="Нет изделий" />
++            ) : (
++              <Tree
++                blockNode
++                showLine
++                selectedKeys={selectedTreeKeys}
++                expandedKeys={expandedKeys}
++                onExpand={handleExpand}
++                onSelect={handleTreeSelect}
++                treeData={productsTreeData}
++                style={{ background: "transparent" }}
++              />
++            )}
++
++            {selectedProductItemId && selectedBomVersionId && isTreeLoading ? (
++              <div style={{ padding: 12 }}>
++                <Spin />
++                <Text type="secondary" style={{ marginLeft: 8 }}>
++                  Загрузка структуры...
++                </Text>
++              </div>
++            ) : null}
++
++            {selectedProductItemId && versions && versions.length === 0 ? (
++              <Alert
++                style={{ marginTop: 12 }}
++                type="info"
++                showIcon
++                message="Нет версий eBOM"
++                description="Для выбранного изделия ещё не создано ни одной версии спецификации"
++              />
++            ) : null}
++          </div>
++        </Sider>
++
++        <Content style={{ background: "transparent" }}>
++          {!selectedBomVersionId || !selectedNodeItemId ? (
++            <div style={{ padding: 24 }}>
++              <Empty description="Выберите изделие и узел структуры" />
++            </div>
++          ) : (
++            <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 0 }}>
++              <div style={{ minWidth: 0, borderRight: "1px solid #f0f0f0", background: "#fff" }}>
++                <EbomTablePanel
++                  lines={lines || []}
++                  isLoading={isLinesLoading}
++                  isEditMode={isEditMode}
++                  onlyErrors={onlyErrors}
++                  selectedLineId={selectedLineId}
++                  onEditModeChange={setIsEditMode}
++                  onOnlyErrorsChange={setOnlyErrors}
++                  onSelectLine={setSelectedLineId}
++                  onAddLine={handleAddLine}
++                  onUpdateLine={handleUpdateLine}
++                  onDeleteLine={handleDeleteLine}
++                  onValidate={handleValidate}
++                  onOpenItemSelect={handleOpenItemSelect}
++                />
++              </div>
++
++              <div style={{ background: "#fff" }}>
++                <EbomInspector
++                  selectedNode={selectedNode}
++                  selectedLine={selectedLine}
++                  isEditMode={isEditMode}
++                  onAddLine={handleAddLine}
++                  onAddSubNode={() => message.info("MVP позже")}
++                  onUpdateLine={handleUpdateLine}
++                  onOpenItemSelect={handleOpenItemSelect}
++                />
++              </div>
++            </div>
++          )}
++        </Content>
++      </Layout>
++
++      <ItemSelectModal
++        open={itemSelectModalOpen}
++        onSelect={handleItemSelect}
++        onCancel={() => {
++          setItemSelectModalOpen(false);
++          setEditingLineId(null);
++        }}
++      />
+     </div>
+   );
+ };

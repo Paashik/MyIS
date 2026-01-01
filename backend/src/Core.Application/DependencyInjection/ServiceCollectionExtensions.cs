@@ -1,5 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using MediatR;
+using Microsoft.Extensions.DependencyInjection;
+using MyIS.Core.Application.Engineering.Commands;
+using MyIS.Core.Application.Engineering.Handlers;
 using MyIS.Core.Application.Integration.Component2020.Handlers;
+using MyIS.Core.Application.Requests.Commands;
 using MyIS.Core.Application.Requests.Handlers;
 using MyIS.Core.Application.Requests.Handlers.Admin;
 using MyIS.Core.Application.Requests.Handlers.Workflow;
@@ -15,6 +19,9 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        // Add MediatR
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<CreateRequestCommand>());
+
         // Requests вЂ” РєРѕРјР°РЅРґС‹
         services.AddScoped<CreateRequestHandler>();
         services.AddScoped<UpdateRequestHandler>();
@@ -83,6 +90,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<GetComponent2020SyncStatusHandler>();
         services.AddScoped<GetComponent2020SyncRunsHandler>();
         services.AddScoped<GetComponent2020SyncRunErrorsHandler>();
+
+        // Engineering - eBOM
+        services.AddScoped<GetEbomVersionsHandler>();
+        services.AddScoped<GetEbomVersionHandler>();
+        services.AddScoped<GetEbomTreeHandler>();
+        services.AddScoped<GetEbomLinesHandler>();
+        services.AddScoped<CreateEbomLineHandler>();
+        services.AddScoped<UpdateEbomLineHandler>();
+        services.AddScoped<DeleteEbomLineHandler>();
+        // services.AddScoped<ImportEbomFromAccessHandler>();
 
         return services;
     }

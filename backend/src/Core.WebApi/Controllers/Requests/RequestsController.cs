@@ -160,6 +160,7 @@ public sealed class RequestsController : ControllerBase
         var command = new CreateRequestCommand
         {
             ManagerId = currentUserId,
+            InitiatorId = currentUserId,
             RequestTypeId = request.RequestTypeId,
             Title = request.Title,
             Description = request.Description,
@@ -182,6 +183,7 @@ public sealed class RequestsController : ControllerBase
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
+            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,
@@ -244,6 +246,7 @@ public sealed class RequestsController : ControllerBase
             RelatedEntityType = request.RelatedEntityType,
             RelatedEntityId = request.RelatedEntityId,
             RelatedEntityName = request.RelatedEntityName,
+            ExternalReferenceId = request.ExternalReferenceId,
             TargetEntityType = request.TargetEntityType,
             TargetEntityId = request.TargetEntityId,
             TargetEntityName = request.TargetEntityName,

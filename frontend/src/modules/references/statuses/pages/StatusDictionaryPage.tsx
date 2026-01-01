@@ -37,7 +37,7 @@ import {
   updateStatus,
   updateStatusGroup,
 } from "../api/statusDictionaryApi";
-import type { StatusDto, StatusGroupDto } from "../api/types";
+import type { StatusDto, StatusGroupDto, StatusGroupUpsertRequest, StatusUpsertRequest } from "../api/types";
 
 const REQUEST_FINAL_FLAG = 1;
 
@@ -275,11 +275,19 @@ export const StatusDictionaryPage: React.FC = () => {
 
   const saveGroup = async () => {
     const values = await groupForm.validateFields();
+
+    const request: StatusGroupUpsertRequest = {
+      name: values.name!,
+      description: values.description ?? null,
+      sortOrder: values.sortOrder ?? null,
+      isActive: values.isActive ?? true,
+    };
+
     try {
       if (editingGroup) {
-        await updateStatusGroup(editingGroup.id, values);
+        await updateStatusGroup(editingGroup.id, request);
       } else {
-        await createStatusGroup(values);
+        await createStatusGroup(request);
       }
       setGroupModalOpen(false);
       await loadGroups();
@@ -334,11 +342,21 @@ export const StatusDictionaryPage: React.FC = () => {
 
   const saveStatus = async () => {
     const values = await statusForm.validateFields();
+
+    const request: StatusUpsertRequest = {
+      groupId: values.groupId!,
+      name: values.name!,
+      color: values.color ?? null,
+      flags: values.flags ?? null,
+      sortOrder: values.sortOrder ?? null,
+      isActive: values.isActive ?? true,
+    };
+
     try {
       if (editingStatus) {
-        await updateStatus(editingStatus.id, values);
+        await updateStatus(editingStatus.id, request);
       } else {
-        await createStatus(values);
+        await createStatus(request);
       }
       setStatusModalOpen(false);
       await loadStatuses();

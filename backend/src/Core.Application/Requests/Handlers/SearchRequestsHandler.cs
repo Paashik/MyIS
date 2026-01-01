@@ -114,7 +114,7 @@ public class SearchRequestsHandler
             RequestStatusId = status?.Id.Value ?? request.RequestStatusId.Value,
             RequestStatusCode = status?.Code.Value ?? string.Empty,
             RequestStatusName = status?.Name ?? string.Empty,
-            ManagerId = request.ManagerId,
+            InitiatorId = request.ManagerId,
             ManagerFullName = managerFullName,
             TargetEntityName = request.TargetEntityName,
             RelatedEntityName = request.RelatedEntityName,

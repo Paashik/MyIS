@@ -11,7 +11,7 @@ export const UserResetPasswordCardPage: React.FC = () => {
   const canEditUsers = useCan("Admin.Security.EditUsers");
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const userId = id;
+  const userId = id ?? "";
 
   const [loading, setLoading] = useState(false);
   const [value, setValue] = useState("");
@@ -19,6 +19,10 @@ export const UserResetPasswordCardPage: React.FC = () => {
   const onCancel = () => navigate("/administration/security/users");
 
   const onSave = async () => {
+    if (!id) {
+      return;
+    }
+
     try {
       setLoading(true);
       await resetAdminUserPassword(userId, { newPassword: value });

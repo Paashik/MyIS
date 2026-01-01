@@ -12,7 +12,7 @@ export const UserRolesCardPage: React.FC = () => {
   const canEditRoles = useCan("Admin.Security.EditRoles");
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const userId = id;
+  const userId = id ?? "";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +20,10 @@ export const UserRolesCardPage: React.FC = () => {
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
+    if (!id) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -34,7 +38,7 @@ export const UserRolesCardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [id, userId]);
 
   useEffect(() => {
     void load();
@@ -48,6 +52,10 @@ export const UserRolesCardPage: React.FC = () => {
   const onCancel = () => navigate("/administration/security/users");
 
   const onSave = async () => {
+    if (!id) {
+      return;
+    }
+
     try {
       await replaceAdminUserRoles(userId, { roleIds: selectedRoleIds });
       message.success(t("common.actions.save"));

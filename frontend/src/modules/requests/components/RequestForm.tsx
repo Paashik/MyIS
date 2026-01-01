@@ -228,13 +228,16 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       initialValues.basisRequestId &&
       initialValues.basisDescription
     ) {
+      const basisRequestId = initialValues.basisRequestId!;
+      const basisDescription = initialValues.basisDescription!;
+
       setIncomingOptions((prev) => {
-        if (prev.some((item) => item.id === initialValues.basisRequestId)) return prev;
+        if (prev.some((item) => item.id === basisRequestId)) return prev;
         return [
           ...prev,
           {
-            id: initialValues.basisRequestId,
-            title: initialValues.basisDescription,
+            id: basisRequestId,
+            title: basisDescription,
             requestTypeName: undefined,
           },
         ];
@@ -246,13 +249,16 @@ export const RequestForm: React.FC<RequestFormProps> = ({
       initialValues.basisCustomerOrderId &&
       initialValues.basisDescription
     ) {
+      const basisCustomerOrderId = initialValues.basisCustomerOrderId!;
+      const basisDescription = initialValues.basisDescription!;
+
       setCustomerOrderOptions((prev) => {
-        if (prev.some((item) => item.id === initialValues.basisCustomerOrderId)) return prev;
+        if (prev.some((item) => item.id === basisCustomerOrderId)) return prev;
         return [
           ...prev,
           {
-            id: initialValues.basisCustomerOrderId,
-            number: initialValues.basisDescription,
+            id: basisCustomerOrderId,
+            number: basisDescription,
             customerName: undefined,
           },
         ];

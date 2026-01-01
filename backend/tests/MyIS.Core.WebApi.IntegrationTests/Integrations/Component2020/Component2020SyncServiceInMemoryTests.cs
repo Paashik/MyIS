@@ -34,6 +34,15 @@ public sealed class Component2020SyncServiceInMemoryTests
 
         public Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
             Task.FromResult(Enumerable.Empty<Component2020Attribute>());
+
+        public Task<IEnumerable<Component2020Bom>> ReadBomsAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
+            Task.FromResult(Enumerable.Empty<Component2020Bom>());
+
+        public Task<IEnumerable<Component2020Complect>> ReadComplectsAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
+            Task.FromResult(Enumerable.Empty<Component2020Complect>());
+
+        public Task<IEnumerable<Component2020Product>> ReadProductsAsync(CancellationToken cancellationToken, Guid? connectionId = null) =>
+            Task.FromResult(Enumerable.Empty<Component2020Product>());
     }
 
     private sealed class FakeDeltaReader : IComponent2020DeltaReader
@@ -477,7 +486,7 @@ public sealed class Component2020SyncServiceInMemoryTests
         db.ExternalEntityLinks.Add(new MyIS.Core.Domain.Mdm.Entities.ExternalEntityLink(nameof(MyIS.Core.Domain.Mdm.Entities.UnitOfMeasure), referenced.Id, "Component2020", "Unit", "2", null, DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
 
-        db.Items.Add(new MyIS.Core.Domain.Mdm.Entities.Item("X1", "X1", "Деталь", MyIS.Core.Domain.Mdm.Entities.ItemKind.Component, referenced.Id));
+        db.Items.Add(new MyIS.Core.Domain.Mdm.Entities.Item("X1", "X1", "Деталь", MyIS.Core.Domain.Mdm.Entities.ItemKind.PurchasedComponent, referenced.Id));
         await db.SaveChangesAsync();
 
         var deltaReader = new FakeDeltaReader(new[]

@@ -472,7 +472,7 @@ export const RequestListTable: React.FC<RequestListTableProps> = ({
         label: t("requests.table.columns.client"),
         value: basisInfo.clientValue,
       },
-    ].filter((item) => item.value && !item.hidden);
+    ].filter((item) => !!item.value);
 
     return (
       <div className="request-row">

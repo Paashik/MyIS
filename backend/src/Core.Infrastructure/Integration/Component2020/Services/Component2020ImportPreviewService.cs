@@ -294,7 +294,7 @@ public sealed class Component2020ImportPreviewService : Component2020ItemSyncHan
         {
             var reasons = new List<string>();
             var itemKind = ResolveProductItemKind(product, reasons);
-            var productName = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description;
+            var productName = string.IsNullOrWhiteSpace(product.Description) ? product.Name : product.Description ?? product.Name;
             Guid? assemblySubgroupId = null;
             if (itemKind == ItemKind.Assembly)
             {

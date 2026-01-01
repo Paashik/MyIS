@@ -45,6 +45,10 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!typeId) return;
+    if (mode === "edit" && !id) {
+      setError(t("requests.edit.error.notFound.title"));
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -108,13 +112,15 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
 
   const onSave = async () => {
     if (!typeId) return;
+    if (mode === "edit" && !id) return;
+
     const values = await form.validateFields();
 
     const fromStatus = statuses.find((s) => s.id === values.fromStatusId);
     const toStatus = statuses.find((s) => s.id === values.toStatusId);
 
     const draft: AdminRequestWorkflowTransitionDto = {
-      id: mode === "edit" ? id : `new-${Date.now()}`,
+      id: mode === "edit" ? id! : `new-${Date.now()}`,
       requestTypeId: typeId,
       fromStatusId: values.fromStatusId,
       fromStatusCode: fromStatus?.code ?? "",
@@ -145,6 +151,7 @@ export const RequestWorkflowTransitionCardPage: React.FC = () => {
 
   const onDelete = async () => {
     if (mode !== "edit") return;
+    if (!id) return;
 
     const next = items.filter((x) => x.id !== id);
     try {

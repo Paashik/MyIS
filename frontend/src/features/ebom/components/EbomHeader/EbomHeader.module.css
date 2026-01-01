@@ -1,0 +1,84 @@
+.ebomHeader {
+  background: #fff;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ebomHeaderContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.ebomHeaderInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.ebomHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ebomHeaderTitle h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ebomHeaderActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ebomHeaderDescriptions {
+  margin-top: 8px;
+}
+
+.ebomHeaderDescriptions :global(.ant-descriptions-item-label) {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+.ebomHeaderDescriptions :global(.ant-descriptions-item-content) {
+  font-size: 13px;
+}
+
+.statusTag {
+  font-weight: 500;
+}
+
+.statusDraft {
+  background: #fff7e6;
+  border-color: #ffd591;
+  color: #d46b08;
+}
+
+.statusReleased {
+  background: #f6ffed;
+  border-color: #b7eb8f;
+  color: #389e0d;
+}
+
+.statusArchived {
+  background: #f5f5f5;
+  border-color: #d9d9d9;
+  color: #8c8c8c;
+}
+
+.sourceTag {
+  font-size: 11px;
+}
+
+.skeleton {
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}

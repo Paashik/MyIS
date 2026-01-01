@@ -18,7 +18,7 @@ public class RequestListItemDto
 
     public string RequestStatusName { get; init; } = null!;
 
-    public Guid ManagerId { get; init; }
+    public Guid InitiatorId { get; init; }
 
     public string? ManagerFullName { get; init; }
 

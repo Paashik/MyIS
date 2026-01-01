@@ -156,6 +156,9 @@ export const MdmItemCardPage: React.FC = () => {
                 {t("references.mdm.items.actions.createRelated")}
               </Button>
             </Tooltip>
+            <Button onClick={() => navigate(`/mdm/items/${id}/bom`)} data-testid="mdm-item-card-open-bom">
+              Открыть BOM
+            </Button>
             <Tooltip title={isReadOnly ? t("references.mdm.actions.disabledExternalMaster") : undefined}>
               <Button danger disabled={isReadOnly} data-testid="mdm-item-card-archive">
                 {t("references.mdm.items.actions.archive")}

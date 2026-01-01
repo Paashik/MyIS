@@ -11,6 +11,9 @@ public interface IComponent2020SnapshotReader
     Task<IEnumerable<Component2020ItemGroup>> ReadItemGroupsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
     Task<IEnumerable<Component2020Unit>> ReadUnitsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
     Task<IEnumerable<Component2020Attribute>> ReadAttributesAsync(CancellationToken cancellationToken, Guid? connectionId = null);
+    Task<IEnumerable<Component2020Bom>> ReadBomsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
+    Task<IEnumerable<Component2020Complect>> ReadComplectsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
+    Task<IEnumerable<Component2020Product>> ReadProductsAsync(CancellationToken cancellationToken, Guid? connectionId = null);
 }
 
 public class Component2020Item
@@ -237,4 +240,29 @@ public class Component2020Status
     public int? Code { get; set; }
     public int? SortOrder { get; set; }
     public int? Flags { get; set; }
+}
+
+public class Component2020Bom
+{
+    public int Id { get; set; }
+    public int ProductId { get; set; }
+    public int? Mod { get; set; }
+    public DateTime? Data { get; set; }
+    public int? UserId { get; set; }
+    public int? State { get; set; }
+    public string? Note { get; set; }
+}
+
+public class Component2020Complect
+{
+    public int Id { get; set; }
+    public int Product { get; set; }
+    public int Component { get; set; }
+    public string? Position { get; set; }
+    public decimal? Num { get; set; }
+    public string? Note { get; set; }
+    public bool? Block { get; set; }
+    public string? PositionEx { get; set; }
+    public int? RowSn { get; set; }
+    public int? BomId { get; set; }
 }

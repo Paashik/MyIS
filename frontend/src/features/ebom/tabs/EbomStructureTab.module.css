@@ -1,0 +1,36 @@
+.structureTab {
+  display: flex;
+  height: calc(100vh - 280px);
+  min-height: 400px;
+}
+
+.leftSider {
+  width: 320px;
+  min-width: 280px;
+  max-width: 340px;
+  flex-shrink: 0;
+}
+
+.centerContent {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rightSider {
+  width: 380px;
+  min-width: 360px;
+  max-width: 420px;
+  flex-shrink: 0;
+}
+
+.resizeHandle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.resizeHandle:hover {
+  background: #1890ff;
+}

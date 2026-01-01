@@ -78,12 +78,12 @@ erDiagram
   %% Bom — перечни элементов
   Bom {
     autonumber ID PK
-    int32 ProductID FK NOTNULL
-    int32 Mod
-    datetime Data
-    int32 UserID FK
-    int32 State
-    text(100) Note
+    int32 ProductID FK NOTNULL %% Изделие из таблицы Product
+    int32 Mod %% номер версии
+    datetime Data %% Дата создания
+    int32 UserID FK %% Кто создал
+    int32 State %% Статус (0-неизвестный, 1-черновик, 2-действующий,3-архивный )
+    text(100) Note %% Примечание
   }
 
   %% ComSupLink — каталог цен поставщиков
@@ -111,15 +111,15 @@ erDiagram
   %% Complect — перечень элементов
   Complect {
     autonumber ID PK
-    int32 Product FK
-    int32 Component FK
-    text(255) Position
-    decimal Num
-    text(100) Note
-    bool Block
-    longtext PositionEx
-    int32 RowSN
-    int32 BomID FK
+    int32 Product FK %% Изделие из таблицы Product
+    int32 Component FK %% Сомпонент из таблицы Component
+    text(255) Position %% Позиции (перечень позицый из электрической схемы)
+    decimal Num %% Количество
+    text(100) Note %% Примечание
+    bool Block %% Неизвесто что за поле
+    longtext PositionEx %% Неизвесто что за поле
+    int32 RowSN %% Номер позиции
+    int32 BomID FK %% Врсия ссылка на таблицу BOM
   }
 
   %% Component — справочник компонентов
@@ -721,8 +721,8 @@ erDiagram
   ProductStruct {
     autonumber ID PK
     int32 ParentID FK
-    int32 ProductID FK
-    int32 Qty
+    int32 ProductID FK %% Изделие из таблицы Product
+    int32 Qty %% Количество
   }
 
   %% Providers — справочник контрагентов

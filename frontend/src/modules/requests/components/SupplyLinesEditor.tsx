@@ -108,7 +108,7 @@ export const SupplyLinesEditor: React.FC<SupplyLinesEditorProps> = ({ name, form
           showSearch
           filterOption={false}
           onSearch={handleItemSearch}
-          onSelect={(val: string) => handleItemSelect(index, val)}
+          onSelect={(val: string | undefined) => handleItemSelect(index, val)}
           onChange={(val?: string) => handleItemSelect(index, val)}
           placeholder="Search and select item"
           style={{ width: "100%" }}
@@ -201,7 +201,7 @@ export const SupplyLinesEditor: React.FC<SupplyLinesEditorProps> = ({ name, form
       <Table
         dataSource={lines}
         columns={columns}
-        rowKey={(record: RequestLineInputDto, index: number) => `line-${index}`}
+        rowKey={(record: RequestLineInputDto, index?: number) => `line-${index ?? 0}`}
         pagination={false}
         scroll={{ y: 400, x: 'max-content' }}
         size="small"

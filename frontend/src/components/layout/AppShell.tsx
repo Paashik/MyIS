@@ -90,6 +90,7 @@ const AppShell: React.FC = () => {
     if (location.pathname.startsWith("/procurement")) return "/procurement";
     if (location.pathname.startsWith("/production")) return "/production";
     if (location.pathname.startsWith("/warehouse")) return "/warehouse";
+    if (location.pathname.startsWith("/engineering/ebom")) return "/engineering";
     if (location.pathname.startsWith("/engineering")) return "/engineering";
     if (location.pathname.startsWith("/technology")) return "/technology";
     if (location.pathname.startsWith("/quality")) return "/quality";
@@ -128,7 +129,11 @@ const AppShell: React.FC = () => {
         label: t("nav.production"),
       },
       { key: "/warehouse", icon: <ApartmentOutlined />, label: t("nav.warehouse") },
-      { key: "/engineering", icon: <BuildOutlined />, label: t("nav.engineering") },
+      {
+        key: "/engineering",
+        icon: <BuildOutlined />,
+        label: t("nav.engineering"),
+      },
       { key: "/technology", icon: <BuildOutlined />, label: t("nav.technology") },
       {
         key: "/quality",

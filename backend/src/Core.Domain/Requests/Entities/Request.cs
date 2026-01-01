@@ -19,9 +19,21 @@ public class Request
 
     // User and relations
     public Guid ManagerId { get; private set; }
+
+    /// <summary>
+    /// Алиас для совместимости: инициатор заявки = ManagerId (на текущей итерации).
+    /// </summary>
+    public Guid InitiatorId => ManagerId;
+
     public string? RelatedEntityType { get; private set; }
     public Guid? RelatedEntityId { get; private set; }
     public string? RelatedEntityName { get; private set; }
+
+    /// <summary>
+    /// Ссылка на внешний объект (например, Компонент-2020). На уровне БД хранится как строка.
+    /// </summary>
+    public string? ExternalReferenceId { get; private set; }
+
     public string? TargetEntityType { get; private set; }
     public Guid? TargetEntityId { get; private set; }
     public string? TargetEntityName { get; private set; }
@@ -57,6 +69,7 @@ public class Request
         RequestTypeId typeId,
         RequestStatusId statusId,
         Guid managerId,
+        string? externalReferenceId,
         DateTimeOffset createdAt,
         DateTimeOffset? dueDate,
         string? relatedEntityType,
@@ -77,7 +90,9 @@ public class Request
 
         if (managerId == Guid.Empty)
         {
-            throw new ArgumentException("ManagerId cannot be empty.", nameof(managerId));
+            // Исторически в тестах/контрактах фигурировало имя "initiatorId".
+            // На текущей модели это ManagerId (инициатор/менеджер заявки).
+            throw new ArgumentException("InitiatorId cannot be empty.", "initiatorId");
         }
 
         Id = id;
@@ -86,6 +101,7 @@ public class Request
         RequestTypeId = typeId;
         RequestStatusId = statusId;
         ManagerId = managerId;
+        ExternalReferenceId = string.IsNullOrWhiteSpace(externalReferenceId) ? null : externalReferenceId.Trim();
         CreatedAt = createdAt;
         UpdatedAt = createdAt;
         DueDate = dueDate;
@@ -109,6 +125,7 @@ public class Request
         string? relatedEntityType = null,
         Guid? relatedEntityId = null,
         string? relatedEntityName = null,
+        string? externalReferenceId = null,
         string? targetEntityType = null,
         Guid? targetEntityId = null,
         string? targetEntityName = null,
@@ -127,6 +144,7 @@ public class Request
             type.Id,
             initialStatus.Id,
             managerId,
+            externalReferenceId,
             createdAt,
             dueDate,
             relatedEntityType,
@@ -150,6 +168,7 @@ public class Request
         string? relatedEntityType,
         Guid? relatedEntityId,
         string? relatedEntityName,
+        string? externalReferenceId,
         string? targetEntityType,
         Guid? targetEntityId,
         string? targetEntityName,
@@ -176,6 +195,7 @@ public class Request
         RelatedEntityType = string.IsNullOrWhiteSpace(relatedEntityType) ? null : relatedEntityType.Trim();
         RelatedEntityId = relatedEntityId;
         RelatedEntityName = string.IsNullOrWhiteSpace(relatedEntityName) ? null : relatedEntityName.Trim();
+        ExternalReferenceId = string.IsNullOrWhiteSpace(externalReferenceId) ? null : externalReferenceId.Trim();
         TargetEntityType = string.IsNullOrWhiteSpace(targetEntityType) ? null : targetEntityType.Trim();
         TargetEntityId = targetEntityId;
         TargetEntityName = string.IsNullOrWhiteSpace(targetEntityName) ? null : targetEntityName.Trim();

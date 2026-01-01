@@ -1,12 +1,13 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using MyIS.Core.Application.Integration.Component2020.Commands;
 using MyIS.Core.Application.Integration.Component2020.Services;
 
 namespace MyIS.Core.Application.Integration.Component2020.Handlers;
 
-public class RunComponent2020SyncHandler
+public class RunComponent2020SyncHandler : IRequestHandler<RunComponent2020SyncCommand, RunComponent2020SyncResponse>
 {
     private readonly IComponent2020SyncService _syncService;
 

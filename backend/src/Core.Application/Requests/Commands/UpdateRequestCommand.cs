@@ -28,6 +28,11 @@ public class UpdateRequestCommand
 
     public string? RelatedEntityName { get; init; }
 
+    /// <summary>
+    /// Ссылка на внешний объект (например, Компонент-2020).
+    /// </summary>
+    public string? ExternalReferenceId { get; init; }
+
     public string? TargetEntityType { get; init; }
 
     public Guid? TargetEntityId { get; init; }
